@@ -1,0 +1,267 @@
+---
+title: GitHub Action + Slack 알림
+description: "사이드 프로젝트 CI/CD 구축 후 Slack 알림 기능 추가에 대한 이야기\n( GitHub Actions, Slack )"
+tags: [story-dict, GitHub, GitHub Actions, Slack]
+createdAt: 2025-01-02 19:27:00
+publishedAt: 2025-01-02 19:27:00
+sitemap:
+  lastmod: 2025-01-02 19:27:00
+  changefreq: weekly
+  priority: 0.5
+draft: false
+---
+
+> 해당 포스트는 [`GitHub Action`으로 자동 배포 구현](./GitHub-Action-CI-CD) 후 `Slack` 알림 기능 추가에 대한 이야기에요<br />
+> 처음 해봤는데 의외로 간단해서 쉽게 구현할 수 있었어요<br />
+
+## Slack 세팅
+먼저 `Slack`에 가입하고 채널을 만들어줘야해요<br />
+이 부분은 모두 했다고 가정하고 그 이후부터 작성할게요<br />
+
+### App 만들기
+> [Slack API](https://api.slack.com/apps)
+
+1. 페이지에 들어가서 `Create New App` 버튼 클릭
+2. `From scratch`를 선택
+3. 원하는 `App Name` 입력하고
+4. 원하는 `Workspace` 선택
+5. `Create App` 버튼 클릭
+
+![Slack App 만들기](/images/posts/projects/story-dict/GitHub-Action-Slack/1.png)
+
+### Webhook 세팅
+> 저는 배포 알림 채널과 빌드 알림 채널을 만들어서 `Webhook URL`이 두개에요<br />
+> 원하시는만큼 채널을 만들어주시면 돼요<br />
+
+이제 만들어진 `App`을 선택해줘요<br />
+
+1. `Incoming Webhooks` 탭 클릭
+2. `Toggle` 버튼을 클릭해서 `on`으로 변경
+  ![Slack Webhook 활성화](/images/posts/projects/story-dict/GitHub-Action-Slack/3.png)
+3. `Add New Webhook to Workspace` 버튼 클릭
+4. 원하는 채널 선택
+5. 생성된 `Webhook URL` 복사
+  ![Slack Webhook URL 복사](/images/posts/projects/story-dict/GitHub-Action-Slack/4.png)
+
+## GitHub 세팅
+### 환경변수 추가
+> [GitHub Action 환경변수 설정](./GitHub-Action-CI-CD#환경변수-설정)을 참고해주세요
+
+`Settings` > `Secrets and variables` > `Actions` > `New repository secret`에서 환경변수를 추가해주세요<br />
+이름은 원하는 이름으로 하되 값은 아까 복사한 `Webhook URL`을 넣어주세요!<br />
+( 저는 `SLACK_DEPLOY_WEBHOOK_URL` 과 `SLACK_PR_WEBHOOK_URL` 두개를 추가해주었어요 )
+
+## yaml 작성
+> 저의 코드는 [GitHub](https://github.com/1-blue/story-dict/blob/master/.github/workflows/cicd.yaml)에서 참고해주세요<br />
+> [slackapi/slack-github-action](https://github.com/slackapi/slack-github-action)도 필요하시면 참고해주세요<br />
+
+편하게 하려면 `8398a7/action-slack@v3`라는 액션을 사용하면 `fields`를 수동으로 작성하지 않아도 돼요<br />
+저는 제가 원하는대로 커스텀하려고 직접 작성했어요<br />
+
+전체 코드중에 `Slack` 동작을 위한 일부만 가져왔고, 상세한 부분은 아래에서 설명드릴게요<br />
+
+1. `${{  }}`는 변수를 사용하는 방법
+2. `github.`은 `GitHub`에서 제공해주는 값
+
+```yaml
+name: CD with Docker
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    types: [closed]
+    branches: [ "master" ]
+
+permissions:
+  contents: read
+
+env:
+  SLACK_START_COLOR: "#6366f1"
+  SLACK_SUCCESS_COLOR: "#22c55e"
+  SLACK_FAILURE_COLOR: "#ef4444"
+  SLACK_COMMON_FIELDS: |
+    {
+      "title": "${{ github.event_name == 'pull_request' && 'PR 제목' || '커밋 메시지' }}",
+      "value": "${{ github.event_name == 'pull_request' && github.event.pull_request.title || github.event.head_commit.message }}",
+      "short": true
+    },
+    {
+      "title": "워크플로우",
+      "value": "<${{ github.server_url }}/${{ github.repository }}/actions/workflows/cicd.yaml|${{ github.workflow }} 워크플로우>",
+      "short": true
+    },
+    {
+      "title": "액션작업",
+      "value": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|#${{ github.run_number }} 작업>",
+      "short": true
+    },
+    {
+      "title": "레포지토리",
+      "value": "<${{ github.server_url }}/${{ github.repository }}|${{ github.repository }}>",
+      "short": true
+    },
+    {
+      "title": "${{ github.event_name == 'pull_request' && 'PR 브랜치' || '브랜치' }}",
+      "value": "${{ github.event_name == 'pull_request' && format('{0} → {1}', github.event.pull_request.head.ref, github.event.pull_request.base.ref) || github.ref_name }}",
+      "short": true
+    }
+
+jobs:
+  Deploy:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    # 시작 시간 설정
+    - name: Set start time
+      run: |
+        echo "TZ='Asia/Seoul'" >> $GITHUB_ENV
+        echo "START_TIME=$(TZ='Asia/Seoul' date +%s)" >> $GITHUB_ENV
+        echo "START_TIME_FORMATTED=$(TZ='Asia/Seoul' date '+%Y년 %m월 %d일 %H시 %M분 %S초')" >> $GITHUB_ENV
+
+    # 액션 총 소요시간 계산
+    - name: Calculate duration
+      if: always()
+      run: |
+        END_TIME=$(date +%s)
+        DURATION=$((END_TIME - START_TIME))
+        MINUTES=$((DURATION / 60))
+        SECONDS=$((DURATION % 60))
+        echo "DURATION=${MINUTES}분 ${SECONDS}초" >> $GITHUB_ENV
+
+    # 배포 시작 알림
+    - name: Notify Slack on Start
+      id: slack-start
+      uses: slackapi/slack-github-action@v1.24.0
+      with:
+        payload: |
+          {
+            "attachments": [
+              {
+                "color": "${{ env.SLACK_START_COLOR }}",
+                "title": "🚀 배포 시작 🚀",
+                "text": "${{ github.event_name == 'pull_request' && format('{0} → {1}', github.event.pull_request.head.ref, github.event.pull_request.base.ref) || github.ref_name }}",
+                "fields": [
+                  {
+                    "title": "시작시간",
+                    "value": "${{ env.START_TIME_FORMATTED }}",
+                    "short": true
+                  },
+                  ${{ env.SLACK_COMMON_FIELDS }}
+                ]
+              }
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOY_WEBHOOK_URL }}
+        SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+    # ... 빌드 및 배포 작업 처리
+
+    # 배포 성공 알림
+    - name: Notify Slack on Success
+      if: success()
+      uses: slackapi/slack-github-action@v1.24.0
+      with:
+        payload: |
+          {
+            "attachments": [
+              {
+                "color": "${{ env.SLACK_SUCCESS_COLOR }}",
+                "title": "⭕️ 배포 성공 ⭕️",
+                "text": "${{ github.event_name == 'pull_request' && format('{0} → {1}', github.event.pull_request.head.ref, github.event.pull_request.base.ref) || github.ref_name }}",
+                "fields": [
+                  {
+                    "title": "소요시간",
+                    "value": "${{ env.DURATION }}",
+                    "short": true
+                  },
+                  ${{ env.SLACK_COMMON_FIELDS }}
+                ]
+              }
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOY_WEBHOOK_URL }}
+        SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+    # 배포 실패 알림
+    - name: Notify Slack on Failure
+      if: failure()
+      id: slack-failure
+      uses: slackapi/slack-github-action@v1.24.0
+      with:
+        payload: |
+          {
+            "attachments": [
+              {
+                "color": "${{ env.SLACK_FAILURE_COLOR }}",
+                "title": "❌ 배포 실패 ❌",
+                "text": "${{ github.event_name == 'pull_request' && format('{0} → {1}', github.event.pull_request.head.ref, github.event.pull_request.base.ref) || github.ref_name }}",
+                "fields": [
+                  {
+                    "title": "소요시간",
+                    "value": "${{ env.DURATION }}",
+                    "short": true
+                  },
+                  ${{ env.SLACK_COMMON_FIELDS }}
+                ]
+              }
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOY_WEBHOOK_URL }}
+        SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+```
+
+### 변수 설정
+
+### 사용법
+`payload`에 `webhook`으로 전달할 데이터를 넣어주면 돼요<br />
+
+1. `color`: `slack` 메시지 좌측 라인 색상
+2. `title`: `slack` 메시지 제목
+3. `text`: `slack` 메시지 내용
+4. `fields`: `slack` 메시지 필드
+5. 19번 라인은 위에서 설정한 변수
+
+![250102-201000](/images/posts/projects/story-dict/GitHub-Action-Slack/5.png)
+
+
+```yaml {showLineNumbers} {10-19}
+  # 배포 시작 알림
+  - name: Notify Slack on Start
+    id: slack-start
+    uses: slackapi/slack-github-action@v1.24.0
+    with:
+      payload: |
+        {
+          "attachments": [
+            {
+              "color": "${{ env.SLACK_START_COLOR }}",
+              "title": "🚀 배포 시작 🚀",
+              "text": "${{ github.event_name == 'pull_request' && format('{0} → {1}', github.event.pull_request.head.ref, github.event.pull_request.base.ref) || github.ref_name }}",
+              "fields": [
+                {
+                  "title": "시작시간",
+                  "value": "${{ env.START_TIME_FORMATTED }}",
+                  "short": true
+                },
+                ${{ env.SLACK_COMMON_FIELDS }}
+              ]
+            }
+          ]
+        }
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOY_WEBHOOK_URL }}
+      SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+```
+
+## 마무리
+1. 액션 실행 시간을 계산하기 위한 처리
+2. `Push`와 `Pull Request`에 의한 병합에 대한 처리를 위한 분기처리
+
+위 두가지에 대한 설명을 하지는 않았는데 해당 부분은 굳이 설명하지 않고 코드만 읽어봐도 이해가 될거에요<br />
+필요한 형태가 있다면 [slackapi/slack-github-action](https://github.com/slackapi/slack-github-action)를 참고해서 추가하면 되고, 성공이나 실패의 경우도 거의 동일하게 추가해주면 돼요<br />

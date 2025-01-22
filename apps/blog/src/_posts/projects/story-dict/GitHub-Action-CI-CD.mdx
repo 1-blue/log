@@ -1,0 +1,295 @@
+---
+title: GitHub Action을 이용한 EC2 자동배포 ( with Docker )
+description: "사이드 프로젝트 CI/CD 구축 방법에 대한 이야기\n( GitHub Actions, Docker, EC2 )"
+tags: [story-dict, GitHub Actions, Docker, EC2, Docker Hub, GitHub, CI/CD]
+createdAt: 2025-01-01 17:20:00
+publishedAt: 2025-01-01 17:20:00
+sitemap:
+  lastmod: 2025-01-01 17:20:00
+  changefreq: weekly
+  priority: 0.5
+draft: false
+---
+
+import Blockquote from "#/components/mdx/Blockquote";
+
+## 현재 상황
++ 현재 프로젝트 배포 방법
+  1. 로컬에서 `Build`
+  2. 빌드된 이미지를 `Docker Hub`에 `Push`
+  3. `EC2`에 직접 들어가서 기존 이미지 제거 후 새로운 이미지를 실행
+
+처음 프로젝트를 시작할때의 목표 중 하나가 `GitHub Action`을 이용해서 자동으로 배포되도록 하는것이었어요<br />
+`CI/CD`를 구축해본적도 없는데 처음부터 시작하면 어려울 것 같아서 일단 수동으로 배포하고 프로젝트가 어느정도 완성되면 자동으로 배포되도록 구현해보자는 생각으로 놔뒀다가 최근에 프로젝트가 어느정도 완성되어서 구현해봤고, 그 과정을 짧게나마 기록해보려고 해요<br />
+
+## 목표
+1. `Push` or `PR`으로 인해서 `master` 브랜치가 변경되는 순간 `GitHub Action` 실행
+2. `GitHub Action`에서 빌드된 이미지를 `Docker Hub`에 `Push`
+3. `EC2`에 직접 들어가서 기존 이미지 제거 후 새로운 이미지를 실행
+
+## 프로젝트 구조
+<Blockquote type="tip">
+상세한 폴더 구조가 궁금하시다면 [GitHub 레포지토리](https://github.com/1-blue/story-dict)를 참고해주세요<br/>
+( [docker-compose.yaml](https://github.com/1-blue/story-dict/blob/master/docker-compose.yaml), [Frontend - Dockerfile](https://github.com/1-blue/story-dict/blob/master/apps/fe/Dockerfile), [Backend - Dockerfile](https://github.com/1-blue/story-dict/blob/master/apps/be/Dockerfile) )
+</Blockquote>
+
+아래는 프로젝트 폴더구조인데 설명에 필요한 파일들만 추려서 올려봤어요<br />
+모노레포 구조이고 프론트는 `Next.js 14`, 백엔드는 `Nest.js`를 사용했어요<br />
+각 레포에는 `Dockerfile`이 있고 최상위에서 `docker-compose`를 이용해서 하나의 컨테이너로 실행할 수 있도록 구조를 잡았어요<br />
+그리고 `envs` 폴더에는 배포 전용으로 각 환경별로 사용할 환경변수들을 넣어두었어요<br />
+
+```txt
+├── apps
+│   ├── be
+│   │   ├── Dockerfile
+│   │   └── package.json
+│   ├── fe
+│   │   ├── Dockerfile
+│   │   └── package.json
+├── docker-compose.development.yaml
+├── docker-compose.yaml
+├── envs
+│   ├── be
+│   └── fe
+├── aws
+│   └── .pem
+├── packages
+│   ├── database
+│   ├── eslint-config
+│   ├── tailwind-config
+│   ├── typescript-config
+│   ├── ui
+│   └── utils
+├── package.json
+├── pnpm-lock.yaml
+├── pnpm-workspace.yaml
+└── turbo.json
+```
+
+## GitHub Action 설정
+<Blockquote type="tip">
+[GitHub 레포지토리](https://github.com/1-blue/story-dict/blob/master/.github/workflows/cicd.yaml)를 참고해주세요<br/>
+참고로 `.github/workflows/` 하위에 액션 파일을 작성해야해요
+</Blockquote>
+
+아래는 현재 사용중인 파일이고 한줄씩 자세하게 설명할게요
+
+```yaml showLineNumbers
+name: CD with Docker
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: read
+
+jobs:
+  Deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Create Frontend env files
+      run: |
+        mkdir -p ./envs/fe
+        mkdir -p ./apps/fe
+        echo "${{ secrets.FRENTEND_ENV_FILE }}" > ./envs/fe/.env.production
+        echo "${{ secrets.FRENTEND_ENV_FILE }}" > ./apps/fe/.env.production
+
+    - name: Create Backend env files
+      run: |
+        mkdir -p ./envs/be
+        mkdir -p ./apps/be
+        echo "${{ secrets.BACKEND_ENV_FILE }}" > ./envs/be/.env.production
+        echo "${{ secrets.BACKEND_ENV_FILE }}" > ./apps/be/.env.production
+
+    - name: Install Docker Compose
+      run: |
+        sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+
+    - name: Docker LogIn
+      run: |
+        docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Docker Build
+      run: |
+        docker buildx create --use
+        DOCKER_DEFAULT_PLATFORM=linux/arm64 docker-compose build
+
+    - name: Docker Push
+      run: |
+        docker-compose push
+
+    # AWS 인증
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-region: ${{ secrets.AWS_REGION }}
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+        aws-secret-access-key: ${{ secrets.AWS_ACCESS_SECRET_KEY }}
+
+    # 보안 그룹에 인바운드 규칙 추가
+    - name: Add GitHub Actions IP to Security Group
+      run: |
+        # GitHub Actions 러너의 공인 IP 주소 가져오기
+        RUNNER_IP=$(curl -s https://api.ipify.org)
+        echo "Runner IP: $RUNNER_IP"
+        
+        # 보안 그룹에 인바운드 규칙 추가
+        aws ec2 authorize-security-group-ingress \
+          --group-id ${{ secrets.AWS_SECURITY_GROUP_ID }} \
+          --protocol tcp \
+          --port 22 \
+          --cidr $RUNNER_IP/32
+
+    # EC2 배포
+    - name: Deploy Backend Code
+      uses: appleboy/ssh-action@v0.1.6
+      with:
+        host: ${{ secrets.AWS_EC2_SSH_DNS }} # EC2 IP 주소
+        username: ${{ secrets.AWS_EC2_SSH_USER_NAME }} # EC2 사용자 이름
+        key: ${{ secrets.AWS_EC2_SSH_PEM_KEY }} # EC2의 .pem 키
+        port: ${{ secrets.AWS_EC2_SSH_PORT }} # EC2 포트
+        script: |
+          cd workspace &&
+          sudo docker stop $(sudo docker ps -aq) || true &&
+          sudo docker system prune -a --volumes -f &&
+          sudo docker-compose up -d
+
+    # 보안 그룹에서 인바운드 규칙 제거
+    - name: Remove GitHub Actions IP from Security Group
+      if: always()  # 이전 단계가 실패하더라도 항상 실행
+      run: |
+        RUNNER_IP=$(curl -s https://api.ipify.org)
+        aws ec2 revoke-security-group-ingress \
+          --group-id ${{ secrets.AWS_SECURITY_GROUP_ID }} \
+          --protocol tcp \
+          --port 22 \
+          --cidr $RUNNER_IP/32
+```
+
+### 환경변수 설정
+로컬에서 빌드할때는 환경변수를 자체적으로 갖고 있어서 문제가 없었는데 GitHub에는 `.env`을 업로드하지 않으니까 환경변수를 따로 설정해줘야해요<br />
+`Settings` > `Secrets and variables` > `Repository secrets` > `New repository secret` 에서 환경변수를 설정할 수 있어요<br />
+`.env` 파일 내용을 전부 넣고 22~23번줄처럼 적으면 환경변수 빌드전에 환경변수 파일을 만들어서 빌드가 돼요<br />
+
+![GitHub Action 환경변수 설정](/images/posts/projects/story-dict/GitHub-Action-CI-CD/1.png)
+
+```yaml showLineNumbers {5-6, 12-13}
+  - name: Create Frontend env files
+    run: |
+      mkdir -p ./envs/fe
+      mkdir -p ./apps/fe
+      echo "${{ secrets.FRENTEND_ENV_FILE }}" > ./envs/fe/.env.production
+      echo "${{ secrets.FRENTEND_ENV_FILE }}" > ./apps/fe/.env.production
+
+  - name: Create Backend env files
+    run: |
+      mkdir -p ./envs/be
+      mkdir -p ./apps/be
+      echo "${{ secrets.BACKEND_ENV_FILE }}" > ./envs/be/.env.production
+      echo "${{ secrets.BACKEND_ENV_FILE }}" > ./apps/be/.env.production
+```
+
+### Docker 로그인 및 빌드 및 푸쉬
+도커 로그인도 위의 [환경변수 설정](TODO:)처럼 키를 미리 등록해놓으면 `GitHub Action`에서 사용할 수 있어요<br />
+`7~8` 라인은 현재 `EC2` 인스턴스가 `t4g.micro`를 사용하고 있는데 아키텍쳐가 `x86`이 아니라 `arm64`이기 때문에 제대로 동작하기 위한 설정이에요<br />
+`EC2`를 `arm64`를 선택한 이유가 현재 사용하는 맥북에서 빌드하는 경우 `arm64`가 아니면 `EC2`에서 실행이 안되기 때문이에요<br />
+
+```yaml showLineNumbers {7-8}
+  - name: Docker LogIn
+    run: |
+      docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+
+  - name: Docker Build
+    run: |
+      docker buildx create --use
+      DOCKER_DEFAULT_PLATFORM=linux/arm64 docker-compose build
+
+  - name: Docker Push
+    run: |
+      docker-compose push
+```
+
+### AWS 인증
+`AWS`에 접근하기 위한 부분이에요<br />
+현재 보안그룹 인바운드 규칙으로 특정 `IP`만 허용해놨는데 `GitHub Action` 러너에서는 접근이 안되기 때문에 인바운드 규칙을 추가하기 위한 사전작업이에요<br />
+5~6 라인은 `IAM` > `보안 자격 증명` > `엑세스 키`를 만들면 얻을 수 있는 값이에요<br />
+
+![AWS 인증 키 생성](/images/posts/projects/story-dict/GitHub-Action-CI-CD/2.png)
+
+```yaml showLineNumbers {5-6}
+  - name: Configure AWS credentials
+    uses: aws-actions/configure-aws-credentials@v1
+    with:
+      aws-region: ${{ secrets.AWS_REGION }}
+      aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+      aws-secret-access-key: ${{ secrets.AWS_ACCESS_SECRET_KEY }}
+```
+
+### 보안 그룹에 인바운드 규칙 추가
+`GitHub Action` 러너의 `IP`를 보안그룹에 추가하는 부분이에요<br />
+`EC2`에 `SSL`로 접근하기전에 인바운드 보안그룹을 추가하고 처리가 끝나면 인바운드 보안그룹을 제거하는 작업을 해요<br />
+`always()`를 이용해서 이전 단계가 실패하더라도 추가된 보안그룹은 반드시 닫히도록 해요<br />
+
+```yaml showLineNumbers
+  # 보안 그룹에 인바운드 규칙 추가
+  - name: Add GitHub Actions IP to Security Group
+    run: |
+      # GitHub Actions 러너의 공인 IP 주소 가져오기
+      RUNNER_IP=$(curl -s https://api.ipify.org)
+      echo "Add GitHub Actions IP to Security Group: $RUNNER_IP"
+      aws ec2 authorize-security-group-ingress \
+        --group-id ${{ secrets.AWS_SECURITY_GROUP_ID }} \
+        --protocol tcp \
+        --port 22 \
+        --cidr $RUNNER_IP/32
+
+  # ... 생략
+
+  # 보안 그룹에서 인바운드 규칙 제거
+  - name: Remove GitHub Actions IP from Security Group
+    if: always()  # 이전 단계가 실패하더라도 항상 실행
+    run: |
+      RUNNER_IP=$(curl -s https://api.ipify.org)
+      echo "Remove GitHub Actions IP from Security Group: $RUNNER_IP"
+      aws ec2 revoke-security-group-ingress \
+        --group-id ${{ secrets.AWS_SECURITY_GROUP_ID }} \
+        --protocol tcp \
+        --port 22 \
+        --cidr $RUNNER_IP/32
+```
+
+### EC2 배포
+[환경변수 설정](TODO:)처럼 키를 등록해야해요<br />
+`script` 부분은 `EC2`에서 터미널로 실행할 명령어를 적는 부분이에요<br />
+현재는 실행중인 도커 컨테이너 중지 및 도커 초기화 후 도커 컴포즈를 이용해서 배포하는 명령어를 적었어요<br />
+
+```yaml showLineNumbers
+  - name: Deploy Frontend And Backend
+    uses: appleboy/ssh-action@v0.1.6
+    with:
+      host: ${{ secrets.AWS_EC2_SSH_DNS }} # EC2 IP 주소
+      username: ${{ secrets.AWS_EC2_SSH_USER_NAME }} # EC2 사용자 이름
+      key: ${{ secrets.AWS_EC2_SSH_PEM_KEY }} # EC2의 .pem 키
+      port: ${{ secrets.AWS_EC2_SSH_PORT }} # EC2 포트
+      script: |
+        cd workspace &&
+        sudo docker stop $(sudo docker ps -aq) || true &&
+        sudo docker system prune -a --volumes -f &&
+        sudo docker-compose up -d
+```
+
+## 마무리
+이렇게 `workflow` 파일 하나만 작성하면 알아서 동작이 되는 것을 볼 수 있어요<br />
+
+현재 문제가 한가지 있는데 `arm64`로 설정하기전에는 빌드 시간이 2분내외로(`아래 이미지 테스트 7`) 걸렸는데 `arm64`로 설정하고 나니 빌드 시간이 13분정도(`아래 이미지 테스트 10`) 걸리는 문제가 있어요<br />
+`tuborepo`는 수정사항이 없다면 이전 빌드된 것을 그대로 캐싱해서 사용하는 방법이 있는데 그 방법을 적용해야 할 것 같아요
+
+일단 지금 떠오르는 방법은 빌드 시 해당 `ID`로 `S3`에 올려두고 이후 `GitHub Action`에서 빌드할때 `S3`를 바라보고 변경사항이 없다면 캐싱된 파일을 사용하도록 하는 방법으로 적용해보고 다시 포스팅할게요 🫠
+
+![250101-190609](/images/posts/projects/story-dict/GitHub-Action-CI-CD/3.png)

@@ -1,0 +1,154 @@
+---
+title: Apidog에 대한 이야기
+description: 개인적으로 Postman의 엄청난 상위호환이라고 생각하는 Apidog에 대한 이야기
+tags: [Apidog, Postman, API 문서]
+createdAt: 2025-01-13 08:10:00
+publishedAt: 2025-01-13 08:10:00
+sitemap:
+  lastmod: 2025-01-13 08:10:00
+  changefreq: weekly
+  priority: 0.5
+draft: false
+---
+
+import Blockquote from "#/components/mdx/Blockquote";
+
+<Blockquote type="tip">
+[API 문서 보기](https://docs.story-dict.com/)
+</Blockquote>
+
+> `Apidog`라는 툴을 사용해보고 느낀점에 대해 작성하는 글이에요<br />
+> 개인적으로 `Postman`보다 상위호환이라고 생각해요<br />
+> ( 현재 나흘정도 사용해본 경험이라 해당 게시글이 완성은 아니고 계속 사용하면서 추가로 작성할 예정이에요 )
+
+## 🤔 Postman의 아쉬웠던점
+저는 프론트엔드 개발자라서 `Postman`을 직접 만들어본거는 개인 프로젝트에서 API 문서 정리를 위해서 한번 밖에 없었어요<br />
+직접 만들어보면서 너무 아쉬웠던점이 몇가지 있었어요
+1. `Schema` 정의 불가능
+2. `Enum` 정의 불가능
+3. UX가 안좋음 ( 잡렉, 보조 기능 부족 등 )
+
+## 🫢 Apidog의 장점
+### 0. 마이그레이션 쉽고 저렴함
+> [Apidog 공식 문서 - Postman 마이그레이션](https://docs.apidog.com/import-postman-collections-635043m0)<br />
+> [Apidog vs Postman](https://apidog.com/kr/blog/postman-vs-apidog-2/)
+
+`Postman`에서 이전하기가 쉬워요<br />
+문서에 적힌대로 해보면 2분이면 기존 API 문서를 이전할 수 있어요<br />
+그리고 `Postman`보다 가격이 더 저렴하고 지원해주는 기능도 더 많아요<br />
+저희 회사는 백엔드가 4명인데 `Postman`이 3명까지 무료라 유료 플랜을 사용했었는데 Apidog는 무료 플랜이 4명까지 있어서 무료로도 사용할 수 있어요<br />
+
+### 1. 스키마 생성 가능
+> [Apidog 공식 문서 - Schema](https://docs.apidog.com/overview-533975m0)
+
+![스키마](/images/posts/tools/apidog/1.png)
+
+위처럼 `Schema`가 생성이 가능해요<br />
+`Schema`를 생성해두면 응답 `Schema`에서 `Schema`를 그대로 사용할 수 있고, 혹은 일부로 사용할 수 있어요<br />
+그리고 `description`을 작성해두면 API 문서에서 읽을 수 있고, `TypeScript`로 변환할때 `TSDoc`으로도 만들어줘요<br />
+그리고 `Mock`을 설정해두면 목데이터를 만들때 값을 자동으로 채워줘요<br />
+( `Mock`은 `Faker.js`에서 사용하던 문법을 사용할 수 있어요 )<br />
+
+마지막으로 DB와 연결해서 `Schema`를 자동으로 생성할 수 있어요<br />
+
+### 2. 열거형 정의 가능
+> [Apidog 공식 문서 - Enum 정의 방법](https://docs.apidog.com/if-a-string-property-has-multiple-enumerated-values-and-is-used-in-various-locations-how-can-this-enum-be-consistently-referenced-throughout-748053m0)
+
+![열거형](/images/posts/tools/apidog/2.png)
+
+이렇게 `Enum`을 정의할 수 있고, `Schema`나 응답 `Schema`에 사용할 수 있어요<br />
+그리고 `description`을 작성해두면 아래처럼 리스트가 보이고 `Hover`시 테이블을 볼 수 있어요<br />
+
+![열거형 확대](/images/posts/tools/apidog/3.png)
+
+### 3. 컴포넌트
+> [Apidog 공식 문서 - Components](https://docs.apidog.com/components-533976m0)
+
+![컴포넌트](/images/posts/tools/apidog/4.png)
+
+자주 사용하는 응답 형태를 컴포넌트로 만들어둘 수 있어요<br />
+아직 많이 사용해보지 않아서 사용법과 의도가 맞는지 모르겠지만, 저는 자주 사용하는 `400`대 에러를 컴포넌트로 만들어두고 사용하고 있어요<br />
+
+### 4. Cloud Mock Server
+> [Apidog 공식 문서 - Cloud Mock Server](https://docs.apidog.com/cloud-mock-621066m0)
+
+해당 기능을 사용하기 위해서는 두가지 조건이 필요해요<br />
+아래 두가지를 설정해두면 정해둔 형식에 맞게 목데이터를 만들어서 엔드포인트를 제공해줘요<br />
+
+1. 해당 엔드포인트의 응답 `Schema`에 대한 목데이터 형식을 채워넣기
+2. `Cloud Mock Server`를 활성화하기
+
+### 5. 여러가지 기능 지원
+1. `status`: 배포, 개발중, 지원종료 등의 상태 설정이 가능
+2. `Maintainer`: 관리자 설정 가능
+3. `Tags`: 태그 설정 가능
+4. 생성자/수성자 자동 등록됨
+5. 응답 `Schema`를 설정해두고 실제 응답을 받았을때 `Schema`와 비교해서 잘못된 부분 표시
+6. 브랜치 / 버전 관리 가능
+
+## 🥲 Apidog의 단점
+
+### 1. 데이터베이스의 스키마 가져올때 열거형 변환 안됨
+아래처럼 `Prisma`로 만들고 `DB`에 생성된 것을 확인했는데 `DB` 연동해서 `Schema`를 불러와도 `Enum`이 생성되지 않아요<br />
+그래서 수동으로 `Enum`을 만들고 `Schema`에 연결했어요 🥲<br />
+
+```txt
+/// 리액션 타입
+enum ReactionType {
+  /// 좋아요 👍
+  GOOD
+  /// 싫어요 👎
+  BAD
+  /// 불타오르다 🔥
+  FIRE
+
+  // ... 나머지 생략
+}
+
+model PostReaction {
+  // ... 나머지 생략
+
+  /// 리액션 타입
+  type ReactionType
+}
+```
+
+## 💡 사용팁
+### 1. Schema 일부만 사용하기
+`Schema`를 사용하는거는 좋은데 전체말고 일부만 사용하는 경우가 더 많을거에요<br />
+그럴때는 그냥 `Schema`를 가져오고 사용하지 않는 컬럼은 `hide`를 하면 돼요<br />
+그렇게 모든 응답 `Schema`를 관리하면 원본 `Schema`가 수정되면 모든 응답 `Schema`도 변하기 때문에 편해요<br />
+너무 서로 의존하게 된다고 생각할수도 있지만, 어차피 원본이 바뀌면 다른것들도 따라서 바꿔야한다고 생각해요<br />
+
++ 원본
+![Schema 원본](/images/posts/tools/apidog/5.png)
+
++ 일부만 사용
+![Schema 일부만 사용](/images/posts/tools/apidog/6.png)
+
+### 2. Schema 조합하기
+응답값이 항상 하나의 테이블의 데이터만 가져오지는 않을거에요<br />
+그런 경우에는 `Schema Composition`을 사용하면 돼요<br />
+
+일단 예시로 `유저`, `유저의 게시글`, `게시글의 리액션`이 있다고 가정할게요<br />
+![다이어그램](/images/posts/tools/apidog/7.png)
+
+그리고 특정 게시글을 가져올때는 `게시글` + `게시글 작성자` + `게시글의 리액션`들을 `Join`해서 가져오겠죠?<br />
+이런 경우에 `Schema Composition`을 사용하면 쉽게 응답 `Schema`를 정의할 수 있어요<br />
+
+![Schema Composition](/images/posts/tools/apidog/8.png)
+
+이미지 하나로 표현하기에는 화면이 부족해서 텍스트로 설명할게요<br />
+`0`은 게시글, `1`은 게시글 작성자, `2`는 게시글의 리액션들이에요<br />
+`1`과 `2`가 `object`로 되어있는데 `Schema`에서 하나라도 `Hide`를 하면 `object`로 보이게 되더라고요<br />
+하지만 `1`은 유저 `Schema`를 사용하고 `2`는 리액션 `Schema`를 사용해서 원본 `Schema`에 의존하게 돼요<br />
+
+## 📮 레퍼런스
+1. [API 문서 보기](https://docs.story-dict.com/)
+2. [Apidog 공식 문서 - Postman 마이그레이션](https://docs.apidog.com/import-postman-collections-635043m0)
+3. [Apidog vs Postman](https://apidog.com/kr/blog/postman-vs-apidog-2/)
+4. [Apidog 공식 문서 - Schema](https://docs.apidog.com/overview-533975m0)
+5. [Apidog 공식 문서 - Enum 정의 방법](https://docs.apidog.com/if-a-string-property-has-multiple-enumerated-values-and-is-used-in-various-locations-how-can-this-enum-be-consistently-referenced-throughout-748053m0)
+6. [Apidog 공식 문서 - Components](https://docs.apidog.com/components-533976m0)
+7. [Apidog 공식 문서 - Cloud Mock Server](https://docs.apidog.com/cloud-mock-621066m0)
+8. [Apidog 공식 문서 - Schema Composition](https://docs.apidog.com/schema-composition-533977m0)

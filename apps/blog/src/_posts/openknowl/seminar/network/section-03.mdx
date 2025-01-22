@@ -1,0 +1,112 @@
+---
+title: 트랜스포트 계층(Layer 4)
+description: 그림으로 쉽게 배우는 네트워크 섹션 3 트랜스포트 계층에 대한 정리글
+tags: [인프런, 그림으로 쉽게 배우는 네트워크]
+createdAt: 2024-07-28 11:36:00
+publishedAt: 2024-07-28 11:36:00
+sitemap:
+  lastmod: 2024-07-28
+  changefreq: weekly
+  priority: 0.5
+draft: false
+---
+
+> 해당 포스트는 [인프런 - 그림으로 쉽게 배우는 네트워크(감자)의 섹션 3 - 트랜스포트 계층(Layer 4)](https://www.inflearn.com/course/%EA%B7%B8%EB%A6%BC%EC%9C%BC%EB%A1%9C-%EC%89%BD%EA%B2%8C-%EB%B0%B0%EC%9A%B0%EB%8A%94-%EB%84%A4%ED%8A%B8%EC%9B%8C%ED%81%AC)에 대한 정리 포스트입니다.
+
+## 용어 정리
++ `SYN`: `synchronization` (연결 요청)
++ `ACK`: `acknowledgement` (연결 수락)
++ `FIN`: `finish` (연결 종료)
++ `segmentation`: 데이터를 여러 개의 세그먼트로 나누어 전송하는 과정
++ `MSS`: `Maximum Segment Size` (최대 세그먼트 크기)
+
+## TCP 개요
+### 3 way handshake
+`3 way handshake`는 `TCP Protocol`에서 상대와 통신하기 위한 연결 방식
+
++ `3 way handshake`의 과정
+  1. `SYN`
+  2. `SYN`/`ACK`
+  3. `ACK`
+
+![3-way-handshake](/images/posts/openknowl/seminar/network/section-03/3-way-handshake.png)
+
+TCP는 애플리케이션 계층에서 전송되는 데이터를 `segmentation`해서 전송하기 때문에 `MSS`를 지정함
+1. 한번에 큰 데이터를 전송하다가 일부분을 유실하는 경우 전체를 재전송하는 비효율적인 상황을 막기 위해 설정
+2. 데이터링크 계층에서 전송할 수 있는 크기가 정해져 있음
+  <br />( 최대 패킷 크기는 1500byte이고, 이 값에서 헤더 정보를 빼면 약 1460byte 정도가 남음 )
+
+### 3 way handshake 이후 데이터 전송 과정
+![3-way-handshake-after](/images/posts/openknowl/seminar/network/section-03/3-way-handshake-after.png)
+
+### 4 way handshake
++ `4 way handshake`의 과정
+  1. `FIN`
+  2. `ACK`
+  3. `FIN`
+  4. `ACK`
+
+![4-way-handshake](/images/posts/openknowl/seminar/network/section-03/4-way-handshake.png)
+
+## TCP(헤더, 혼잡제어)
+> `TCP`: `Transmission Control Protocol`
+
+### TCP 헤더
+![TCP-Header](/images/posts/openknowl/seminar/network/section-03/TCP-Header.png)
+
+1. `Source Port`: 출발지 포트
+2. `Destination Port`: 도착지 포트
+3. `Sequence Number`: 데이터의 일련번호 ( 데이터의 순서, 최초는 난수 이후 번호는 +1 )
+4. `Acknowledgement Number`: 다음 수신할 `Sequence Number`
+5. `Data Offset`: `TCP` 데이터가 `TCP Segment`의 가장 앞에서 얼마나 떨어져 있는지를 나타태는 값
+6. `Reserved`: 미래에 필요하면 사용할 영역
+7. `Control Flags`
+  1. `Nonce Sum`: 악의적인 데이터를 은폐하는 것을 방지하기 위한 필드 ( 실험단계 )
+  2. `Congestion Window Reduced`: 혼잡 제어를 위한 필드
+  3. `ECN-Echo`: 혼잡 제어를 위한 필드
+  4. `Urgent Flag`: 긴급하게 처리해야 하는 데이터를 나타낼 때 사용하는 필드 ( 거의 사용 X )
+  5. `Acknowledgement`: 응답을 위해 사용하는 필드 ( 1이면 정상 수신 )
+  6. `Push Flag`: 1이면 빨리 데이터 전송, 0이면 버퍼링 허용
+  7. `Reset Flag`: 1이면 강제 연결 끊기
+  8. `Synchronize Flag`: 커넥션 생성을 위한 필드
+  9. `Finish Flag`: 1이면 연결 끊고 싶다는 의미
+8. `Window size`: TCP의 흐름제어인 슬라이딩 윈도우 사용을 위한 필드
+9. `Checksum`: 오류 검사를 위한 필드
+10. `Urgent Pointer`: `Control Flags`의 `Urgent Flag`가 1인 경우 사용하고, 애플리케이션이 우선처리를 위하면 우선처리함
+11. `Options`: TCP 기능 확장을 위해 사용
+
+![sequence-number-and-acknowledgement-number](/images/posts/openknowl/seminar/network/section-03/sequence-number-and-acknowledgement-number.png)
+
+### TCP 혼잡제어
+1. `Sequence Number`를 이용해서 순서 파악하고 순서대로 조립함
+2. 흐름 제어로 `ACK`를 기다리지 않고 여러 데이터를 한번에 전송함
+3. 혼잡 제어로 한번에 보내는 데이터의 양을 조절함
+
++ `Window`: 한번에 보낼 영역
++ `Window Size`: 한번에 보낼 영역의 크기
++ `Window Scroll`: 윈도우 사이즈를 조절하는 것
+
+![TCP-flow-control](/images/posts/openknowl/seminar/network/section-03/TCP-flow-control.png)
+
+## UDP
+> `UDP`: `User Datagram Protocol`
+
+### UDP 특정
+1. 커넥션 없이 바로 데이터 전송
+2. 신뢰성을 보장해주지 않음 ( 원하면 직접 구현 )
+3. 신뢰성 보다는 속도가 중요한 곳에서 주로 사용 ( 영상, 음성, 게임 )
+
+### UDP 헤더
+![UDP-Header](/images/posts/openknowl/seminar/network/section-03/UDP-Header.png)
+1. `Source Port`: 출발지 포트
+2. `Destination Port`: 도착지 포트
+3. `UDP Length`: 헤더 + 데이터의 전체 길이
+4. `Checksum`: 오류 검사를 위한 필드
+
+## TCP vs UDP
+속도가 중요하고 신뢰성도 중요하다면 UDP를 사용하되 신뢰성 부분은 직접 구현하는 경우가 많음
+
++ `QUIC`: `Quick UDP Internet Connection`
+  1. `TCP`와 `UDP`의 장점을 결합한 프로토콜
+  2. `TCP`의 신뢰성과 `UDP`의 빠른 속도를 결합한 프로토콜
+  3. `HTTP/3`에서 사용
