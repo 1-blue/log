@@ -8,6 +8,7 @@ import Pre from "#/components/mdx/Pre";
 import Blockquote from "#/components/mdx/Blockquote";
 import Heading from "#/components/mdx/Heading";
 import Image from "#/components/mdx/Image";
+import LinkPreviewCard from "#/components/mdx/LinkPreviewCard";
 
 /** 모든 `.mdx`에 적용 ( `next.js`에서 약속된 이름 ) */
 export function useMDXComponents(components: MDXComponents): MDXComponents {
@@ -88,7 +89,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     ol: ({ children, ...restProps }) => (
       <ol
         {...restProps}
-        className="mb-2 mt-4 list-decimal space-y-1 pl-10 [ol_&]:mt-1"
+        className="mb-4 mt-2 list-decimal space-y-1 pl-10 [ol_&]:mt-1 [blockquote_&]:pl-5"
       >
         {children}
       </ol>
@@ -97,7 +98,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     ul: ({ children, ...restProps }) => (
       <ul
         {...restProps}
-        className="mb-2 mt-4 list-disc space-y-1 pl-10 group-has-[ul]:my-0 group-has-[ul]:pl-7"
+        className="mb-4 mt-2 list-disc space-y-1 pl-10 group-has-[ul]:my-0 group-has-[ul]:pl-7 [blockquote_&]:pl-5"
       >
         {children}
       </ul>
@@ -128,6 +129,11 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
         className={cn(props.className, "!mb-3 [blockquote_&]:!mb-0")}
       />
     ),
+
+    /** 링크 미리보기 카드 */
+    LinkPreviewCard,
+    /** 인용 블럭 */
+    Blockquote,
     ...components,
   };
 }
