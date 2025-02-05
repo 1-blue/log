@@ -110,7 +110,7 @@ export const GET = async (req: NextRequest) => {
       height: 1080,
       fonts: [
         {
-          name: "Kaisei Tokumin",
+          name: "Moneygraphy-Pixel",
           data: font,
           style: "normal",
         },
