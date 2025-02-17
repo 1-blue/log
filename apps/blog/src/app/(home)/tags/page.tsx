@@ -58,10 +58,9 @@ const Page: NextPage<Props> = async ({ searchParams }) => {
 
     return prev;
   }, {});
-  const filteredPosts = useMemo(() => {
-    if (!tag) return [];
-    return allPosts.filter((metadata) => metadata.tags.includes(tag));
-  }, [tag]);
+  const filteredPosts = tag
+    ? allPosts.filter((metadata) => metadata.tags.includes(tag))
+    : [];
 
   if (!tag) return redirect(`/tags?tag=${DEFAULT_TAG}`);
 
