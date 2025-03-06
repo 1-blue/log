@@ -10,7 +10,10 @@ const H1: React.FC<React.PropsWithChildren<Props>> = ({
 
   ...restProps
 }) => (
-  <h1 className="relative mb-5 mt-8 scroll-mt-20 text-4xl" {...restProps}>
+  <h1
+    className="relative mb-5 mt-8 scroll-mt-20 text-4xl font-semibold"
+    {...restProps}
+  >
     <Link
       href={"#" + (children as string).replaceAll(" ", "-").toLowerCase()}
       className={anchorClassName}
@@ -24,7 +27,10 @@ const H2: React.FC<React.PropsWithChildren<Props>> = ({
   children,
   ...restProps
 }) => (
-  <h2 className="relative mb-4 mt-7 scroll-mt-20 text-3xl" {...restProps}>
+  <h2
+    className="relative mb-4 mt-7 scroll-mt-20 text-3xl font-semibold"
+    {...restProps}
+  >
     <Link
       href={"#" + (children as string).replaceAll(" ", "-").toLowerCase()}
       className={anchorClassName}
@@ -38,7 +44,10 @@ const H3: React.FC<React.PropsWithChildren<Props>> = ({
   children,
   ...restProps
 }) => (
-  <h3 className="relative mb-3 mt-6 scroll-mt-20 text-2xl" {...restProps}>
+  <h3
+    className="relative mb-3 mt-6 scroll-mt-20 text-2xl font-semibold"
+    {...restProps}
+  >
     <Link
       href={"#" + (children as string).replaceAll(" ", "-").toLowerCase()}
       className={anchorClassName}
@@ -52,7 +61,10 @@ const H4: React.FC<React.PropsWithChildren<Props>> = ({
   children,
   ...restProps
 }) => (
-  <h4 className="relative mb-2.5 mt-5 scroll-mt-20 text-xl" {...restProps}>
+  <h4
+    className="relative mb-2.5 mt-5 scroll-mt-20 text-xl font-semibold"
+    {...restProps}
+  >
     <Link
       href={"#" + (children as string).replaceAll(" ", "-").toLowerCase()}
       className={anchorClassName}
@@ -66,7 +78,10 @@ const H5: React.FC<React.PropsWithChildren<Props>> = ({
   children,
   ...restProps
 }) => (
-  <h5 className="relative mb-2 mt-4 scroll-mt-20 text-lg" {...restProps}>
+  <h5
+    className="relative mb-2 mt-4 scroll-mt-20 text-lg font-semibold"
+    {...restProps}
+  >
     <Link
       href={"#" + (children as string).replaceAll(" ", "-").toLowerCase()}
       className={anchorClassName}
@@ -80,7 +95,10 @@ const H6: React.FC<React.PropsWithChildren<Props>> = ({
   children,
   ...restProps
 }) => (
-  <h6 className="relative mb-2 mt-4 scroll-mt-20 text-base" {...restProps}>
+  <h6
+    className="relative mb-2 mt-4 scroll-mt-20 text-base font-semibold"
+    {...restProps}
+  >
     <Link
       href={"#" + (children as string).replaceAll(" ", "-").toLowerCase()}
       className={anchorClassName}

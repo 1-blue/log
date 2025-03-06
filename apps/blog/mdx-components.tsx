@@ -126,7 +126,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     p: (props) => (
       <p
         {...props}
-        className={cn(props.className, "!mb-3 [blockquote_&]:!mb-0")}
+        className={cn(props.className, "!mb-3 [blockquote_&]:!mb-0 break-keep")}
       />
     ),
 
