@@ -54,3 +54,27 @@ export const getAllPosts = cache((publishedOnly = true): IPostWithETC[] => {
   if (publishedOnly) return allPosts.filter(({ draft }) => !draft);
   return allPosts;
 });
+
+export const getPostTOC = cache((postURL: string) => {
+  const post = getAllPosts().find(({ path }) => path.includes(postURL));
+  if (!post) return null;
+
+  // 정규식을 사용하여 ##, ###, #### 헤딩 추출
+  const headings = post.content.match(/^(#{2,4})\s+(.+)$/gm) || [];
+
+  // 헤딩 정보 구조화
+  return headings.map((heading) => {
+    // depth ( ##(2), ###(3), ####(4) )
+    const depth = heading.match(/^(#{2,4})/)?.[0]?.length || 0;
+    // title
+    const title = heading.replace(/^#{2,4}\s+/, "");
+    // tag id
+    const id = title.toLowerCase().replace(/\s+/g, "-");
+
+    return {
+      depth,
+      title,
+      id,
+    };
+  });
+});

@@ -3,29 +3,36 @@ import { notFound } from "next/navigation";
 import type { Metadata, NextPage } from "next";
 import dynamic from "next/dynamic";
 
-import { getAllPosts } from "#/libs/post";
+import { getAllPosts, getPostTOC } from "#/libs/post";
 import { getSharedMetadata } from "#/libs";
 
 import Thumbnail from "#/app/posts/_components/Thumbnail";
 import TopSection from "#/app/posts/_components/TopSection/TopSection";
 import ButtomSection from "#/app/posts/_components/BottomSection/BottomSection";
 import SuggestSection from "#/app/posts/_components/SuggestSection/SuggestSection";
+import TOC from "#/app/posts/_components/TOC";
 
 interface Props {
   params: Promise<{ slugs: string[] }>;
 }
 
 const allPosts = getAllPosts();
-const getTargetPost = cache((baseURL: string) =>
-  allPosts.find(({ path }) => path.includes(baseURL)),
+const getTargetPost = cache((postURL: string) =>
+  allPosts.find(({ path }) => path.includes(postURL)),
 );
+
+export const generateStaticParams = () => {
+  return allPosts.map(({ path }) => ({
+    slugs: path.split("/").filter((v) => !["", "posts"].includes(v)),
+  }));
+};
 
 export const generateMetadata = async ({
   params,
 }: Props): Promise<Metadata> => {
   const { slugs } = await params;
-  const baseURL = decodeURIComponent(slugs.join("/"));
-  const targetPost = getTargetPost(baseURL);
+  const postURL = decodeURIComponent(slugs.join("/"));
+  const targetPost = getTargetPost(postURL);
   if (!targetPost) return notFound();
 
   const { title, description, thumbnail, tags } = targetPost;
@@ -40,15 +47,19 @@ export const generateMetadata = async ({
 
 const Page: NextPage<Props> = async ({ params }) => {
   const { slugs } = await params;
-  const baseURL = decodeURIComponent(slugs.join("/"));
-  const targetPost = getTargetPost(baseURL);
+  const postURL = decodeURIComponent(slugs.join("/"));
+  const targetPost = getTargetPost(postURL);
   if (!targetPost) return notFound();
 
   // Vercel 빌드 시 에러 발생으로 인해 상대경로 사용
-  const Post = dynamic(() => import(`../../../_posts/${baseURL}.mdx`));
+  const Post = dynamic(() => import(`../../../_posts/${postURL}.mdx`));
+
+  const toc = getPostTOC(postURL);
 
   return (
     <div className="relative">
+      {toc && <TOC toc={toc} />}
+
       <TopSection {...targetPost} />
 
       <div className="divider mb-6 mt-0" />
@@ -65,7 +76,7 @@ const Page: NextPage<Props> = async ({ params }) => {
 
       <div className="divider my-6" />
 
-      <SuggestSection baseURL={baseURL} />
+      <SuggestSection postURL={postURL} />
     </div>
   );
 };

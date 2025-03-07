@@ -6,7 +6,7 @@ import Blockquote from "#/components/mdx/Blockquote";
 import ListView from "#/app/_components/organisms/ListView";
 
 interface Props {
-  baseURL: string;
+  postURL: string;
 }
 
 const allPosts = getAllPosts();
@@ -14,21 +14,21 @@ const allPosts = getAllPosts();
 /** 게시글 기본 경로 */
 const DEFAULT_PATH = "/posts";
 
-const SuggestSection: React.FC<Props> = ({ baseURL }) => {
+const SuggestSection: React.FC<Props> = ({ postURL }) => {
   /** 관련 게시글 */
   const relatedPosts = useMemo(
     () =>
       allPosts.filter(({ path }) => {
-        const isSamePath = path === `${DEFAULT_PATH}/${baseURL}`;
+        const isSamePath = path === `${DEFAULT_PATH}/${postURL}`;
         if (isSamePath) return false;
 
         const firstBreadcrumb = path
           .slice(DEFAULT_PATH.length + 1)
           .split("/")[0];
 
-        return baseURL.includes(firstBreadcrumb ?? "");
+        return postURL.includes(firstBreadcrumb ?? "");
       }),
-    [baseURL],
+    [postURL],
   );
 
   const hasRelatedPosts = relatedPosts.length > 0;
