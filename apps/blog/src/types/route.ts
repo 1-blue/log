@@ -1,7 +1,7 @@
 import { PlayIcon as OPlayIcon } from "@heroicons/react/24/outline";
 import { PlayIcon as SPlayIcon } from "@heroicons/react/24/solid";
 
-import type { ISitemap } from "@repo/constants";
+import type { ISitemap } from "@workspace/constants";
 
 /** 경로에 대한 타입 */
 export interface IRoute {

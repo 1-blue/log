@@ -27,12 +27,14 @@ export const GET = async (req: NextRequest) => {
         $('meta[name="description"]').attr("content"),
       image: $('meta[property="og:image"]').attr("content"),
       siteName:
-        $('meta[property="og:site_name"]').attr("content") || "익명의 사이트",
+        $('meta[property="og:site_name"]').attr("content") ||
+        new URL(url).hostname,
       url,
     };
 
     return NextResponse.json(metadata);
   } catch (error) {
+    console.error("🚫 Error fetching metadata >> ", error);
     return NextResponse.json(
       { error: "Failed to fetch metadata" },
       { status: 500 },

@@ -1,37 +1,36 @@
-import type { Metadata } from "next";
+import { Metadata } from "next";
 
-import "@repo/tailwind-config/globals.css";
-import { CustomThemeProvider, ToastProvider } from "@repo/ui/providers";
+import { Toaster } from "@workspace/ui/components/sonner";
 
 import "#/css/globals.css";
-import { getSharedMetadata } from "#/libs/sharedMetadata";
+
+import ThemeProvider from "#/components/providers/ThemeProvider";
+import { getSharedMetadata } from "#/libs";
 import ScrollProgressbar from "#/components/layout/ScrollProgressbar";
-import FloatingMenu from "#/components/layout/Menu/FloatingMenu";
+import FAB from "#/components/layout/FAB/FAB";
 
 export const metadata: Metadata = getSharedMetadata();
 
-const RootLayout: React.FC<React.PropsWithChildren> = ({ children }) => {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="ko">
       <head></head>
+
       <body className="scroll-smooth p-4">
         <ScrollProgressbar />
 
-        <CustomThemeProvider>
-          <ToastProvider>
-            <FloatingMenu />
-            <main>{children}</main>
-          </ToastProvider>
-        </CustomThemeProvider>
+        <Toaster position="top-center" richColors />
 
-        {/* 토스트 포탈 */}
-        <aside
-          id="toast-root"
-          className="fixed left-1/2 top-0 z-[999] my-4 flex -translate-x-1/2 flex-col gap-4"
-        />
+        <ThemeProvider>
+          <FAB />
+
+          <main>{children}</main>
+        </ThemeProvider>
       </body>
     </html>
   );
-};
-
-export default RootLayout;
+}

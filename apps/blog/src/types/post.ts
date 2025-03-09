@@ -1,4 +1,4 @@
-import type { ISitemap } from "@repo/constants";
+import type { ISitemap } from "@workspace/constants";
 
 /** 게시글 메타 데이터 */
 export interface IPost {

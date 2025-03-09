@@ -1,14 +1,14 @@
-import Link from "next/link";
 import type { ImageProps } from "next/image";
 import type { MDXComponents } from "mdx/types";
 
-import { cn } from "@repo/ui/utils";
+import { cn } from "@workspace/ui/lib/utils";
 
 import Pre from "#/components/mdx/Pre";
 import Blockquote from "#/components/mdx/Blockquote";
 import Heading from "#/components/mdx/Heading";
 import Image from "#/components/mdx/Image";
 import LinkPreviewCard from "#/components/mdx/LinkPreviewCard";
+import Anchor from "#/components/mdx/Anchor";
 
 /** 모든 `.mdx`에 적용 ( `next.js`에서 약속된 이름 ) */
 export function useMDXComponents(components: MDXComponents): MDXComponents {
@@ -78,7 +78,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
         {...restProps}
         className={cn(
           typeof children === "string" &&
-            "rounded-sm bg-custom-less px-[5px] py-0.5 text-sm font-semibold text-main-400 dark:text-main-500",
+            "rounded-sm bg-accent px-[5px] py-[3px] text-sm font-semibold text-primary",
           className
         )}
       >
@@ -89,7 +89,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     ol: ({ children, ...restProps }) => (
       <ol
         {...restProps}
-        className="mb-4 mt-2 list-decimal space-y-1 pl-10 [ol_&]:mt-1 [blockquote_&]:pl-5"
+        className="mb-4 mt-2 list-decimal space-y-1 pl-6 [ol_&]:mt-1 [blockquote_&]:pl-5"
       >
         {children}
       </ol>
@@ -98,25 +98,16 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     ul: ({ children, ...restProps }) => (
       <ul
         {...restProps}
-        className="mb-4 mt-2 list-disc space-y-1 pl-10 group-has-[ul]:my-0 group-has-[ul]:pl-7 [blockquote_&]:pl-5"
+        className="mb-4 mt-2 list-disc space-y-1 pl-6 group-has-[ul]:my-0 group-has-[ul]:pl-7 [blockquote_&]:pl-5"
       >
         {children}
       </ul>
     ),
-    /** 링크 */
+    /** 링크 TODO: https://ui.shadcn.com/docs/components/hover-card */
     a: ({ href, children, className, ...restProps }) => (
-      <Link
-        {...restProps}
-        href={href!}
-        target="_blank"
-        rel="noreferrer noopener"
-        className={cn(
-          "font-semibold text-main-500 underline underline-offset-2 transition-colors hover:text-main-600",
-          className
-        )}
-      >
+      <Anchor href={href!} className={className} {...restProps}>
         {children}
-      </Link>
+      </Anchor>
     ),
     /** 인용 블럭 */
     blockquote: (props) => <Blockquote {...props} />,
@@ -126,7 +117,10 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     p: (props) => (
       <p
         {...props}
-        className={cn(props.className, "!mb-3 [blockquote_&]:!mb-0 break-keep")}
+        className={cn(
+          props.className,
+          "!mb-3 [blockquote_&]:!mb-0 break-keep tracking-normal leading-relaxed"
+        )}
       />
     ),
 

@@ -1,6 +1,6 @@
 import Link, { type LinkProps } from "next/link";
 import { TagIcon } from "@heroicons/react/24/solid";
-import { cn } from "@repo/ui/utils";
+import { cn } from "@workspace/ui/lib/utils";
 
 interface Props extends Partial<LinkProps> {
   tag: string;
@@ -9,11 +9,11 @@ interface Props extends Partial<LinkProps> {
 
 const Tag: React.FC<Props> = ({ tag, href, className, ...props }) => {
   return (
-    <li className="overflow-hidden rounded-sm bg-main-100 text-main-500 transition-colors hover:bg-main-200 dark:bg-main-200 dark:text-main-600 dark:hover:bg-main-300">
+    <li className="overflow-hidden rounded-sm transition-colors">
       <Link
         href={href ?? `/tags?tag=${tag}`}
         className={cn(
-          "inline-flex items-center gap-1.5 whitespace-nowrap px-2 py-1",
+          "bg-accent text-primary inline-flex items-center gap-1.5 rounded-sm px-2 py-1 whitespace-nowrap",
           className,
         )}
         {...props}

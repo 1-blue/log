@@ -6,7 +6,7 @@ import {
   ShieldExclamationIcon,
 } from "@heroicons/react/24/solid";
 
-import { cn } from "@repo/ui/utils";
+import { cn } from "@workspace/ui/lib/utils";
 
 /**
  * + 인용 블록 타입

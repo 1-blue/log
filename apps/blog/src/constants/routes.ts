@@ -1,15 +1,15 @@
 import {
-  ArchiveBoxIcon as OArchiveBoxIcon,
+  MapIcon as OMapIcon,
   NewspaperIcon as ONewspaperIcon,
   TagIcon as OTagIcon,
 } from "@heroicons/react/24/outline";
 import {
-  ArchiveBoxIcon as SArchiveBoxIcon,
+  MapIcon as SMapIcon,
   NewspaperIcon as SNewspaperIcon,
   TagIcon as STagIcon,
 } from "@heroicons/react/24/solid";
 
-import { DEFAULT_SITEMAP } from "@repo/constants";
+import { DEFAULT_SITEMAP } from "@workspace/constants";
 import type { IRoute } from "#/types";
 
 /** 전체 경로 */
@@ -23,10 +23,10 @@ export const ROUTES: IRoute[] = [
     sitemap: DEFAULT_SITEMAP,
   },
   {
-    path: "/archives",
-    Outline: OArchiveBoxIcon,
-    Solid: SArchiveBoxIcon,
-    label: "아카이브",
+    path: "/timeline",
+    Outline: OMapIcon,
+    Solid: SMapIcon,
+    label: "타임라인",
     isDraft: false,
     sitemap: DEFAULT_SITEMAP,
   },

@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 const anchorClassName =
-  "hover:after:visible after:invisible lg:after:absolute after:top-0 lg:after:right-full after:ml-2 lg:after:mr-2 after:px-2 after:bg-custom-less after:text-main-400 dark:after:text-main-500 after:rounded-md after:content-['#']";
+  "hover:after:visible after:invisible lg:after:absolute after:top-0 lg:after:right-full after:ml-2 lg:after:mr-2 after:px-2 after:bg-accent after:text-primary after:rounded-md after:content-['#']";
 
 interface Props extends React.HTMLAttributes<HTMLHeadingElement> {}
 
@@ -11,7 +11,7 @@ const H1: React.FC<React.PropsWithChildren<Props>> = ({
   ...restProps
 }) => (
   <h1
-    className="relative mb-5 mt-8 scroll-mt-20 text-4xl font-semibold"
+    className="relative mt-8 mb-5 scroll-mt-20 text-4xl font-semibold"
     {...restProps}
   >
     <Link
@@ -28,7 +28,7 @@ const H2: React.FC<React.PropsWithChildren<Props>> = ({
   ...restProps
 }) => (
   <h2
-    className="relative mb-4 mt-7 scroll-mt-20 text-3xl font-semibold"
+    className="relative mt-7 mb-4 scroll-mt-20 text-3xl font-semibold"
     {...restProps}
   >
     <Link
@@ -45,7 +45,7 @@ const H3: React.FC<React.PropsWithChildren<Props>> = ({
   ...restProps
 }) => (
   <h3
-    className="relative mb-3 mt-6 scroll-mt-20 text-2xl font-semibold"
+    className="relative mt-6 mb-3 scroll-mt-20 text-2xl font-semibold"
     {...restProps}
   >
     <Link
@@ -62,7 +62,7 @@ const H4: React.FC<React.PropsWithChildren<Props>> = ({
   ...restProps
 }) => (
   <h4
-    className="relative mb-2.5 mt-5 scroll-mt-20 text-xl font-semibold"
+    className="relative mt-5 mb-2.5 scroll-mt-20 text-xl font-semibold"
     {...restProps}
   >
     <Link
@@ -79,7 +79,7 @@ const H5: React.FC<React.PropsWithChildren<Props>> = ({
   ...restProps
 }) => (
   <h5
-    className="relative mb-2 mt-4 scroll-mt-20 text-lg font-semibold"
+    className="relative mt-4 mb-2 scroll-mt-20 text-lg font-semibold"
     {...restProps}
   >
     <Link
@@ -96,7 +96,7 @@ const H6: React.FC<React.PropsWithChildren<Props>> = ({
   ...restProps
 }) => (
   <h6
-    className="relative mb-2 mt-4 scroll-mt-20 text-base font-semibold"
+    className="relative mt-4 mb-2 scroll-mt-20 text-base font-semibold"
     {...restProps}
   >
     <Link

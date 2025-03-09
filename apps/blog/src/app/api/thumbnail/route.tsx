@@ -1,6 +1,5 @@
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
-import twColors from "tailwindcss/colors";
 
 export const runtime = "edge";
 
@@ -50,7 +49,7 @@ export const GET = async (req: NextRequest) => {
           flexFlow: "column nowrap",
           paddingTop: 240,
           gap: 100,
-          backgroundColor: twColors.blue[700],
+          backgroundColor: "#1d4ed8",
         }}
       >
         <div

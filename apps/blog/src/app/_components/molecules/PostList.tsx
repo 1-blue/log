@@ -48,11 +48,11 @@ const PostList: React.FC<Props> = ({ post }) => {
           <h2 className="line-clamp-1 text-lg font-bold">{post.title}</h2>
         </Link>
         <Link href={post.path} className="underline-offset-2 hover:underline">
-          <p className="mb-1 line-clamp-2 h-10 text-sm text-gray-500 sm:line-clamp-3 sm:h-16">
+          <p className="mb-1 line-clamp-2 text-sm text-gray-500 sm:line-clamp-3">
             {post.description}
           </p>
         </Link>
-        <ul className="flex flex-wrap gap-3 self-start pb-1 text-sm font-semibold">
+        <ul className="mt-auto flex flex-wrap gap-3 self-start pb-1 text-sm font-semibold">
           {post.tags.map((tag) => (
             <Tag key={tag} tag={tag} />
           ))}

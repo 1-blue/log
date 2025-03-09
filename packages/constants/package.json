@@ -1,6 +1,6 @@
 {
-  "name": "@repo/constants",
-  "version": "0.0.0",
+  "name": "@workspace/constants",
+  "version": "1.0.0",
   "private": true,
   "exports": {
     ".": "./src/index.ts"
@@ -8,8 +8,6 @@
   "scripts": {
     "check-types": "tsc --noEmit"
   },
-  "devDependencies": {
-  },
-  "dependencies": {
-  }
+  "devDependencies": {},
+  "dependencies": {}
 }
