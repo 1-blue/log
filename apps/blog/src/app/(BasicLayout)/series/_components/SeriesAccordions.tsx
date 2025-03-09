@@ -10,7 +10,7 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@workspace/ui/components/accordion";
+} from "@workspace/ui/components/Accordion";
 import {
   Breadcrumb,
   BreadcrumbItem,

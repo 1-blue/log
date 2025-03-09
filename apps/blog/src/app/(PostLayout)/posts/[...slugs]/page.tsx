@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata, NextPage } from "next";
 import dynamic from "next/dynamic";
 
-import { Separator } from "@workspace/ui/components/separator";
+import { Separator } from "@workspace/ui/components/Separator";
 
 import { getAllPosts, getPostTOC } from "#/libs/post";
 import { getSharedMetadata } from "#/libs";

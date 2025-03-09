@@ -13,7 +13,7 @@ import {
   Avatar,
   AvatarImage,
   AvatarFallback,
-} from "@workspace/ui/components/avatar";
+} from "@workspace/ui/components/Avatar";
 import { makeQueries } from "#/libs";
 interface IProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
   href: string;

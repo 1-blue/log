@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { cn } from "@workspace/ui/lib/utils";
 import { Button } from "@workspace/ui/components/Button";
@@ -18,7 +19,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@workspace/ui/components/Popover";
-import { useRouter } from "next/navigation";
 
 interface IProps {
   tags: string[];

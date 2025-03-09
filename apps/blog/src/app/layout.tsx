@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 
-import { Toaster } from "@workspace/ui/components/sonner";
+import { Toaster } from "@workspace/ui/components/Sonner";
 
 import "#/css/globals.css";
 
