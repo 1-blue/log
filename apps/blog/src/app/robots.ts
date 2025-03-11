@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
         allow: ["/"],
       },
     ],
-    sitemap: "https://trivia-log.vercel.app/sitemap.xml",
-    host: "https://trivia-log.vercel.app",
+    sitemap: "https://blog.story-dict.com/sitemap.xml",
+    host: "https://blog.story-dict.com",
   };
 }
