@@ -33,7 +33,6 @@ const Anchor: React.FC<React.PropsWithChildren<IProps>> = ({
   ...restProps
 }) => {
   const [metadata, setMetadata] = useState<IURLMetadata | null>(null);
-
   useEffect(() => {
     const fetchMetadata = async () => {
       try {
@@ -50,11 +49,25 @@ const Anchor: React.FC<React.PropsWithChildren<IProps>> = ({
     fetchMetadata();
   }, [href]);
 
+  const [convertedURL, setConvertedURL] = useState<string | null>(null);
+  useEffect(() => {
+    if (href.startsWith("http")) return;
+
+    // hostname (localhost:3000) 추출하기
+    const url = process.env.NEXT_PUBLIC_CLIENT_URL + href;
+    const hostname = new URL(url).host;
+    const lastPath = url.split("/").pop();
+
+    const searchQuery = `site:${hostname} ${lastPath}`;
+    const googleSearchURL = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
+    setConvertedURL(googleSearchURL);
+  }, [href]);
+
   return (
     <HoverCard>
       <HoverCardTrigger asChild>
         <Link
-          href={href}
+          href={convertedURL || href}
           target="_blank"
           rel="noreferrer noopener"
           className={cn(
