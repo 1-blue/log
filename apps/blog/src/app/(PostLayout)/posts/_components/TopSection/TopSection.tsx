@@ -45,7 +45,7 @@ const TopSection: React.FC<Props> = ({
 
   return (
     <section className="mt-6 flex flex-col items-center gap-4">
-      <h1 className="text-5xl leading-tight font-bold break-words break-keep whitespace-pre-wrap">
+      <h1 className="text-center text-5xl leading-tight font-bold break-words break-keep whitespace-pre-wrap">
         {title}
       </h1>
       <p className="text-xl font-semibold">{description}</p>

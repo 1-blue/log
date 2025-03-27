@@ -52,19 +52,25 @@ export const GET = async (req: NextRequest) => {
           backgroundColor: "#1d4ed8",
         }}
       >
-        <div
+        <ul
           style={{
             ...commonTextStyle,
             display: "flex",
+            flexDirection: "column",
             justifyContent: "center",
+            alignItems: "center",
             fontSize: 130,
             padding: "0 120px",
             wordBreak: "keep-all",
             lineHeight: 1.25,
+            textAlign: "center",
+            gap: "12px",
           }}
         >
-          {title}
-        </div>
+          {title.split("\n").map((line, index) => (
+            <li key={index}>{line}</li>
+          ))}
+        </ul>
         <div
           style={{
             ...commonTextStyle,
