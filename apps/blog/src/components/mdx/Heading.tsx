@@ -11,7 +11,7 @@ const H1: React.FC<React.PropsWithChildren<Props>> = ({
   ...restProps
 }) => (
   <h1
-    className="relative mt-8 mb-5 scroll-mt-20 text-4xl font-semibold"
+    className="relative mt-12 mb-6 scroll-mt-20 text-4xl font-semibold"
     {...restProps}
   >
     <Link
@@ -28,7 +28,7 @@ const H2: React.FC<React.PropsWithChildren<Props>> = ({
   ...restProps
 }) => (
   <h2
-    className="relative mt-7 mb-4 scroll-mt-20 text-3xl font-semibold"
+    className="relative mt-12 mb-6 scroll-mt-20 text-3xl font-semibold"
     {...restProps}
   >
     <Link
@@ -45,7 +45,7 @@ const H3: React.FC<React.PropsWithChildren<Props>> = ({
   ...restProps
 }) => (
   <h3
-    className="relative mt-6 mb-3 scroll-mt-20 text-2xl font-semibold"
+    className="relative mt-10 mb-5 scroll-mt-20 text-2xl font-semibold"
     {...restProps}
   >
     <Link
@@ -62,7 +62,7 @@ const H4: React.FC<React.PropsWithChildren<Props>> = ({
   ...restProps
 }) => (
   <h4
-    className="relative mt-5 mb-2.5 scroll-mt-20 text-xl font-semibold"
+    className="relative mt-10 mb-5 scroll-mt-20 text-xl font-semibold"
     {...restProps}
   >
     <Link
@@ -79,7 +79,7 @@ const H5: React.FC<React.PropsWithChildren<Props>> = ({
   ...restProps
 }) => (
   <h5
-    className="relative mt-4 mb-2 scroll-mt-20 text-lg font-semibold"
+    className="relative mt-10 mb-5 scroll-mt-20 text-lg font-semibold"
     {...restProps}
   >
     <Link
@@ -96,7 +96,7 @@ const H6: React.FC<React.PropsWithChildren<Props>> = ({
   ...restProps
 }) => (
   <h6
-    className="relative mt-4 mb-2 scroll-mt-20 text-base font-semibold"
+    className="relative mt-10 mb-5 scroll-mt-20 text-base font-semibold"
     {...restProps}
   >
     <Link

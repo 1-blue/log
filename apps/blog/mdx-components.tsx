@@ -70,7 +70,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     ),
     /** 코드 블럭 */
     pre: (props) => (
-      <Pre {...props} className={cn(props.className, "!mb-4 mt-2")} />
+      <Pre {...props} className={cn(props.className, "mt-2 !mb-4")} />
     ),
     /** 코드 */
     code: ({ children, className, ...restProps }) => (
@@ -78,8 +78,8 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
         {...restProps}
         className={cn(
           typeof children === "string" &&
-            "rounded-sm bg-accent px-[5px] py-[3px] text-sm font-semibold text-primary",
-          className
+            "bg-accent text-primary rounded-sm px-[5px] py-[3px] text-sm font-semibold",
+          className,
         )}
       >
         {children}
@@ -89,7 +89,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     ol: ({ children, ...restProps }) => (
       <ol
         {...restProps}
-        className="mb-4 mt-2 list-decimal space-y-1 pl-6 [ol_&]:mt-1 [blockquote_&]:pl-5"
+        className="mt-2 mb-4 list-decimal space-y-1 pl-6 [blockquote_&]:pl-5 [ol_&]:mt-1"
       >
         {children}
       </ol>
@@ -98,7 +98,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     ul: ({ children, ...restProps }) => (
       <ul
         {...restProps}
-        className="mb-4 mt-2 list-disc space-y-1 pl-6 group-has-[ul]:my-0 group-has-[ul]:pl-7 [blockquote_&]:pl-5"
+        className="mt-2 mb-4 list-disc space-y-1 pl-6 group-has-[ul]:my-0 group-has-[ul]:pl-7 [blockquote_&]:pl-5"
       >
         {children}
       </ul>
@@ -119,7 +119,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
         {...props}
         className={cn(
           props.className,
-          "!mb-3 [blockquote_&]:!mb-0 break-keep tracking-normal leading-relaxed"
+          "!mb-4 leading-relaxed tracking-normal break-keep [blockquote_&]:!mb-0",
         )}
       />
     ),

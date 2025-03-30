@@ -48,7 +48,7 @@ const LinkPreviewCard: React.FC<IProps> = ({ href }) => {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="group my-5 block"
+      className="group mb-5 block"
     >
       <div className="bg-base-300 bg-accent relative flex max-w-3xl gap-2 overflow-hidden rounded-lg shadow-xl">
         <figure className="aspect-[16/12] w-[150px] flex-shrink-0 overflow-hidden sm:w-[200px]">
