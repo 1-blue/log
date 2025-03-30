@@ -1,0 +1,323 @@
+---
+title: "항해 플러스 프론트엔드\n2주차 회고"
+description: "항해 플러스 프론트엔드 5기 2주차\n그 과정에 대한 회고글입니다."
+tags: ["항해 플러스", "항해 플러스 프론트엔드 5기", "항해 플러스 회고", "항해 플러스 회고 2주차"]
+icon: ""
+thumbnail: ""
+createdAt: 2025-03-24 22:09:00
+publishedAt: 2025-03-27 23:18:00
+sitemap:
+  lastmod: 2025-03-27 23:18:00
+  changefreq: weekly
+  priority: 0.5
+draft: false
+---
+
+> 항해 플러스 프론트엔드 5기 2주차 과제에 그 과정에 대한 회고글입니다.
+> ( 바닐라 자바스크립트로 `SPA` 구현하기: 가상돔 직접 구현하기 )
+
+## 🧿 프라그마
+> 프라그마(`pragma`)는 프로그래밍 언어에서 컴파일러나 인터프리터에게 특별한 지시를 내리는 메타데이터입니다.
+> 이번 과제에서는 `jsx`를 변환해주는거라서 트랜스파일러에서 지시를 내리는 목적으로 사용한 것 같아요
+
+<LinkPreviewCard href="https://ko.vite.dev/config/shared-options#esbuild" />
+
+이번 과제를 진행하려고 코드를 봤는데 대부분의 파일 최상단에 `/** @jsx createVNode */` 이런 구문이 있었어요.<br />
+처음 느낌으로는 아마 `jsx`를 변환할때 `createVNode()`를 사용하는게 아닐까 생각만하고 과제부터 진행하려고 넘어갔어요.<br />
+
+과제를 어느정도 진행하고 정리하면서 해당 부분에 대해서 알아봤는데 `pragma`라고 부르고 `vite`에서 설정해주면 `jsx`를 변환할때 사용할 함수를 트랜스파일러에게 알려주는 역할을 해요.<br />
+
+<Blockquote type="tip">
+옛날에 공부용으로 `babel`을 이용해서 `jsx`를 직접 변환해본적이 있는데 그때 변환했을때 `/*#__PURE__*/` 이런 주석이 붙어있었어요.<br />
+그 당시에 찾아봤을때 순수 컴포넌트임을 컴파일러한테 알려주는 역할이라고 이해했었는데 이런것을 부르는 명칭이 있다는걸 이제 알았네요..!<br />
+</Blockquote>
+
+<LinkPreviewCard href="https://1-blue.github.io/posts/babel/#1%EF%B8%8F%E2%83%A3-%EB%AA%85%EB%A0%B9%EC%96%B4" />
+
+## 🔮 테스트 코드
+아래는 설명을 위한 예시 코드입니다.<br />
+
+```jsx
+const UnorderedList = ({ children, ...props }) => (
+  <ul {...props}>{children}</ul>
+);
+const ListItem = ({ children, className, ...props }) => (
+  <li {...props} className={`list-item ${className ?? ""}`}>
+    - {children}
+  </li>
+);
+const TestComponent = () => (
+  <UnorderedList>
+    <ListItem id="item-1">Item 1</ListItem>
+    <ListItem id="item-2">Item 2</ListItem>
+    <ListItem id="item-3" className="last-item">
+      Item 3
+    </ListItem>
+  </UnorderedList>
+);
+```
+
+### 0️⃣ createVNode
+```jsx
+import { getTypes } from "../utils";
+
+/**
+ * @param {keyof HTMLElementTagNameMap} type - 노드의 영문명
+ * @param {Object} props - 노드의 속성
+ * @param {...any} children - 노드의 자식
+ * @returns {{
+ *  type: keyof HTMLElementTagNameMap,
+ *  props: Object,
+ *  children: any[]
+ * }} VNode
+ */
+export function createVNode(type, props, ...children) {
+  const invalidTypes = ["null", "undefined", "boolean"];
+
+  const flattenChildren = children
+    .flat(Infinity)
+    .filter((child) => !invalidTypes.includes(getTypes(child)));
+
+  return {
+    type,
+    props,
+    children: flattenChildren,
+  };
+}
+```
+
+`jsx`를 받아서 특정 형태의 객체로 반환하는 함수에요.<br />
+( `type`, `props`, `children`을 가진 객체를 반환하는 함수 )
+
+<Blockquote type="tip">
+여기서 `type`은 `HTML`의 `TagName`이거나 컴포넌트 함수 자체일 수 있어요.<br />
+</Blockquote>
+
+`jsx`에서 `falsy`한 값이나 `boolean`은 화면에 렌더링하지 않아서 해당 부분은 제외하고 반환하게 만들어줘야해요.<br />
+그리고 의문이 하나 있는데 테스트 코드에 있어서 구현은 했지만 `children`을 평탄화하는 이유를 모르겠어요.<br />
+
+```jsx
+const vNode = createVNode(<TestComponent />);
+
+{
+  "props": null,
+  "children": [],
+  // TestComponent
+  "type": () => {
+    // ...
+  }
+}
+```
+
+### 1️⃣ normalizeVNode
+```jsx
+import { getTypes } from "../utils";
+
+/**
+ * 가상 DOM 노드 타입 정의
+ * @typedef {Object} VNode
+ * @property {keyof HTMLElementTagNameMap|Function} type - 노드의 타입 ( HTML 태그명 or 컴포넌트 함수 )
+ * @property {Object|null} props - 노드의 속성들
+ * @property {Array<string|number|VNode>} children - 자식 노드들
+ */
+
+/**
+ * 가상 돔 노드를 정규화
+ *
+ * @param {VNode|null|undefined|boolean|number|string} vNode - 정규화할 가상 돔 노드 or 원시 값
+ * @returns {string|VNode} 정규화된 가상 돔 노드 or 문자열
+ */
+export function normalizeVNode(vNode) {
+  const vNodeType = getTypes(vNode);
+  const invalidTypes = ["null", "undefined", "boolean"];
+
+  if (invalidTypes.includes(vNodeType)) {
+    return "";
+  }
+
+  const textNodeTypes = ["string", "number"];
+  if (textNodeTypes.includes(vNodeType)) {
+    return String(vNode);
+  }
+
+  if (typeof vNode.type === "function") {
+    const renderedNode = vNode.type({
+      ...vNode.props,
+      children: vNode.children,
+    });
+
+    return normalizeVNode(renderedNode);
+  }
+
+  const normalizedChildren = vNode.children
+    ? vNode.children
+        .filter((child) => !invalidTypes.includes(getTypes(child)))
+        .map((child) =>
+          typeof child === "object" ? normalizeVNode(child) : child,
+        )
+    : [];
+
+  return { ...vNode, children: normalizedChildren };
+}
+```
+
+`createVNode()`를 통해서 `jsx`가 변환된 `vNode`를 정규화하는 함수에요.<br />
+`vNode`의 타입에 따라서 처리하는 방식이 달라지고, 재귀적으로 돌아서 모든 `children`을 정규화해요.<br />
+
+```jsx
+const nomarlizedVNode = normalizeVNode(vNode);
+
+// 정규화 결과 ( nomarlizedVNode )
+// {
+//   type: "ul",
+//   props: {},
+//   children: [
+//     {
+//       type: "li",
+//       children: ["- ", "Item 1"],
+//       props: {
+//         className: "list-item ",
+//         id: "item-1",
+//       },
+//     },
+//     {
+//       type: "li",
+//       children: ["- ", "Item 2"],
+//       props: {
+//         className: "list-item ",
+//         id: "item-2",
+//       },
+//     },
+//     {
+//       type: "li",
+//       children: ["- ", "Item 3"],
+//       props: {
+//         className: "list-item last-item",
+//         id: "item-3",
+//       },
+//     },
+//   ],
+// };
+```
+
+### 2️⃣ createElement
+```jsx
+import { getTypes } from "../utils";
+
+export function createElement(vNode) {
+  const vNodeType = getTypes(vNode);
+
+  const invalidTypes = ["null", "undefined", "boolean"];
+  if (invalidTypes.includes(vNodeType)) {
+    return document.createTextNode("");
+  }
+
+  const textNodeTypes = ["string", "number"];
+  if (textNodeTypes.includes(vNodeType)) {
+    return document.createTextNode(vNode);
+  }
+
+  if (vNodeType === "object") {
+    /** @type {HTMLElement} */
+    const $el = document.createElement(vNode.type);
+
+    if (vNode.props) {
+      Object.entries(vNode.props).forEach(([key, value]) => {
+        // data-set 속성 처리
+        if (/data-/.test(key)) {
+          $el.dataset[key.replace("data-", "")] = value;
+        }
+        // 이벤트 속성 처리
+        else if (/on[A-Z]/.test(key)) {
+          $el.addEventListener(key.replace("on", "").toLowerCase(), value);
+        }
+        // 일반 속성 처리
+        else {
+          $el[key] = value;
+        }
+      });
+    }
+
+    vNode.children
+      .filter((child) => child !== undefined)
+      .forEach((child) => $el.appendChild(createElement(child)));
+
+    return $el;
+  }
+
+  if (vNodeType === "array") {
+    const $el = document.createDocumentFragment();
+    vNode.forEach((child) => $el.appendChild(createElement(child)));
+
+    return $el;
+  }
+}
+```
+
+`normalizeVNode`로 정규화된 `vNode`를 실제 노드로 변환하는 함수에요.<br />
+여기도 마찬가지로 `type`마다 처리가 달라지고, 재귀적으로 돌아서 모든 `children`을 변환해요.<br />
+
+```jsx
+const $el = createElement(nomarlizedVNode);
+
+// <ul>
+//   <li id="item-1" class="list-item ">
+//     - Item 1
+//   </li>
+//   <li id="item-2" class="list-item ">
+//     - Item 2
+//   </li>
+//   <li id="item-3" class="list-item last-item">
+//     - Item 3
+//   </li>
+// </ul>
+```
+
+### 3️⃣ eventManager
+> 나중에 작성할 예정 .. 현재 테스트 코드는 통과하는데 제대로 구현된게 아닌 것 같음
+
+### 4️⃣ renderElement
+```jsx
+import { setupEventListeners } from "./eventManager";
+import { createElement } from "./createElement";
+import { normalizeVNode } from "./normalizeVNode";
+
+/**
+ * @param {VNode} vNode
+ * @param {HTMLElement} container
+ */
+export function renderElement(vNode, container) {
+  // 정규화
+  const normalizedVNode = normalizeVNode(vNode);
+
+  // 노드 생성
+  const element = createElement(normalizedVNode);
+
+  const isFirstRender = container.children.length === 0;
+
+  // 최초 렌더링시에는 createElement로 DOM을 생성하고
+  if (isFirstRender) {
+    container.appendChild(element);
+  }
+  // FIXME: 이후에는 updateElement로 기존 DOM을 업데이트한다.
+  else {
+    container.innerHTML = "";
+    container.appendChild(element);
+  }
+
+  // 이벤트 등록
+  setupEventListeners(container);
+}
+```
+
+이전에 작성했던 함수들을 통해 가상 노드를 실제 노드로 만들고 HTML에 렌더링하는 함수에요.<br />
+최초 렌더링 이후 업데이트하는 로직은 미완성이라 변경되면 모든 노드를 다시 렌더링하도록 임시로 처리해뒀어요.<br />
+
++ 실행 순서
+1. `createVNode()`: `jsx`를 받아서 `vNode`로 변환
+2. `normalizeVNode()`: `vNode`를 정규화
+3. `createElement()`: 정규화된 `vNode`를 실제 노드로 변환
+4. `renderElement()`: 실제 노드를 `HTML`에 렌더링
+
+## 🧨 실수한것
+1. 이벤트는 해당 엘리먼트에 등록하되 상위에서 처리하는 방식으로 구현해야하는데 최상위에 등록했음
