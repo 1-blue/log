@@ -8,12 +8,6 @@ const DEFAULT_DESCRIPTION = `내가 만든 게시글과 썸네일\n그리고 아
 const DEFAULT_PUBLISHED_AT = new Date();
 const DEFAULT_AUTHOR = "박상은 ( 1-blue )";
 
-const limitLines = (text: string, maxLines: number = 3) => {
-  const lines = text.split("\n");
-  if (lines.length <= maxLines) return text;
-  return lines.slice(0, maxLines).join("\n") + "...";
-};
-
 export const GET = async (req: NextRequest) => {
   const font = await fetch(
     new URL("../../../../public/fonts/Moneygraphy-Pixel.woff", import.meta.url),
@@ -47,8 +41,8 @@ export const GET = async (req: NextRequest) => {
           width: "100%",
           display: "flex",
           flexFlow: "column nowrap",
-          paddingTop: 240,
-          gap: 100,
+          paddingTop: 160,
+          gap: 60,
           backgroundColor: "#1d4ed8",
         }}
       >
@@ -71,20 +65,22 @@ export const GET = async (req: NextRequest) => {
             <li key={index}>{line}</li>
           ))}
         </ul>
-        <div
+        <ul
           style={{
             ...commonTextStyle,
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
             fontSize: 80,
             textAlign: "center",
-            padding: "0 120px",
             wordBreak: "keep-all",
           }}
         >
-          {limitLines(description)}
-        </div>
+          {description.split("\n").map((line, index) => (
+            <li key={index}>{line}</li>
+          ))}
+        </ul>
 
         <div
           style={{
