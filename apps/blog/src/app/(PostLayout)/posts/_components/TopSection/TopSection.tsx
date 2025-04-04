@@ -2,6 +2,7 @@ import {
   Bars3BottomLeftIcon,
   CalendarDaysIcon,
   ClockIcon,
+  CalendarIcon,
   DocumentIcon,
   FolderIcon as OFolderIcon,
 } from "@heroicons/react/24/outline";
@@ -25,6 +26,7 @@ interface Props extends IPostWithETC {}
 const TopSection: React.FC<Props> = ({
   title,
   description,
+  createdAt,
   publishedAt,
   readingMinutes,
   wordCount,
@@ -50,9 +52,15 @@ const TopSection: React.FC<Props> = ({
       </h1>
       <p className="text-xl font-semibold">{description}</p>
       <div className="flex gap-4 text-xs *:flex *:items-center *:gap-1">
-        <div>
-          <CalendarDaysIcon className="h-5 w-5" />
-          <time>{publishedAt}</time>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-1">
+            <CalendarDaysIcon className="h-5 w-5" />
+            <time>게시일: {createdAt}</time>
+          </div>
+          <div className="flex items-center gap-1">
+            <CalendarIcon className="h-5 w-5" />
+            <time>수정일: {publishedAt}</time>
+          </div>
         </div>
         <div>
           <ClockIcon className="h-5 w-5" />

@@ -146,7 +146,7 @@ const TOC: React.FC<IProps> = ({ toc }) => {
           <li
             key={id}
             className="relative leading-tight transition-colors"
-            style={{ paddingLeft: `${(depth - 1) * 8}px` }}
+            style={{ paddingLeft: `${(depth - 1) * 12}px` }}
             data-id={id}
           >
             {id === activeId && (
@@ -160,7 +160,7 @@ const TOC: React.FC<IProps> = ({ toc }) => {
               href={`#${id}`}
               onClick={handleClick(id)}
               className={cn(
-                "hover:bg-base-300 hover:text-primary block truncate rounded-md px-2 py-1 text-sm text-gray-600 transition-colors",
+                "hover:bg-base-300 hover:text-primary block truncate rounded-md py-1 text-sm text-gray-600 transition-colors",
                 activeId === id && "text-primary font-medium",
               )}
             >

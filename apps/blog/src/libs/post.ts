@@ -35,8 +35,10 @@ export const getAllPosts = cache((publishedOnly = true): IPostWithETC[] => {
     return {
       content,
       ...metadata,
-      createdAt: dayjs(metadata.createdAt).format("YYYY-MM-DD"),
-      publishedAt: dayjs(metadata.publishedAt).format("YYYY-MM-DD"),
+      createdAt: dayjs(data.createdAt).subtract(9, "hour").format("YYYY-MM-DD"),
+      publishedAt: dayjs(data.publishedAt)
+        .subtract(9, "hour")
+        .format("YYYY-MM-DD"),
       path: DEFAULT_PATH + relativePostPath,
       thumbnail:
         metadata.thumbnail ||
