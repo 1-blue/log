@@ -5,16 +5,16 @@ tags: ["항해 플러스", "항해 플러스 프론트엔드 5기", "항해 플�
 icon: ""
 thumbnail: ""
 createdAt: 2025-03-30 22:09:00
-publishedAt: 2025-03-30 22:40:00
+publishedAt: 2025-04-04 21:01:00
 sitemap:
-  lastmod: 2025-03-30 22:40:00
+  lastmod: 2025-04-04 21:01:00
   changefreq: weekly
   priority: 0.5
 draft: false
 ---
 
-> 항해 플러스 프론트엔드 5기 2주차 그 과정에 대한 회고글입니다.
-> ( 바닐라 자바스크립트로 `SPA` 구현하기: 가상돔 직접 구현하기 )
+> 항해 플러스 프론트엔드 5기 2주차 그 과정에 대한 회고글입니다.<br />
+> ( 바닐라 자바스크립트로 구현된 `SPA`에 가상돔 적용하기 )
 
 ## 🧿 프라그마
 > 프라그마(`pragma`)는 프로그래밍 언어에서 컴파일러나 인터프리터에게 특별한 지시를 내리는 메타데이터입니다.
@@ -34,7 +34,7 @@ draft: false
 
 <LinkPreviewCard href="https://1-blue.github.io/posts/babel/#1%EF%B8%8F%E2%83%A3-%EB%AA%85%EB%A0%B9%EC%96%B4" />
 
-## 🔮 테스트 코드
+## 🔮 기본 테스트 코드
 아래는 설명을 위한 예시 코드입니다.<br />
 
 ```jsx
@@ -58,33 +58,7 @@ const TestComponent = () => (
 ```
 
 ### 0️⃣ createVNode
-```jsx
-import { getTypes } from "../utils";
-
-/**
- * @param {keyof HTMLElementTagNameMap} type - 노드의 영문명
- * @param {Object} props - 노드의 속성
- * @param {...any} children - 노드의 자식
- * @returns {{
- *  type: keyof HTMLElementTagNameMap,
- *  props: Object,
- *  children: any[]
- * }} VNode
- */
-export function createVNode(type, props, ...children) {
-  const invalidTypes = ["null", "undefined", "boolean"];
-
-  const flattenChildren = children
-    .flat(Infinity)
-    .filter((child) => !invalidTypes.includes(getTypes(child)));
-
-  return {
-    type,
-    props,
-    children: flattenChildren,
-  };
-}
-```
+> 자세한 코드는 [GitHub](https://github.com/1-blue/front_5th_chapter1-2/blob/main/src/lib/createVNode.js)을 참고해주세요
 
 `jsx`를 받아서 특정 형태의 객체로 반환하는 함수에요.<br />
 ( `type`, `props`, `children`을 가진 객체를 반환하는 함수 )
@@ -110,58 +84,10 @@ const vNode = createVNode(<TestComponent />);
 ```
 
 ### 1️⃣ normalizeVNode
-```jsx
-import { getTypes } from "../utils";
-
-/**
- * 가상 DOM 노드 타입 정의
- * @typedef {Object} VNode
- * @property {keyof HTMLElementTagNameMap|Function} type - 노드의 타입 ( HTML 태그명 or 컴포넌트 함수 )
- * @property {Object|null} props - 노드의 속성들
- * @property {Array<string|number|VNode>} children - 자식 노드들
- */
-
-/**
- * 가상 돔 노드를 정규화
- *
- * @param {VNode|null|undefined|boolean|number|string} vNode - 정규화할 가상 돔 노드 or 원시 값
- * @returns {string|VNode} 정규화된 가상 돔 노드 or 문자열
- */
-export function normalizeVNode(vNode) {
-  const vNodeType = getTypes(vNode);
-  const invalidTypes = ["null", "undefined", "boolean"];
-
-  if (invalidTypes.includes(vNodeType)) {
-    return "";
-  }
-
-  const textNodeTypes = ["string", "number"];
-  if (textNodeTypes.includes(vNodeType)) {
-    return String(vNode);
-  }
-
-  if (typeof vNode.type === "function") {
-    const renderedNode = vNode.type({
-      ...vNode.props,
-      children: vNode.children,
-    });
-
-    return normalizeVNode(renderedNode);
-  }
-
-  const normalizedChildren = vNode.children
-    ? vNode.children
-        .filter((child) => !invalidTypes.includes(getTypes(child)))
-        .map((child) =>
-          typeof child === "object" ? normalizeVNode(child) : child,
-        )
-    : [];
-
-  return { ...vNode, children: normalizedChildren };
-}
-```
+> 자세한 코드는 [GitHub](https://github.com/1-blue/front_5th_chapter1-2/blob/main/src/lib/normalizeVNode.js)을 참고해주세요
 
 `createVNode()`를 통해서 `jsx`가 변환된 `vNode`를 정규화하는 함수에요.<br />
+정규화란 `jsx`를 통해 입력된 값들을 정해진 형식의 객체로 변환하는 과정을 말해요.<br />
 `vNode`의 타입에 따라서 처리하는 방식이 달라지고, 재귀적으로 돌아서 모든 `children`을 정규화해요.<br />
 
 ```jsx
@@ -201,61 +127,11 @@ const nomarlizedVNode = normalizeVNode(vNode);
 ```
 
 ### 2️⃣ createElement
-```jsx
-import { getTypes } from "../utils";
-
-export function createElement(vNode) {
-  const vNodeType = getTypes(vNode);
-
-  const invalidTypes = ["null", "undefined", "boolean"];
-  if (invalidTypes.includes(vNodeType)) {
-    return document.createTextNode("");
-  }
-
-  const textNodeTypes = ["string", "number"];
-  if (textNodeTypes.includes(vNodeType)) {
-    return document.createTextNode(vNode);
-  }
-
-  if (vNodeType === "object") {
-    /** @type {HTMLElement} */
-    const $el = document.createElement(vNode.type);
-
-    if (vNode.props) {
-      Object.entries(vNode.props).forEach(([key, value]) => {
-        // data-set 속성 처리
-        if (/data-/.test(key)) {
-          $el.dataset[key.replace("data-", "")] = value;
-        }
-        // 이벤트 속성 처리
-        else if (/on[A-Z]/.test(key)) {
-          $el.addEventListener(key.replace("on", "").toLowerCase(), value);
-        }
-        // 일반 속성 처리
-        else {
-          $el[key] = value;
-        }
-      });
-    }
-
-    vNode.children
-      .filter((child) => child !== undefined)
-      .forEach((child) => $el.appendChild(createElement(child)));
-
-    return $el;
-  }
-
-  if (vNodeType === "array") {
-    const $el = document.createDocumentFragment();
-    vNode.forEach((child) => $el.appendChild(createElement(child)));
-
-    return $el;
-  }
-}
-```
+> 자세한 코드는 [GitHub](https://github.com/1-blue/front_5th_chapter1-2/blob/main/src/lib/createElement.js)을 참고해주세요
 
 `normalizeVNode`로 정규화된 `vNode`를 실제 노드로 변환하는 함수에요.<br />
 여기도 마찬가지로 `type`마다 처리가 달라지고, 재귀적으로 돌아서 모든 `children`을 변환해요.<br />
+( 실제 노드로 변환해야하기 때문에 `document.createElement()`나 `setAttribute()`같은 메서드를 사용해야해요. )<br />
 
 ```jsx
 const $el = createElement(nomarlizedVNode);
@@ -273,14 +149,82 @@ const $el = createElement(nomarlizedVNode);
 // </ul>
 ```
 
+그리고 실제 노드로 변환하는 과정에서 이벤트 리스너를 특정 노드에 등록하지않고, 이벤트 매니저를 통해서 최상위에서 관리하는 방식으로 구현해야해서 아래처럼 처리했어요.<br />
+
+```diff-js
+Object.entries(vNode.props).forEach(([key, value]) => {
+  if (key === "className") {
+    $el.setAttribute("class", value);
+  }
+  // 이벤트 속성 처리
+  else if (key.startsWith("on")) {
+-    $el.addEventListener(key.replace("on", "").toLowerCase(), value);
++    addEvent($el, key.replace("on", "").toLowerCase(), value);
+  }
+  // 일반 속성 처리
+  else {
+    $el.setAttribute(key, value);
+  }
+});
+```
+
 ### 3️⃣ eventManager
-> 나중에 작성할 예정 .. 현재 테스트 코드는 통과하는데 제대로 구현된게 아닌 것 같음
+> 자세한 코드는 [GitHub](https://github.com/1-blue/front_5th_chapter1-2/blob/main/src/lib/eventManager.js)을 참고해주세요
+
+이벤트를 통합적으로 관리해주는 함수에요.<br />
+일반적으로 버튼에 이벤트를 등록한다면 `button.addEventListener("click", () => {})` 이런식으로 등록하죠.<br />
+근데 이벤트 매니저는 이벤트들 모두 모아서 최상위 `root` 엘리먼트에 등록하고 버블링을 이용해서 특정 엘리먼트의 이벤트를 실행해요.<br />
+따라서 특정 페이지에 `onClick` 이벤트가 100개 있더라도 하나의 `eventListener`로 관리할 수 있게 돼요.<br />
+
+제가 사용한 방식은 아마 정석은 아닌 것 같아요.<br />
+일반적으로 이벤트가 등록/삭제될때마다 루트에 이벤트 리스너가 등록/삭제되어야하는데 저는 시작할때 모든 이벤트 리스너를 등록해두고 그 이벤트 리스트너가 참조하는 값에 이벤트 함수를 계속 추가하는 방식으로 구현했어요.<br />
+따라서 `setupEventListeners()`라는 함수를 최초 1회만 실행하도록 처리했어요.<br />
+
+```js
+const event = {
+  root: null,
+  map: new Map(),
+  // ["click", "submit", "mouseover", "focus", "keydown"]
+  types: new Set(EVENT_TYPES),
+};
+
+/**
+ * @param {HTMLElement} root
+ */
+export function setupEventListeners(root) {
+  const currentRoot = event.root;
+  if (currentRoot !== root) {
+    event.root = root;
+  }
+
+  event.types.forEach((eventType) => {
+    root.addEventListener(eventType, (e) => {
+      event.map.get(e.target)?.get(eventType)?.(e);
+    });
+  });
+}
+```
 
 ### 4️⃣ renderElement
-```jsx
+> 자세한 코드는 [GitHub](https://github.com/1-blue/front_5th_chapter1-2/blob/main/src/lib/renderElement.js)을 참고해주세요
+
+이전에 작성했던 함수들을 통해 가상 노드를 실제 노드로 만들고 루트 엘리먼트에 추가하는 함수에요.<br />
+최초 렌더링 이후 업데이트하는 로직은 미완성이라 변경되면 모든 노드를 다시 렌더링하도록 임시로 처리해뒀어요.<br />
+
++ 실행 순서
+1. `createVNode()`: `jsx`를 받아서 `vNode`로 변환 ( 프라그마(?)를 통해 이미 처리된 값을 받음 )
+2. `normalizeVNode()`: `vNode`를 정규화
+3. `createElement()`: 정규화된 `vNode`를 실제 노드로 변환
+4. `renderElement()`: 실제 노드를 `HTML`에 렌더링
+5. `setupEventListeners()`: 최상위 엘리먼트에 이벤트 리스너 등록
+
+```js
 import { setupEventListeners } from "./eventManager";
 import { createElement } from "./createElement";
 import { normalizeVNode } from "./normalizeVNode";
+import { updateElement } from "./updateElement";
+
+const elementMap = new Map();
 
 /**
  * @param {VNode} vNode
@@ -290,34 +234,217 @@ export function renderElement(vNode, container) {
   // 정규화
   const normalizedVNode = normalizeVNode(vNode);
 
-  // 노드 생성
-  const element = createElement(normalizedVNode);
+  const isFirstRender = container.children.length === 0;
+
+  // 최초 렌더링시에는 createElement로 DOM을 생성하고
+  if (isFirstRender) {
+    const newElement = createElement(normalizedVNode);
+    container.appendChild(newElement);
+
+    setupEventListeners(container);
+  }
+  // 이후에는 updateElement로 기존 DOM을 업데이트한다.
+  else {
+    const newElement = createElement(normalizedVNode);
+    container.appendChild(newElement);
+  }
+
+  elementMap.set("vNode", normalizedVNode);
+}
+```
+
+## 🎁 심화 테스트 코드
+
+### 0️⃣ updateElement
+> 자세한 코드는 [GitHub](https://github.com/1-blue/front_5th_chapter1-2/blob/main/src/lib/updateElement.js)을 참고해주세요
+
+이 함수는 리랜더링 시 변환된 부분만 업데이트하는 함수에요.<br />
+만약 아래처럼 엘리먼트가 바뀌는 경우라면 `<ul>`이나 `Item 3`는 변경사항이 없고 `Item 1`과 `Item 2`만 변경돼요.<br />
+그리고 `Item 2`처럼 속성이 변경되는 경우는 속성만 변경되고 엘리먼트 자체는 변경되지 않아요.<br />
+
+```diff-jsx
+const UnorderedList = ({ children, ...props }) => (
+  <ul {...props}>{children}</ul>
+);
+const ListItem = ({ children, className, ...props }) => (
+  <li {...props} className={`list-item ${className ?? ""}`}>
+    - {children}
+  </li>
+);
+const TestComponent = () => (
+  <UnorderedList>
+-    <ListItem id="item-1">Item 1</ListItem>
++    <ListItem id="item-1">Item 11</ListItem>
+-    <ListItem id="item-2" className="bg-indigo-500">Item 2</ListItem>
++    <ListItem id="item-2" className="bg-red-500">Item 2</ListItem>
+    <ListItem id="item-3" className="last-item">
+      Item 3
+    </ListItem>
+  </UnorderedList>
+);
+```
+
+![updateElement](/images/posts/hanghae/frontend/02주차/1.gif)
+
+### 1️⃣ renderElement 수정
+> 자세한 코드는 [GitHub](https://github.com/1-blue/front_5th_chapter1-2/blob/main/src/lib/renderElement.js)을 참고해주세요
+
+기본 과제에서 작성한 부분에서 초기 렌더링 여부 판단하는 값과 이전 렌더링에 사용한 가상노드를 저장하는 로직을 추가했어요.<br />
+그리고 리랜더링 시 변환된 부분만 업데이트하는 `updateElement()`가 추가했어요.<br />
+
+```diff-js
+// ... 생략
+import { updateElement } from "./updateElement";
+
+/**
+ * @param {VNode} vNode
+ * @param {HTMLElement} container
+ */
+export function renderElement(vNode, container) {
+  // 정규화
+  const normalizedVNode = normalizeVNode(vNode);
 
   const isFirstRender = container.children.length === 0;
 
   // 최초 렌더링시에는 createElement로 DOM을 생성하고
   if (isFirstRender) {
-    container.appendChild(element);
+    const newElement = createElement(normalizedVNode);
+    container.appendChild(newElement);
+
+    setupEventListeners(container);
   }
-  // FIXME: 이후에는 updateElement로 기존 DOM을 업데이트한다.
+  // 이후에는 updateElement로 기존 DOM을 업데이트한다.
   else {
-    container.innerHTML = "";
-    container.appendChild(element);
+-    const newElement = createElement(normalizedVNode);
+-    container.appendChild(newElement);
++    const oldVNode = elementMap.get("vNode");
++    updateElement(container, normalizedVNode, oldVNode);
   }
 
-  // 이벤트 등록
-  setupEventListeners(container);
+  elementMap.set("vNode", normalizedVNode);
 }
 ```
 
-이전에 작성했던 함수들을 통해 가상 노드를 실제 노드로 만들고 HTML에 렌더링하는 함수에요.<br />
-최초 렌더링 이후 업데이트하는 로직은 미완성이라 변경되면 모든 노드를 다시 렌더링하도록 임시로 처리해뒀어요.<br />
+## 🔥 그 이외의 코드 파악
+### 0️⃣ createObserver
+```js
+export const createObserver = () => {
+  const listeners = new Set();
+  const subscribe = (fn) => listeners.add(fn);
+  const notify = () => listeners.forEach((listener) => listener());
 
-+ 실행 순서
-1. `createVNode()`: `jsx`를 받아서 `vNode`로 변환
-2. `normalizeVNode()`: `vNode`를 정규화
-3. `createElement()`: 정규화된 `vNode`를 실제 노드로 변환
-4. `renderElement()`: 실제 노드를 `HTML`에 렌더링
+  return { subscribe, notify };
+};
+```
 
-## 🧨 실수한것
-1. 이벤트는 해당 엘리먼트에 등록하되 상위에서 처리하는 방식으로 구현해야하는데 최상위에 등록했음
+이 함수는 [옵저버 패턴](https://patterns-dev-kr.github.io/design-patterns/observer-pattern)을 구현한 함수에요.<br />
++ `listeners`: 실행할 함수들 보관
++ `subscribe`: 요청이 오면 실행할 함수 등록
++ `notify`: 등록된 함수들 실행하도록 요청
+
+해당 방법을 이용해서 `url` 변경이나 `store`(변수) 변경을 감지해서 리랜더링을 실행해요.<br />
+
+### 1️⃣ createStore
+```js
+import { createObserver } from "./createObserver.js";
+
+export const createStore = (initialState, initialActions) => {
+  const { subscribe, notify } = createObserver();
+
+  let state = { ...initialState };
+
+  const setState = (newState) => {
+    state = { ...state, ...newState };
+    notify();
+  };
+
+  const getState = () => ({ ...state });
+
+  const actions = Object.fromEntries(
+    Object.entries(initialActions).map(([key, value]) => [
+      key,
+      (...args) => setState(value(getState(), ...args)),
+    ]),
+  );
+
+  return { getState, setState, subscribe, actions };
+};
+```
+
+이 함수는 `store`를 생성하는 함수에요.<br />
+리액트에서 `useState()`를 전역적으로 관리하는 느낌으로 이해하면 될 것 같아요.<br />
+여기서 핵심은 `setState()`를 실행하면, 즉 상태가 변경되면 `notify()`를 실행하는 것이에요.<br />
+그리고 `subscribe()`를 내보내고 있어서 해당 함수를 통해 등록된 함수가 실행될텐데 아마 랜더링을 처리하는 함수를 등록할거에요.<br />
+
+### 2️⃣ createRouter
+```js
+import { createObserver } from "./createObserver";
+import { BASE_URL } from "../constants";
+
+export const createRouter = (routes) => {
+  const { subscribe, notify } = createObserver();
+
+  const getPath = () => {
+    return window.location.pathname.replace(BASE_URL, "") || "/";
+  };
+
+  const getTarget = () => routes[getPath()];
+
+  const push = (path) => {
+    window.history.pushState(null, null, BASE_URL + path);
+    notify();
+  };
+
+  window.addEventListener("popstate", () => notify());
+
+  return {
+    get path() {
+      return getPath();
+    },
+    push,
+    subscribe,
+    getTarget,
+  };
+};
+```
+
+라우터를 만드는 함수인데 이 함수도 `push()`나 `popState`가 발생했을때 `notify()`를 실행해서 리랜더링을 일으켜요.<br />
+따라서 페이지 이동할때 렌더링을 관리하지 않아도 자동으로 실행되게 돼요.<br />
+
+### 3️⃣ main
+```js
+router.set(
+  createRouter({
+    "/": HomePage,
+    // ... 생략
+  }),
+);
+
+function main() {
+  router.get().subscribe(render);
+  globalStore.subscribe(render);
+
+  render();
+}
+
+main();
+```
+
+핵심은 `router`와 `store` 내부에서 `createObserver`를 사용했고 `subscribe()`를 내보내고 있어요.<br />
+그리고 그 `subscribe()`에 `render()`를 등록해서 `store.setState()`나 `router.push()`를 실행할때 `render()`가 실행되게 돼요.<br />
+화면을 다시 그린다는 의미이고 `render()` 내부에서 `updateElement()`를 통해 변경된 부분만 업데이트하는 방식으로 구현되어있어요.<br />
+
+## 🕹️ 정리
+전체적인 흐름을 마지막으로 정리해볼게요.<br />
+
+1. `createStore()`를 통해서 전역 `store`를 생성
+2. `createRouter()`를 통해서 전역 `router`를 생성
+3. `main()`에서 `router`와 `store`에 `render()` 함수를 등록하고 최초 렌더링 실행
+4. `render()` 함수 내부에서 아래와 같이 동작
+    1. `createVNode()`를 통해서 `jsx`를 받아서 `vNode`로 변환
+    2. `normalizeVNode()`를 통해서 `vNode`를 정규화
+    3. `createElement()`를 통해서 `vNode`를 실제 노드로 변환
+    4. `renderElement()`를 통해서 실제 노드를 `HTML`에 렌더링
+    5. `updateElement()`를 통해서 변경된 부분만 업데이트
+    6. `setupEventListeners()`를 통해서 최상위 엘리먼트에 이벤트 리스너 등록하고 버블링을 통해 처리
+5. 페이지가 변경되거나 `store`의 상태가 변경되면 `render()`가 실행
