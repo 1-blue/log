@@ -1,0 +1,297 @@
+---
+title: "AWS Lambda로 S3에 업로드되는 이미지 리사이징"
+description: "AWS Lambda로 S3에 업로드되는 이미지 리사이징하는 방법에 대한 글"
+tags: ["AWS Lambda", "S3", "이미지 리사이징", "람다", "리사이징"]
+createdAt: 2025-06-03 17:46:00
+publishedAt: 2025-06-10 18:55:00
+sitemap:
+  lastmod: 2025-06-03 17:46:00
+  changefreq: weekly
+  priority: 0.5
+draft: false
+---
+
+> 해당 게시글은 `AWS Lambda`를 이용해서 `S3`에 업로드된 이미지를 리사이징하는 방법에 대한 정리 글이에요.
+
+## 📝 시작하기전에
+요즘 들어서 블로그를 거의 쓰지 않았는데 이번에 블로그를 다시 시작하게 되었어요.<br />
+뭔가 제가 블로그에 쓰는 수준은 AI가 다 해주는 것 같아서 글을 작성할 필요성을 못느꼈었어요.<br />
+이번에 작성하면서 생각이 조금 바뀐게 확실히 기록하면서 잘못된 생각한 부분도 알게되고 더 잘 알게되는 부분도 있어서 다시 정리하는 습관을 만들어보려고 해요.<br />
+
+## 📡 권한 정책 생성
+여기서 생성한 권한은 `Lambda`를 실행할 때 사용할 권한이에요.
+
+### 0️⃣ 페이지 접근
+[`AWS IAM`의 정책 페이지](https://us-east-1.console.aws.amazon.com/iam/home?region=ap-northeast-2#/policies) 접근
+
+![페이지 접근](/images/posts/aws/lambda/image-resize/01-iam-policy-page.png)
+
+### 1️⃣ 권한 생성
+![권한 정책 생성](/images/posts/aws/lambda/image-resize/02-iam-policy-detail.png)
+
+아래 코드로 권한 정책 입력 및 원하는 이름으로 생성해요. ( 필자는 `LambdaS3Policy`로 생성 )<br />
+`logs:~`는 람다 함수가 실행된 로그를 남기기 위한 권한이고, `s3:~`는 람다 함수가 `S3`에 접근하기 위한 권한이에요.<br />
+( `s3:DeleteObject`는 사실 필요없어서 안넣어도 돼요! )<br />
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:PutLogEvents",
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream"
+            ],
+            "Resource": "arn:aws:logs:*:*:*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:DeleteObject"
+            ],
+            "Resource": "arn:aws:s3:::*/*"
+        }
+    ]
+}
+```
+
+## 🪪 역할 생성
+여기서 생성한 역할은 `Lambda`를 실행할 때 사용할 역할이에요.
+
+### 0️⃣ 페이지 접근
+[`AWS Lambda` 함수 페이지](https://us-east-1.console.aws.amazon.com/iam/home?region=ap-northeast-2#/roles) 접근
+
+![페이지 접근](/images/posts/aws/lambda/image-resize/03-iam-role-page.png)
+
+### 1️⃣ 역할 생성
+`Lambda`에서 사용할것이기 때문에 `AWS 서비스`에서 `Lambda`를 선택해요.
+![역할 생성](/images/posts/aws/lambda/image-resize/04-iam-role-create.png)
+
+그리고 아까 만들었던 권한인 `LambdaS3Policy`를 선택해요.
+![역할 생성](/images/posts/aws/lambda/image-resize/05-iam-role-create.png)
+
+그리고 역할 이름을 입력해요. ( 필자는 `LambdaS3Role`로 생성 )
+![역할 생성](/images/posts/aws/lambda/image-resize/06-iam-role-create.png)
+
+## 🩺 람다 함수
+
+### 0️⃣ 코드 작성
+1. 프로젝트 세팅: `npm init -y`
+2. 모듈 설치: `npm install --platform=linux --arch=x64 sharp@0.32.6`
+3. 코드 작성
+4. `zip` 파일 생성: `zip -r lambda-image-resizing.zip .`
+
+`sharp`는 이미지 리사이징을 위한 모듈인데 버전을 `0.32.6`으로 설치해야 문제없이 동작해요.<br />
+또한 `x64`에서 실행할것이기 때문에 `--platform=linux --arch=x64`를 추가해줘야 동작해요.<br />
+그리고 `@aws-sdk/client-s3`는 따로 설치해주지 않아도 돼요.<br />
+
+<Blockquote type="tip">
+  아래 코드는 `cloud`를 시켜서 작성한 코드고, `/images/origin/`폴더에 업로드된 이미지가 있다면 `/images/`폴더로 이동하는 코드에요.<br />
+  폴더구조도 그대로 가져가서 만약 `/images/origin/a/b/c/photo.jpg` 파일이 있다면 `/images/a/b/c/photo.jpg`에 리사이징 결과물을 업로드해요.<br />
+</Blockquote>
+
+```js
+import {
+  S3Client,
+  GetObjectCommand,
+  PutObjectCommand,
+} from "@aws-sdk/client-s3";
+import { Readable } from "stream";
+import sharp from "sharp";
+import util from "util";
+
+const REGION = process.env.AWS_REGION || "ap-northeast-2";
+
+// S3 클라이언트 생성
+const s3Client = new S3Client({ region: REGION });
+
+/**
+ * S3 이벤트 트리거 Lambda 함수
+ */
+export const handler = async (event) => {
+  // 이벤트에서 옵션 읽기 및 소스 버킷 가져오기
+  console.log("이벤트에서 옵션 읽기:\n", util.inspect(event, { depth: 5 }));
+
+  const srcBucket = event.Records[0].s3.bucket.name;
+
+  // 객체 키는 공백이나 유니코드 문자를 포함할 수 있음
+  const srcKey = decodeURIComponent(
+    event.Records[0].s3.object.key.replace(/\+/g, " ")
+  );
+
+  // 같은 버킷 사용, 폴더만 다르게 설정
+  const dstBucket = srcBucket; // 원본과 동일한 버킷 사용
+
+  // 원본 경로에서 폴더 구조 분석
+  const folderPath = srcKey.includes("/")
+    ? srcKey.substring(0, srcKey.lastIndexOf("/"))
+    : "";
+  const fileName = srcKey.includes("/")
+    ? srcKey.substring(srcKey.lastIndexOf("/") + 1)
+    : srcKey;
+
+  // /images/origin/ 경로의 이미지를 /images/로 이동
+  let dstKey;
+  if (srcKey.startsWith("images/origin/")) {
+    // images/origin/a/b/c/photo.jpg -> images/a/b/c/photo.jpg
+    dstKey = srcKey.replace("images/origin/", "images/");
+  } else if (srcKey.startsWith("images/")) {
+    // 이미 images/로 시작하면 리사이징된 것으로 간주하고 처리하지 않음
+    console.log(`이미 리사이징된 이미지입니다: ${srcKey}`);
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        message: "이미 리사이징된 이미지입니다",
+        source: srcKey,
+      }),
+    };
+  } else if (folderPath === "") {
+    // 루트에 있는 파일은 images/ 폴더로 이동
+    dstKey = `images/${fileName}`;
+  } else {
+    // 다른 폴더 구조는 images/ 폴더 아래에 동일하게 유지
+    dstKey = `images/${folderPath}/${fileName}`;
+  }
+
+  // 이미지 타입 추론
+  const typeMatch = srcKey.match(/\.([^.]*)$/);
+  if (!typeMatch) {
+    console.log("이미지 타입을 결정할 수 없습니다.");
+    return;
+  }
+
+  // 지원되는 이미지 타입인지 확인 (jpg, jpeg, png, webp 지원)
+  const imageType = typeMatch[1].toLowerCase();
+  if (
+    imageType !== "jpg" &&
+    imageType !== "jpeg" &&
+    imageType !== "png" &&
+    imageType !== "webp"
+  ) {
+    console.log(`지원되지 않는 이미지 타입: ${imageType}`);
+    return;
+  }
+
+  // 소스 버킷에서 이미지 가져오기
+  try {
+    const params = {
+      Bucket: srcBucket,
+      Key: srcKey,
+    };
+
+    const response = await s3Client.send(new GetObjectCommand(params));
+    let contentBuffer;
+
+    // 스트림을 버퍼로 변환
+    if (response.Body instanceof Readable) {
+      contentBuffer = Buffer.concat(await response.Body.toArray());
+    } else {
+      throw new Error("알 수 없는 객체 스트림 타입");
+    }
+
+    // 환경 변수에서 크기 설정 가져오기
+    const width = parseInt(process.env.RESIZE_WIDTH) || 200;
+    const height = parseInt(process.env.RESIZE_HEIGHT) || width;
+    const quality = parseInt(process.env.IMAGE_QUALITY) || 80;
+
+    // sharp 모듈을 사용하여 이미지 리사이징
+    let outputBuffer;
+    let contentType;
+
+    if (imageType === "png") {
+      outputBuffer = await sharp(contentBuffer)
+        .resize(width, height, {
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .png({ quality })
+        .toBuffer();
+      contentType = "image/png";
+    } else if (imageType === "webp") {
+      outputBuffer = await sharp(contentBuffer)
+        .resize(width, height, {
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .webp({ quality })
+        .toBuffer();
+      contentType = "image/webp";
+    } else {
+      outputBuffer = await sharp(contentBuffer)
+        .resize(width, height, {
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .jpeg({ quality, progressive: true })
+        .toBuffer();
+      contentType = "image/jpeg";
+    }
+
+    // 리사이징된 이미지를 대상 버킷에 업로드
+    const destParams = {
+      Bucket: dstBucket,
+      Key: dstKey,
+      Body: outputBuffer,
+      ContentType: contentType,
+      CacheControl: "public, max-age=31536000",
+    };
+
+    await s3Client.send(new PutObjectCommand(destParams));
+
+    console.log(
+      `성공적으로 리사이징: ${srcBucket}/${srcKey} -> ${dstBucket}/${dstKey}`
+    );
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        message: "이미지 리사이징 성공",
+        source: `${srcBucket}/${srcKey}`,
+        destination: `${dstBucket}/${dstKey}`,
+      }),
+    };
+  } catch (error) {
+    console.log(error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        message: "이미지 리사이징 실패",
+        error: error.message,
+      }),
+    };
+  }
+};
+```
+
+### 1️⃣ 페이지 접근
+[`AWS Lambda` 함수 페이지](https://ap-northeast-2.console.aws.amazon.com/lambda/home?region=ap-northeast-2#/functions) 접근
+
+![페이지 접근](/images/posts/aws/lambda/image-resize/07-lambda-function-page.png)
+
+### 2️⃣ 함수 생성
+원하는 함수명을 작성하고 함수 생성 버튼을 누르면 돼요.<br />
+함수의 코드는 이후에 바로 다음에 자세히 설명해요.<br />
+
+![함수 생성](/images/posts/aws/lambda/image-resize/08-lambda-function-create.png)
+
+### 3️⃣ 함수 코드 업로드
+( 직접 작성, 직접 업로드, S3에 업로드한 코드 가져오기 등이 가능해요 )<br />
+[0️⃣ 코드 작성](#0️⃣-코드-작성)에서 작성한 코드의 `zip`을 업로드하면 돼요.<br />
+`zip`을 S3에 직접 업로드 후 해당 경로를 입력하면 돼요.<br />
+
+![함수 코드 업로드](/images/posts/aws/lambda/image-resize/09-lambda-function-code.png)
+
+### 4️⃣ 트리거 추가
+트리거 추가 버튼을 누르면 아래의 이미지와 같은 화면이 나오는데 `S3`를 선택하고 재귀 호출을 체크하고 추가를 누르면 트리거가 등록돼요.<br />
+
+![트리거 추가](/images/posts/aws/lambda/image-resize/10-lambda-function-trigger.png)
+
+## 😎 결과 확인
+이제 본인의 S3 버킷에 들어가서 `/images/origin/` 폴더에 이미지를 하나 업로드해보세요.<br />
+그러면 자동으로 `/image`폴더에 리사이징된 이미지가 업로드된 결과를 확인할 수 있어요.<br />
+
+## 📮 레퍼런스
+1. [AWS Lambda 함수생성 튜토리얼](https://docs.aws.amazon.com/ko_kr/lambda/latest/dg/with-s3-tutorial.html)
