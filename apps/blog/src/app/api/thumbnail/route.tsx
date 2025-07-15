@@ -8,14 +8,40 @@ const DEFAULT_DESCRIPTION = `내가 만든 게시글과 썸네일\n그리고 아
 const DEFAULT_PUBLISHED_AT = new Date();
 const DEFAULT_AUTHOR = "박상은 ( 1-blue )";
 
+// 글자수 셀 때만 \n 제외하고, 원본 줄바꿈은 유지
+const truncateText = (text: string, maxLength: number = 65): string => {
+  const textWithoutNewlines = text.replace(/\n/g, "");
+  if (textWithoutNewlines.length <= maxLength) {
+    return text; // 원본 텍스트 반환 (줄바꿈 유지)
+  }
+
+  // maxLength자까지만 자르되, 원본에서 줄바꿈 위치 고려해서 자르기
+  let charCount = 0;
+  let cutIndex = 0;
+
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== "\n") {
+      charCount++;
+    }
+    if (charCount >= maxLength) {
+      cutIndex = i + 1;
+      break;
+    }
+  }
+
+  return text.substring(0, cutIndex) + "...";
+};
+
 export const GET = async (req: NextRequest) => {
   const font = await fetch(
     new URL("../../../../public/fonts/Moneygraphy-Pixel.woff", import.meta.url),
   ).then((res) => res.arrayBuffer());
 
   const { searchParams } = req.nextUrl;
-  const title = searchParams.get("title") ?? DEFAULT_TITLE;
-  const description = searchParams.get("description") ?? DEFAULT_DESCRIPTION;
+  const title = truncateText(searchParams.get("title") ?? DEFAULT_TITLE, 40);
+  const description = truncateText(
+    searchParams.get("description") ?? DEFAULT_DESCRIPTION,
+  );
   const publishedAt = new Date(
     searchParams.get("publishedAt") ?? DEFAULT_PUBLISHED_AT,
   )
@@ -54,7 +80,8 @@ export const GET = async (req: NextRequest) => {
             justifyContent: "center",
             alignItems: "center",
             fontSize: 130,
-            padding: "0 120px",
+            paddingLeft: 120,
+            paddingRight: 120,
             wordBreak: "keep-all",
             lineHeight: 1.25,
             textAlign: "center",
@@ -75,6 +102,8 @@ export const GET = async (req: NextRequest) => {
             fontSize: 80,
             textAlign: "center",
             wordBreak: "keep-all",
+            paddingLeft: 120,
+            paddingRight: 120,
           }}
         >
           {description.split("\n").map((line, index) => (
