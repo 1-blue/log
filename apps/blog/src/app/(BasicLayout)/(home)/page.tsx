@@ -9,10 +9,9 @@ import PostSection from "#/app/(BasicLayout)/_components/sections/PostSection";
 export const metadata: Metadata = getSharedMetadata();
 
 const allPosts = getAllPosts();
-const latestSortedPosts = allPosts
-  .sort((a, b) => dayjs(b.publishedAt).unix() - dayjs(a.publishedAt).unix())
-  .slice(0, 6);
-
+const latestSortedPosts = allPosts.sort(
+  (a, b) => dayjs(b.publishedAt).unix() - dayjs(a.publishedAt).unix(),
+);
 const Page: React.FC = () => {
   return (
     <article className="mx-auto my-8 flex max-w-7xl flex-col gap-6">
