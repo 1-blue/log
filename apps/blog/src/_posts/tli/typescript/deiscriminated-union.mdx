@@ -1,0 +1,117 @@
+---
+title: "TypeScript 구별된 유니온:\n타입 안전성을 높이는 핵심 패턴"
+description: "TypeScript 구별된 유니온(Discriminated Union) 패턴을 활용하여 타입 안전성을 높이고 런타임 오류를 방지하는 방법을 실제 예제와 함께 상세히 알아보세요."
+tags: [typescript, discriminated-union, 구별된-유니온, union-types, 타입-안전성, type-safety, tagged-union, type-guards, 타입스크립트-패턴, 함수형-프로그래밍]
+icon: ""
+thumbnail: ""
+createdAt: 2025-07-15 19:19:00
+publishedAt: 2025-07-15 19:19:00
+sitemap:
+  lastmod: 2025-07-15 19:19:00
+  changefreq: weekly
+  priority: 0.5
+draft: false
+---
+
+> 해당 게시글은 구별된 유니온에 대한 설명과 사용법에 대한 이야기에요.
+
+## 🔥 이 방법을 사용하는 이유
+가끔씩 타입의 대부분이 일치하는데 일부만 다른 타입이 존재하는 경우가 있어요.<br />
+거기에 추가로 특정 `A`라는 값을 가진 경우에만 값을 가질 수 있는 `A'`, `B`만 가질 수 있는 `B'`가 있는 경우에 사용하면 실제 실행하기전에 타입에서 오류를 잡을 수 있어요.<br />
+
+### 0️⃣ 구별된 유니온을 사용하지 않은 예시
+아래 예시는 강아지와 고양이에 대한 타입을 하나로 합쳐서 만든 예시에요.<br />
+아래 예시는 매우 간단하고 변수명이 확실하고 `TSDoc`이 있기 때문에 어떤 의도인지 추론하기 쉬워요.<br />
+하지만 조금이라도 어려운 변수명이 있다면 추론하기 어렵기도하고 19, 24번 라인처럼 의도에 맞지 않게 사용해도 타입스크립트의 도움을 받을 수 없어요.<br />
+
+```tsx showLineNumbers {19, 24}
+interface IAnimal {
+  type: "dog" | "cat";
+  name: string;
+  age: number;
+  /** 강아지만 가지는 특성 */
+  dogSpecific?: string;
+  /** 고양이만 가지는 특성 */
+  catSpecific?: string;
+}
+
+const Animal: React.FC<IAnimal> = (props) => {
+  console.log(props.name);
+  console.log(props.age);
+  console.log(props.dogSpecific);
+  console.log(props.catSpecific);
+
+  if (props.type === "dog") {
+    console.log(props.dogSpecific);
+    console.log(props.catSpecific);
+  }
+
+  if (props.type === "cat") {
+    console.log(props.catSpecific);
+    console.log(props.dogSpecific);
+  }
+
+  return <div>Animal</div>;
+};
+
+export default Animal;
+```
+
+### 1️⃣ 구별된 유니온을 사용한 예시
+아래 예시는 객체 지향에서 자주 보이는 형태의 예시를 만들어봤어요.<br />
+공통으로 사용하는 타입은 하나로 묶고 각 타입에 대한 타입을 정의해서 사용한 예시에요.<br />
+`type`이라는 값으로 어떤 의미를 갖는지 구분점을 만들고, 그 구분점을 통해서 타입을 구분해요.<br />
+
+이렇게 했을때 장점은 타입이 좁혀지기전인 20, 21번 라인과 잘못된 타입을 사용하는 25, 30번 라인에서 타입스크립트의 도움을 받아 오류를 잡을 수 있어요.<br />
+
+```tsx showLineNumbers {20, 21, 25, 30}
+interface ICommonAnimal {
+  name: string;
+  age: number;
+}
+interface IDog extends ICommonAnimal {
+  type: "dog";
+  /** 강아지만 가지는 특성 */
+  dogSpecific: string;
+}
+interface ICat extends ICommonAnimal {
+  type: "cat";
+  /** 고양이만 가지는 특성 */
+  catSpecific: string;
+}
+type IAnimal = IDog | ICat;
+
+const Animal: React.FC<IAnimal> = (props) => {
+  console.log(props.name);
+  console.log(props.age);
+  console.log(props.dogSpecific);
+  console.log(props.catSpecific);
+
+  if (props.type === "dog") {
+    console.log(props.dogSpecific);
+    console.log(props.catSpecific);
+  }
+
+  if (props.type === "cat") {
+    console.log(props.catSpecific);
+    console.log(props.dogSpecific);
+  }
+
+  return <div>Animal</div>;
+};
+
+export default Animal;
+```
+
+## 🐬 마무리
+<Blockquote type="tip">
+예시를 위한 코드는 복잡하지 않아서 이 방법에 대한 이점이 크게 느껴지지 않을 수 있는데 조금이라도 복잡한 타입과 컴포넌트를 만들다보면 타입이 주는 안정성이 굉장히 뛰어나서 좋은 방법이라고 생각할거에요.
+</Blockquote>
+
+구별된 유니온(`Discriminated Union`)을 사용하면 코드가 더 길어지고 오히려 더 복잡하게 보인다고 생각할 수 있어요.<br />
+코드가 길어지는건 보다 더 명확하게 사용하기 위한 코드를 추가했기 때문이고, 복집하게 보이는건 아직 익숙하지 않아서 라고 생각해요.<br />
+
+저는 회사에서 타입을 작성할때 1️⃣처럼 작성하고 싶지만 회사의 컨벤션, 그리고 이 방법의 생각에 대해 설명하기가 힘들어서 0️⃣처럼 작성했었어요.<br />
+하지만 이번에 1️⃣처럼 작성하는 방법에 대해 얘기해봤고 한 번 시도해보는 것으로 결론이나서 정리하는겸 포스트를 작성해봤어요.<br />
+
+여러번 생각해봐도 1️⃣이 주는 코드의 복잡성보단 타입의 안정성이 더 크다고 생각해요.<br />
