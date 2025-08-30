@@ -1,0 +1,250 @@
+---
+title: "openapi-typescript: OpenAPI 스펙으로 TypeScript 타입 자동 생성하기"
+description: "OpenAPI 3.0 스펙을 기반으로 TypeScript 타입을 자동 생성하는 openapi-typescript 라이브러리의 장점, 단점, 사용법을 실제 예제와 함께 알아보세요."
+tags: [typescript, openapi, api, swagger, 타입생성, 개발생산성, 백엔드, 프론트엔드, 협업, 자동화, nestjs, nextjs, tanstack-query, openapi-typescript]
+icon: ""
+thumbnail: ""
+createdAt: 2025-08-30 13:56:00
+publishedAt: 2025-08-30 16:28:00
+sitemap:
+  lastmod: 2025-08-30 16:28:00
+  changefreq: weekly
+  priority: 0.5
+draft: false
+---
+
+## 🛠️ openapi-typescript란?
+[openapi-typescript](https://openapi-ts.dev)는 OpenAPI 3.0 및 3.1 스펙을 기반으로 TypeScript 타입을 자동으로 생성해주는 강력한 도구예요. Node.js 환경에서 빠르게 동작하며, Java나 추가적인 서버 실행 없이도 사용할 수 있어요.
+
+### 0️⃣ 기존 방식의 문제점
+일반적으로 프론트엔드 개발자는 백엔드 API 문서를 보고 직접 타입을 만들어서 사용해요. 예를 들어 이런 [API 문서](https://docs.story-dict.com/%EB%AA%A8%EB%93%A0-%EC%9D%B4%EC%95%BC%EA%B8%B0%EB%93%A4-%EA%B0%80%EC%A0%B8%EC%98%A4%EA%B8%B0-12976798e0)가 있다면, 아래와 같이 수동으로 타입을 정의해야 해요:
+
+```ts
+// "/types/schema/user.ts"
+interface IUser {
+  id: string;
+  name: string;
+  imagePath: string;
+  password: string;
+  // ...
+}
+
+// "/types/schema/story.ts"
+interface IStory {
+  id: string;
+  title: string;
+  content: string;
+  // ...
+}
+
+// "/types/schema/reaction.ts"
+interface IReaction {
+  id: string;
+  content: string;
+  // ...
+}
+
+interface IGetStoriesAPIRequest {
+  storyId: string;
+}
+
+interface GetStoriesAPIResponse {
+  story: IStory & {
+    user: Pick<IUser, "id" | "name" | "imagePath">;
+    reactions: IReaction[];
+  };
+}
+```
+
+이런 방식에는 여러 문제점이 있어요:
+
+1. **타입 불일치**: 원본 API 스펙과 수동으로 작성한 타입이 다를 수 있어요
+2. **동기화 문제**: API 변경 시 문서와 코드의 타입이 일치하지 않을 수 있어요  
+3. **휴먼 에러**: 타입을 수동으로 작성하다 보면 실수가 발생할 수 있어요
+4. **중복 작업**: 여러 개발자가 같은 타입을 각자 정의할 수 있어요
+
+특히 실무에서는 API 문서가 자주 변경되고, 그때마다 수동으로 업데이트하는 과정에서 백엔드와 프론트엔드 간 불일치가 자주 발생해요. openapi-typescript를 사용하면 이런 문제들을 근본적으로 해결할 수 있어요.
+
+### 1️⃣ 주요 기능
+- **OpenAPI 3.0 및 3.1 지원**: 최신 OpenAPI 스펙을 완벽하게 지원해요
+- **고성능 타입 생성**: 런타임 오버헤드 없이 빠르게 타입을 생성해요
+- **다양한 스키마 로드 방식**: 로컬 또는 원격의 YAML 및 JSON 스키마를 모두 처리할 수 있어요
+- **대규모 스키마 처리**: 대규모 스키마도 밀리초 단위로 처리할 수 있어요
+
+## 📈 openapi-typescript의 장점
+1. **타입 안전성 보장**: 코드와 타입이 항상 일치하기 때문에 더 안전하고 완벽한 타입 안전성을 확보할 수 있어요
+2. **자동 동기화**: API 스펙이 바뀌면 타입도 자동으로 업데이트되기 때문에 수동으로 관리할 필요가 없어요
+3. **휴먼 에러 방지**: 자동으로 타입을 생성하므로 수동 작업에서 발생할 수 있는 실수를 원천적으로 차단할 수 있어요
+4. **협업 효율성 향상**: 백엔드와 프론트엔드가 동일한 스펙을 기반으로 작업하므로 협업이 훨씬 원활해져요
+5. **언어 독립성**: 백엔드의 언어에 상관없이 OpenAPI 3.0 스펙에 맞는 문서만 제공받으면 타입을 생성할 수 있어요
+6. **개발 생산성 향상**: 자동으로 타입을 생성함으로써 개발자는 수동으로 타입을 정의하는 데 드는 시간을 절약할 수 있어요
+7. **코드 일관성 유지**: 자동 생성된 타입을 사용함으로써 프로젝트 전체의 코드 일관성을 유지할 수 있어요
+8. **유지보수 용이**: API 스펙 변경 시 타입을 자동으로 업데이트할 수 있어요
+
+## 📉 openapi-typescript의 단점
+1. **초기 설정의 복잡성**: 라이브러리를 도입하기 위해서는 초기 설정과 학습이 필요할 수 있어요
+2. **TypeScript 이해도 필요**: TypeScript에 대한 이해도가 부족한 경우, 생성된 타입을 제대로 활용하지 못할 수 있어요
+3. **스펙 의존성**: 정확한 OpenAPI 스펙이 필요하며, 스펙이 부정확하면 잘못된 타입이 생성될 수 있어요
+4. **커스터마이징 제한**: 자동 생성된 코드의 커스터마이징에 제한이 있을 수 있어요
+5. **프레임워크별 제약사항**: Nest.js의 경우 코드가 자동으로 YAML이 되는 게 아니라 직접 설정한 어노테이션을 변환하는 방식이라 코드와 불일치하는 상황이 발생할 수 있어요
+
+## 🚀 설치 및 기본 설정
+Node.js 20.x 이상이 필요해요. 프로젝트에서 다음 명령어를 실행하여 설치할 수 있어요:
+
+```bash
+pnpm i -D openapi-typescript typescript
+```
+
+`tsconfig.json` 파일에서 다음과 같이 설정해 주세요:
+
+```json
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noUncheckedIndexedAccess": true
+  }
+}
+```
+
+### 0️⃣ 타입 생성 및 기본 사용법
+다음 명령어로 타입 파일을 생성해요:
+
+```json
+{
+  # BE package.json
+  "openapi:generate": "pnpm dlx openapi-typescript ./src/@openapi/index.yaml -o ./src/@openapi/index.ts",
+
+  # FE package.json
+  "openapi:generate": "pnpm dlx openapi-typescript ../be/src/@openapi/index.yaml -o ./src/@types/openapi.ts"
+}
+```
+
+```bash
+# BE에서 실행 ( yaml 생성 )
+pnpm run openapi:generate
+
+# FE에서 실행 ( yaml 기반으로 타입 생성 )
+pnpm run openapi:generate
+```
+
+생성된 타입은 다음과 같이 사용할 수 있어요:<br />
+`path`, `endpoint`, `params`, `body` 등 모든 부분에서 타입을 만들어주기 때문에 직접 가져와서 사용할수도 있어요.<br />
+다른 라이브러리나 `fetch`와 결합하면 직접 타입을 넣어주지 않아도 완벽한 타입 지원을 받을 수 있어요.<br />
+
+```ts
+import type { paths, components } from "./path/to/schema";
+
+// Schema 객체 타입
+type IStory = components["schemas"]["Story"];
+
+// Path 파라미터 타입
+type IGetStoriesAPIRequest = paths["/apis/v1/stories"]["get"]["parameters"];
+
+// 응답 객체 타입
+type IGetStoriesAPIResponse = 
+  paths["/apis/v1/stories"]["get"]["responses"][200]["content"]["application/json"]["schema"];
+
+type IGetStoriesAPIErrorResponse = 
+  paths["/apis/v1/stories"]["get"]["responses"][500]["content"]["application/json"]["schema"];
+```
+
+## 💻 실제 사용 예시
+실제 프로젝트에서 Next.js + Nest.js 환경에서 사용해본 경험을 공유해보겠어요.
+
+### 0️⃣ 백엔드 설정
+> [GitHub 참고](https://github.com/1-blue/story-dict/blob/master/apps/be/src/main.ts)<br />
+> [완성된 YAML 파일](https://github.com/1-blue/story-dict/blob/master/apps/be/src/%40openapi/index.yaml)
+
+일반적으로 많이 사용하는 `@nestjs/swagger`와 `js-yaml`을 이용해서 `.yaml` 문서를 작성했어요:
+
+```ts
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import * as fs from "fs";
+import { dump } from "js-yaml";
+
+// Swagger 설정
+const config = new DocumentBuilder()
+  .setTitle("Story Dict")
+  .setDescription("Story Dict API 문서")
+  .setVersion("1.0")
+  .addTag("Story Dict")
+  .build();
+
+const document = SwaggerModule.createDocument(app, config);
+SwaggerModule.setup("api", app, document);
+
+// openapi/index.yaml 파일 생성
+fs.writeFileSync("./src/@openapi/index.yaml", dump(document));
+```
+
+실제로 타입을 만드는 부분은 `@ApiResponse`, `@ApiOperation`, `@Body`, `@Param`, `@Query` 등의 어노테이션을 이용해서 코드에 정의해두면 `@nestjs/swagger`에서 자동으로 YAML로 변환해줘요. 여기서 사용하는 DTO를 백엔드 코드와 어노테이션이 동일하게 사용해야 생성되는 타입과 코드의 타입이 일치해요.
+
+### 1️⃣ 프론트엔드 설정
+> [GitHub 참고](https://github.com/1-blue/story-dict/blob/master/apps/fe/src)<br />
+> [완성된 TypeScript 타입](https://github.com/1-blue/story-dict/blob/master/apps/fe/src/%40types/openapi.ts)
+
+`openapi-typescript`와 `openapi-fetch`, `openapi-react-query`를 함께 사용해서 TanStack Query와 연동했어요. [기초 설정](https://github.com/1-blue/story-dict/blob/master/apps/fe/src/apis/openapi/index.ts)은 아래처럼 매우 간단해요:
+
+```ts
+import createFetchClient from "openapi-fetch";
+import createClient from "openapi-react-query";
+
+import type { paths } from "#fe/@types/openapi";
+
+const fetchClient = createFetchClient<paths>({
+  baseUrl: process.env.NEXT_PUBLIC_SERVER_URL,
+  headers: { "Content-Type": "application/json" },
+  credentials: "include",
+});
+
+export const openapi = createClient(fetchClient);
+```
+
+`paths`는 YAML을 기반으로 만들어진 타입이에요. 실제로 사용할 때는 아래처럼 `useSuspenseQuery`, `useQuery`, `useMutation` 등 TanStack Query에서 사용 가능한 기능들을 완전한 타입 지원과 함께 사용할 수 있어요:
+
+```ts
+// GET 요청 예시
+const { data: comments } = openapi.useSuspenseQuery(
+  "get",
+  "/apis/v1/stories/{storyId}/comments",
+  { params: { path: { storyId } } },
+  { select: (data) => data.payload },
+);
+
+// POST 요청 예시
+const createStoryCommentMutation = openapi.useMutation(
+  "post",
+  "/apis/v1/stories/{storyId}/comments",
+  {
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  },
+);
+```
+
+`endpoint`, `params`, `body` 등 모든 부분에서 완벽한 타입 지원을 받을 수 있어요.
+
+## 🏁 마무리
+`openapi-typescript`를 활용하면 프론트엔드와 백엔드 간의 데이터 통신을 안전하게 관리하고, 타입을 자동으로 생성하여 개발 생산성을 크게 높일 수 있어요. API 스펙 변경 시 수동으로 타입을 업데이트하는 번거로움을 줄이고, 타입 안전성과 자동화를 통해 애플리케이션 개발을 더욱 효율적으로 진행할 수 있어요.
+
+특히 팀 단위로 개발할 때 백엔드와 프론트엔드 간의 커뮤니케이션 비용을 줄이고, 휴먼 에러를 방지할 수 있다는 점에서 매우 유용한 도구라고 생각해요.<br />
+정확한 스펙 관리와 함께 사용하면 더욱 효과적이에요.<br />
+
+실무를 하면서 자주 백엔드와 프론트간의 타입 불일치가 생겨서 불편했었어요.<br />
+제가 이렇게 느끼는 불편함을 다른 사람들도 분명히 느꼈을거고 해결하는 방법이 분명히 있을 것 같다고 생각해서 여러가지 방면으로 찾아봤어요.<br />
+
+### 0️⃣ 패키지화
+저희 회사는 프론트엔드, 백엔드 모두 `typescript`를 사용해서 백엔드에서 `schema`, `Request`, `Response` 타입을 만들고 있어서 이거를 따로 관리하는 패키지를 만들어서 공유하는게 어떨까 생각했었어요.<br />
+이 방법을 시도해보진 못했지만 나쁘지 않은 방법이라고 생각해요.<br />
+
+### 1️⃣ tRPC
+`tRPC`란 `typescript` + `remote procedure call` 즉, TS로 된 원격 함수를 호출하는 방식이에요.<br />
+쉽게 말해서 백엔드에서 함수를 만들고 프론트엔드에서 함수를 호출하는 방식이에요.<br />
+
+이 방법은 개인적으로 시도해보았는데 몇가지 문제가 있었어요.<br />
+1. 제대로 활용하려면 `FE`, `BE`가 모노레포로 되어있어야하고, `typescript`로 되어있어야 해요
+2. 사용자가 많이 없어서 커뮤니티가 활성화되지 않아서 문제가 생겼을때 원인 파악이 어려워요
+3. `cookie`로 로그인한 유저 데이터가 가져와지지 않아요<br />
+  ( 뭔가 잘못한 것 같긴한데 사용자가 많이 없어서 문제의 원인이 파악이 안돼요 😱 )

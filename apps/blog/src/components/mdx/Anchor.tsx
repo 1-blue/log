@@ -53,14 +53,8 @@ const Anchor: React.FC<React.PropsWithChildren<IProps>> = ({
   useEffect(() => {
     if (href.startsWith("http")) return;
 
-    // hostname (localhost:3000) 추출하기
     const url = process.env.NEXT_PUBLIC_CLIENT_URL + href;
-    const hostname = new URL(url).host;
-    const lastPath = url.split("/").pop();
-
-    const searchQuery = `site:${hostname} ${lastPath}`;
-    const googleSearchURL = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
-    setConvertedURL(googleSearchURL);
+    setConvertedURL(url);
   }, [href]);
 
   return (
