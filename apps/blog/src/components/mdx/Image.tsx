@@ -17,13 +17,16 @@ const Image: React.FC<Props> = ({ layoutId, ...restProps }) => {
 
   return (
     <>
-      <motion.figure
-        layoutId={layoutId}
-        onClick={openModal}
-        className="relative z-[5] my-2 aspect-video cursor-pointer rounded-md object-contain"
-      >
-        <NextImage {...restProps} />
-      </motion.figure>
+      <div className="my-2 flex flex-col gap-1">
+        <p className="text-muted-foreground text-sm">[{restProps.alt}]</p>
+        <motion.figure
+          layoutId={layoutId}
+          onClick={openModal}
+          className="relative z-[5] aspect-video cursor-pointer rounded-md border-2 object-contain"
+        >
+          <NextImage {...restProps} />
+        </motion.figure>
+      </div>
 
       <AnimatePresence>
         {isOpen && (
