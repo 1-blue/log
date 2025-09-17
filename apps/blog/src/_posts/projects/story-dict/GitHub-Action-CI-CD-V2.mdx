@@ -27,7 +27,7 @@ $GITHUB_OUTPUT (출력)
 ```
 
 ## 🚀 수동 트리거를 이용하여 배포
-![01-GitHub_Action_수동_트리거](/images/posts/projects/story-dict/GitHub-Action-CI-CD-v2/01-GitHub_Action_수동_트리거.png)
+![01-GitHub_Action_수동_트리거](/images/posts/projects/story-dict/GitHub-Action-CI-CD-V2/01-GitHub_Action_수동_트리거.png)
 
 이전에는 master에 머지되면 자동으로 배포되게 액션을 만들었는데 현재 테스트로 액션도 많이 돌리고 실제 배포 시기를 명확하게 의도된 상황에 배포하는 게 좋을 것 같아서 수동으로 배포하도록 액션을 만들었어요.<br />
 `workflow_dispatch`를 이용하면 단순히 액션을 실행하는 것이 아니라 원하는 입력값을 받아서 `${{ github.event.inputs.environment }}`와 같이 사용할 수 있어요.<br />
@@ -48,6 +48,8 @@ on:
 ```
 
 ## ⚙️ 환경 변수 설정
+![02-GitHub_환경_변수_설정](/images/posts/projects/story-dict/GitHub-Action-CI-CD-V2/02-GitHub_환경_변수_설정.png)
+
 `GitHub Actions`에서는 환경 변수를 사용할 수 있는데 레포지토리 자체에 등록해두거나, 아래처럼 `.yaml`에서 선언할 수 있어요.<br />
 반복적으로 사용하는 부분들을 선언해두고 액션에서 사용하고 있어요.<br />
 
@@ -123,7 +125,7 @@ jobs:
 ```
 
 ### 1️⃣ 배포 알림
-![02-슬랙_메시지_예시](/images/posts/projects/story-dict/GitHub-Action-CI-CD-v2/02-슬랙_메시지_예시.png)
+![03-슬랙_메시지_예시](/images/posts/projects/story-dict/GitHub-Action-CI-CD-V2/03-슬랙_메시지_예시.png)
 
 시작, 성공/실패 알림 모두 비슷한 형태로 알림을 보내요.<br />
 이렇게 알림을 보내려면 [웹훅](/posts/projects/story-dict/GitHub-Action-Slack)을 설정해서 URL을 얻고 아래처럼 설정만 하면 돼요.<br />
@@ -219,7 +221,7 @@ jobs:
 ```
 
 ## 🏷️ 빌드 및 태그 설정 및 ECR 푸시
-![03-빌드_및_태그_설정_및_ECR_푸시](/images/posts/projects/story-dict/GitHub-Action-CI-CD-v2/03-빌드_및_태그_설정_및_ECR_푸시.png)
+![04-빌드_및_태그_설정_및_ECR_푸시](/images/posts/projects/story-dict/GitHub-Action-CI-CD-V2/04-빌드_및_태그_설정_및_ECR_푸시.png)
 
 태그를 두 가지 설정해 주는데 첫 번째로는 최신을 쉽게 사용하기 위해서 `latest` 태그를 설정하고 두 번째로는 독립적인 태그를 위해서 `commit SHA`로 태그를 설정해줘요.<br />
 그 이유는 `latest`만 올렸다가 롤백해야 하는 상황이 생긴다면 다시 되돌릴 수 없기 때문에 `latest`만 올리는 것보다 `commit SHA`로 태그를 설정하는 것이 좋아요.<br />
@@ -341,7 +343,399 @@ jobs:
 ```
 
 ## 🎉 마무리
+> [GitHub 코드](https://github.com/1-blue/story-dict/blob/master/.github/workflows/cicd.yaml)를 참고해주세요<br/>
+
 이전에는 `Docker Hub`를 통해서 이미지를 관리했었는데 현재는 `ECR`을 통해서 이미지를 관리하도록 변경했어요.<br />
 바꾼 이유는 초기에 만든 당시에 `ECR`이라는 존재를 몰랐었는데 이후에 알게 되었고 하는 김에 `AWS`에서 제공하는 서비스로 만들어두면 이후 `ECS`와 같이 새로운 도전을 할 때 더 쉽게 적용할 수 있을 것 같아서 변경했어요.<br />
 
 그리고 하는 김에 비효율적인 부분이나 사용성이 아쉬운 부분도 수정하고 `GitHub Actions`나 `.yaml`에서 사용할 수 있는 문법들에 대해서 배우고 익혀서 유용했던 것 같아요.<br />
+
+```yaml showLineNumbers
+name: CD with Docker
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "배포할 환경을 선택하세요"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - staging
+
+permissions:
+  contents: read
+
+env:
+  # Slack 알림 색상 정의
+  SLACK_START_COLOR: "#155dfc"
+  SLACK_SUCCESS_COLOR: "#00a63e"
+  SLACK_FAILURE_COLOR: "#e7000b"
+
+  # Docker 관련 설정
+  DOCKER_PLATFORM: "linux/arm64"
+  DOCKER_COMPOSE_VERSION: "v2.24.5"
+
+  # 프로젝트 관련 설정
+  PROJECT_NAME: "story-dict"
+  ECR_FE_REPO: "1-blue/story-dict-fe"
+  ECR_BE_REPO: "1-blue/story-dict-be"
+
+  # 시간대 설정
+  TZ: "Asia/Seoul"
+
+  # Slack 공통 필드 - 모든 알림에서 재사용
+  SLACK_COMMON_FIELDS: |
+    {
+      "title": "배포 환경",
+      "value": "${{ github.event.inputs.environment }}",
+      "short": true
+    },
+    {
+      "title": "워크플로우",
+      "value": "<${{ github.server_url }}/${{ github.repository }}/actions/workflows/cicd.yaml|${{ github.workflow }} 워크플로우>",
+      "short": true
+    },
+    {
+      "title": "액션작업",
+      "value": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|#${{ github.run_number }} 작업>",
+      "short": true
+    },
+    {
+      "title": "레포지토리",
+      "value": "<${{ github.server_url }}/${{ github.repository }}|${{ github.repository }}>",
+      "short": true
+    },
+    {
+      "title": "브랜치",
+      "value": "${{ github.ref_name }}",
+      "short": true
+    },
+    {
+      "title": "실행자",
+      "value": "${{ github.actor }}",
+      "short": true
+    }
+
+jobs:
+  Deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # 시작 시간 추적을 통한 배포 소요시간 계산
+      - name: Set start time
+        run: |
+          echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+          echo "START_TIME_FORMATTED=$(date '+%Y년 %m월 %d일 %H시 %M분 %S초')" >> $GITHUB_ENV
+
+      # 마지막 커밋 메시지 추출
+      - name: Extract last commit message
+        run: |
+          SUBJECT=$(git log -1 --pretty=%s)
+          echo "COMMIT_SUBJECT=$SUBJECT" >> $GITHUB_ENV
+
+      # 모노레포 환경에서 변경 감지를 통한 선택적 빌드
+      - name: Check for changes
+        id: changes
+        run: |
+          set -e
+          FE_CHANGED=false
+          BE_CHANGED=false
+          ANY_CHANGED=false
+
+          # 기준 커밋 계산
+          BASE=$(git rev-parse HEAD~1 2>/dev/null || echo "")
+
+          # 첫 커밋이거나 얕은 히스토리인 경우 안전하게 모든 앱 빌드
+          if [ -z "$BASE" ]; then
+            git fetch --deepen=1 origin "$GITHUB_REF" || true
+            BASE=$(git rev-parse HEAD~1 2>/dev/null || echo "")
+          fi
+
+          if [ -z "$BASE" ]; then
+            FE_CHANGED=true
+            BE_CHANGED=true
+            ANY_CHANGED=true
+          else
+            CHANGED_FILES=$(git diff --name-only "$BASE"...HEAD || true)
+
+            # 각 앱별 변경사항 확인
+            echo "$CHANGED_FILES" | grep -E '^apps/fe/' >/dev/null && FE_CHANGED=true || true
+            echo "$CHANGED_FILES" | grep -E '^apps/be/' >/dev/null && BE_CHANGED=true || true
+
+            # 공유 패키지 변경 시 모든 앱 빌드
+            if echo "$CHANGED_FILES" | grep -E '^packages/' >/dev/null; then
+              FE_CHANGED=true
+              BE_CHANGED=true
+            fi
+
+            [ "$FE_CHANGED" = "true" ] || [ "$BE_CHANGED" = "true" ] && ANY_CHANGED=true
+          fi
+
+          # 환경변수 설정
+          echo "FE_CHANGED=$FE_CHANGED" >> $GITHUB_ENV
+          echo "BE_CHANGED=$BE_CHANGED" >> $GITHUB_ENV
+          echo "ANY_CHANGED=$ANY_CHANGED" >> $GITHUB_ENV
+
+      # Slack 웹훅을 통한 실시간 배포 알림
+      - name: Notify Slack on Start
+        id: slack-start
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "${{ env.SLACK_START_COLOR }}",
+                  "title": "🚀 배포 시작",
+                  "text": "배포 환경: ${{ github.event.inputs.environment }}\n커밋: ${{ env.COMMIT_SUBJECT }}",
+                  "fields": [
+                    {
+                      "title": "시작시간",
+                      "value": "${{ env.START_TIME_FORMATTED }}",
+                      "short": true
+                    },
+                    {
+                      "title": "이미지 태그 (SHA)",
+                      "value": "${{ github.sha }}",
+                      "short": true
+                    },
+                    ${{ env.SLACK_COMMON_FIELDS }}
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOY_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+      # 환경 파일 설정
+      - name: Create Frontend env files
+        run: |
+          mkdir -p ./envs/fe ./apps/fe
+          echo "${{ secrets.FRENTEND_ENV_FILE }}" > ./envs/fe/.env.production
+          echo "${{ secrets.FRENTEND_ENV_FILE }}" > ./apps/fe/.env.production
+
+      - name: Create Backend env files
+        run: |
+          mkdir -p ./envs/be ./apps/be
+          echo "${{ secrets.BACKEND_ENV_FILE }}" > ./envs/be/.env.production
+          echo "${{ secrets.BACKEND_ENV_FILE }}" > ./apps/be/.env.production
+
+      # Docker Compose 최신 버전 설치
+      - name: Install Docker Compose
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/download/${{ env.DOCKER_COMPOSE_VERSION }}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          docker-compose --version
+
+      # AWS 인증 및 ECR 로그인
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_ACCESS_SECRET_KEY }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 멀티아키텍처 빌드를 위한 Docker Buildx 설정
+      - name: Setup buildx
+        if: env.ANY_CHANGED == 'true'
+        run: |
+          docker buildx create --use
+          docker buildx inspect --bootstrap
+
+      # 조건부 이미지 빌드 및 태깅 전략
+      - name: Build and tag FE image
+        if: env.FE_CHANGED == 'true'
+        run: |
+          export ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+
+          # ARM64 플랫폼용 빌드
+          DOCKER_DEFAULT_PLATFORM=${{ env.DOCKER_PLATFORM }} docker-compose build fe
+
+          # 태그 설정 (latest 및 commit SHA)
+          docker tag ${{ env.ECR_FE_REPO }}:latest $ECR_REGISTRY/${{ env.ECR_FE_REPO }}:latest
+          docker tag ${{ env.ECR_FE_REPO }}:latest $ECR_REGISTRY/${{ env.ECR_FE_REPO }}:${{ github.sha }}
+
+      - name: Build and tag BE image
+        if: env.BE_CHANGED == 'true'
+        run: |
+          export ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+
+          # ARM64 플랫폼용 빌드
+          DOCKER_DEFAULT_PLATFORM=${{ env.DOCKER_PLATFORM }} docker-compose build be
+
+          # 태그 설정 (latest 및 commit SHA)
+          docker tag ${{ env.ECR_BE_REPO }}:latest $ECR_REGISTRY/${{ env.ECR_BE_REPO }}:latest
+          docker tag ${{ env.ECR_BE_REPO }}:latest $ECR_REGISTRY/${{ env.ECR_BE_REPO }}:${{ github.sha }}
+
+      # ECR에 이미지 푸시
+      - name: Push FE image to ECR
+        if: env.FE_CHANGED == 'true'
+        run: |
+          export ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          docker push $ECR_REGISTRY/${{ env.ECR_FE_REPO }}:latest
+          docker push $ECR_REGISTRY/${{ env.ECR_FE_REPO }}:${{ github.sha }}
+
+      - name: Push BE image to ECR
+        if: env.BE_CHANGED == 'true'
+        run: |
+          export ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          docker push $ECR_REGISTRY/${{ env.ECR_BE_REPO }}:latest
+          docker push $ECR_REGISTRY/${{ env.ECR_BE_REPO }}:${{ github.sha }}
+
+      # 동적 보안 그룹 관리로 SSH 접근 제한
+      - name: Add GitHub Actions IP to Security Group
+        id: add-ip
+        run: |
+          RUNNER_IP=$(curl -s https://api.ipify.org)
+          echo "RUNNER_IP=$RUNNER_IP" >> $GITHUB_ENV
+          echo "Adding GitHub Actions IP to Security Group: $RUNNER_IP"
+
+          aws ec2 authorize-security-group-ingress \
+            --group-id ${{ secrets.AWS_SECURITY_GROUP_ID }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr $RUNNER_IP/32
+
+      # SSH를 통한 EC2 배포 및 ECR 이미지 자동 배포
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AWS_EC2_SSH_DNS }}
+          username: ${{ secrets.AWS_EC2_SSH_USER_NAME }}
+          key: ${{ secrets.AWS_EC2_SSH_PEM_KEY }}
+          port: ${{ secrets.AWS_EC2_SSH_PORT }}
+          script: |
+            cd workspace
+
+            # ECR 인증 및 로그인
+            export ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | sudo docker login --username AWS --password-stdin $ECR_REGISTRY
+
+            # 기존 컨테이너 정리
+            sudo docker stop $(sudo docker ps -aq) || true
+            sudo docker system prune -a --volumes -f
+
+            # 최신 이미지로 서비스 시작
+            sudo docker-compose pull
+            sudo docker-compose up -d
+
+            # 서비스 상태 확인
+            sudo docker-compose ps
+
+      # 보안 그룹 정리 (실패 시에도 실행)
+      - name: Remove GitHub Actions IP from Security Group
+        if: always()
+        run: |
+          echo "Removing GitHub Actions IP from Security Group: ${{ env.RUNNER_IP }}"
+          aws ec2 revoke-security-group-ingress \
+            --group-id ${{ secrets.AWS_SECURITY_GROUP_ID }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ env.RUNNER_IP }}/32 || true
+
+      # 배포 소요시간 계산
+      - name: Calculate duration
+        if: always()
+        run: |
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+          MINUTES=$((DURATION / 60))
+          SECONDS=$((DURATION % 60))
+          echo "DURATION=${MINUTES}분 ${SECONDS}초" >> $GITHUB_ENV
+          echo "Total deployment time: ${MINUTES}분 ${SECONDS}초"
+
+      # 배포 결과 알림
+      - name: Notify Slack on Success
+        if: success()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "${{ env.SLACK_SUCCESS_COLOR }}",
+                  "title": "✅ 배포 성공",
+                  "text": "배포 환경: ${{ github.event.inputs.environment }}\n커밋: ${{ env.COMMIT_SUBJECT }}",
+                  "fields": [
+                    {
+                      "title": "소요시간",
+                      "value": "${{ env.DURATION }}",
+                      "short": true
+                    },
+                    {
+                      "title": "이미지 태그 (SHA)",
+                      "value": "${{ github.sha }}",
+                      "short": true
+                    },
+                    {
+                      "title": "FE 빌드",
+                      "value": "${{ env.FE_CHANGED == 'true' && '빌드됨' || '스킵됨' }}",
+                      "short": true
+                    },
+                    {
+                      "title": "BE 빌드",
+                      "value": "${{ env.BE_CHANGED == 'true' && '빌드됨' || '스킵됨' }}",
+                      "short": true
+                    },
+                    ${{ env.SLACK_COMMON_FIELDS }}
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOY_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+      - name: Notify Slack on Failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "${{ env.SLACK_FAILURE_COLOR }}",
+                  "title": "❌ 배포 실패",
+                  "text": "배포 환경: ${{ github.event.inputs.environment }}\n커밋: ${{ env.COMMIT_SUBJECT }}",
+                  "fields": [
+                    {
+                      "title": "소요시간",
+                      "value": "${{ env.DURATION }}",
+                      "short": true
+                    },
+                    {
+                      "title": "이미지 태그 (SHA)",
+                      "value": "${{ github.sha }}",
+                      "short": true
+                    },
+                    {
+                      "title": "FE 빌드",
+                      "value": "${{ env.FE_CHANGED == 'true' && '시도됨' || '스킵됨' }}",
+                      "short": true
+                    },
+                    {
+                      "title": "BE 빌드",
+                      "value": "${{ env.BE_CHANGED == 'true' && '시도됨' || '스킵됨' }}",
+                      "short": true
+                    },
+                    ${{ env.SLACK_COMMON_FIELDS }}
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOY_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+```
