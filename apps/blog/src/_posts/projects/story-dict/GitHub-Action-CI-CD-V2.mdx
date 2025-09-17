@@ -1,0 +1,347 @@
+---
+title: GitHub Actions를 활용한 CI/CD 파이프라인 구축
+description: "사이드 프로젝트 CI/CD 구축 방법에 대한 이야기\n( GitHub Actions, Docker, EC2, ECR )"
+tags: [story-dict, GitHub Actions, Docker, EC2, ECR, GitHub, CI/CD]
+createdAt: 2025-09-17 19:13:00
+publishedAt: 2025-09-17 19:13:00
+sitemap:
+  lastmod: 2025-09-17 19:13:00
+  changefreq: weekly
+  priority: 0.5
+draft: false
+---
+
+> 현재 포스트는 `GitHub Actions`를 활용해서 `ECR`을 통해서 이미지를 관리하고 `EC2`에 배포하는 파이프라인을 구축하는 방법에 대한 이야기입니다.<br />
+> ( 이전 포스트: [GitHub Action을 이용한 EC2 자동배포 ( with Docker )](/posts/projects/story-dict/GitHub-Action-CI-CD) )
+
+
+## 💡 TIP
+```text
+$GITHUB_ENV (환경변수)
+  - 현재 job의 이후 모든 step에서 ${{ env.변수명 }}으로 접근 가능
+  - step 간 데이터 공유용
+
+$GITHUB_OUTPUT (출력)
+  - 다른 job에서 ${{ needs.job명.outputs.변수명 }}으로 접근 가능
+  - job 간 데이터 전달용
+```
+
+## 🚀 수동 트리거를 이용하여 배포
+![01-GitHub_Action_수동_트리거](/images/posts/projects/story-dict/GitHub-Action-CI-CD-v2/01-GitHub_Action_수동_트리거.png)
+
+이전에는 master에 머지되면 자동으로 배포되게 액션을 만들었는데 현재 테스트로 액션도 많이 돌리고 실제 배포 시기를 명확하게 의도된 상황에 배포하는 게 좋을 것 같아서 수동으로 배포하도록 액션을 만들었어요.<br />
+`workflow_dispatch`를 이용하면 단순히 액션을 실행하는 것이 아니라 원하는 입력값을 받아서 `${{ github.event.inputs.environment }}`와 같이 사용할 수 있어요.<br />
+( 현재는 값을 받아서 의미 있게 사용하지는 않아요. )<br />
+
+```yaml showLineNumbers
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "배포할 환경을 선택하세요"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - staging
+```
+
+## ⚙️ 환경 변수 설정
+`GitHub Actions`에서는 환경 변수를 사용할 수 있는데 레포지토리 자체에 등록해두거나, 아래처럼 `.yaml`에서 선언할 수 있어요.<br />
+반복적으로 사용하는 부분들을 선언해두고 액션에서 사용하고 있어요.<br />
+
+```yaml showLineNumbers
+env:
+  # Slack 알림 색상 정의
+  SLACK_START_COLOR: "#155dfc"
+  SLACK_SUCCESS_COLOR: "#00a63e"
+  SLACK_FAILURE_COLOR: "#e7000b"
+
+  # Docker 관련 설정
+  DOCKER_PLATFORM: "linux/arm64"
+  DOCKER_COMPOSE_VERSION: "v2.24.5"
+
+  # 프로젝트 관련 설정
+  PROJECT_NAME: "story-dict"
+  ECR_FE_REPO: "1-blue/story-dict-fe"
+  ECR_BE_REPO: "1-blue/story-dict-be"
+
+  # 시간대 설정
+  TZ: "Asia/Seoul"
+
+  # Slack 공통 필드 - 모든 알림에서 재사용
+  SLACK_COMMON_FIELDS: |
+    {
+      "title": "배포 환경",
+      "value": "${{ github.event.inputs.environment }}",
+      "short": true
+    },
+    {
+      "title": "워크플로우",
+      "value": "<${{ github.server_url }}/${{ github.repository }}/actions/workflows/cicd.yaml|${{ github.workflow }} 워크플로우>",
+      "short": true
+    },
+    {
+      "title": "액션 작업",
+      "value": "<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|#${{ github.run_number }} 작업>",
+      "short": true
+    },
+    {
+      "title": "레포지토리",
+      "value": "<${{ github.server_url }}/${{ github.repository }}|${{ github.repository }}>",
+      "short": true
+    },
+    {
+      "title": "브랜치",
+      "value": "${{ github.ref_name }}",
+      "short": true
+    },
+    {
+      "title": "실행자",
+      "value": "${{ github.actor }}",
+      "short": true
+    }
+```
+
+## 📨 슬랙
+> 슬랙 알림 설정 방법은 [GitHub Action + Slack 알림](/posts/projects/story-dict/GitHub-Action-Slack) 포스트를 참고해주세요<br />
+
+### 0️⃣ 배포 소요 시간 계산
+슬랙 결과를 보여줄 때 소요 시간을 계산하기 위해서 시작 시간을 설정해줘요.<br />
+`echo "START_TIME=$(date +%s)" >> $GITHUB_ENV` 이런 식으로 사용하면 환경 변수에 값을 넣을 수 있고, `${{ env.START_TIME }}`와 같이 사용할 수 있어요.<br />
+
+```yaml showLineNumbers
+jobs:
+  Deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set start time
+        run: |
+          echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+          echo "START_TIME_FORMATTED=$(date '+%Y년 %m월 %d일 %H시 %M분 %S초')" >> $GITHUB_ENV
+```
+
+### 1️⃣ 배포 알림
+![02-슬랙_메시지_예시](/images/posts/projects/story-dict/GitHub-Action-CI-CD-v2/02-슬랙_메시지_예시.png)
+
+시작, 성공/실패 알림 모두 비슷한 형태로 알림을 보내요.<br />
+이렇게 알림을 보내려면 [웹훅](/posts/projects/story-dict/GitHub-Action-Slack)을 설정해서 URL을 얻고 아래처럼 설정만 하면 돼요.<br />
+
+```yaml showLineNumbers
+jobs:
+  Deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack on Start
+        id: slack-start
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "${{ env.SLACK_START_COLOR }}",
+                  "title": "🚀 배포 시작",
+                  "text": "배포 환경: ${{ github.event.inputs.environment }}\n커밋: ${{ env.COMMIT_SUBJECT }}",
+                  "fields": [
+                    {
+                      "title": "시작 시간",
+                      "value": "${{ env.START_TIME_FORMATTED }}",
+                      "short": true
+                    },
+                    {
+                      "title": "이미지 태그 (SHA)",
+                      "value": "${{ github.sha }}",
+                      "short": true
+                    },
+                    ${{ env.SLACK_COMMON_FIELDS }}
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_DEPLOY_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+```
+
+## 🧩 파일 변경 감지 후 선택적 빌드
+현재 프로젝트는 `apps/fe`, `apps/be`, `packages/..` 등의 모노레포로 구성되어 있어서 항상 모든 레포를 수정할 필요는 없어요.<br />
+따라서 커밋 내역을 가져와서 특정 위치에 변경된 파일이 있는지 확인하고 변경된 파일이 있다면 해당 레포만 빌드하도록 설정해줘요.<br />
+현재는 `apps/fe`, `apps/be`가 변경되면 `fe`, `be` 레포만 빌드하도록 했고, `packages/..`가 변경되면 모든 레포를 빌드하도록 설정했어요.<br />
+
+```yaml showLineNumbers
+jobs:
+  Deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for changes
+        id: changes
+        run: |
+          set -e
+          FE_CHANGED=false
+          BE_CHANGED=false
+          ANY_CHANGED=false
+
+          # 기준 커밋 계산
+          BASE=$(git rev-parse HEAD~1 2>/dev/null || echo "")
+
+          # 첫 커밋이거나 얕은 히스토리인 경우 안전하게 모든 앱 빌드
+          if [ -z "$BASE" ]; then
+            git fetch --deepen=1 origin "$GITHUB_REF" || true
+            BASE=$(git rev-parse HEAD~1 2>/dev/null || echo "")
+          fi
+
+          if [ -z "$BASE" ]; then
+            FE_CHANGED=true
+            BE_CHANGED=true
+            ANY_CHANGED=true
+          else
+            CHANGED_FILES=$(git diff --name-only "$BASE"...HEAD || true)
+
+            # 각 앱별 변경사항 확인
+            echo "$CHANGED_FILES" | grep -E '^apps/fe/' >/dev/null && FE_CHANGED=true || true
+            echo "$CHANGED_FILES" | grep -E '^apps/be/' >/dev/null && BE_CHANGED=true || true
+
+            # 공유 패키지 변경 시 모든 앱 빌드
+            if echo "$CHANGED_FILES" | grep -E '^packages/' >/dev/null; then
+              FE_CHANGED=true
+              BE_CHANGED=true
+            fi
+
+            [ "$FE_CHANGED" = "true" ] || [ "$BE_CHANGED" = "true" ] && ANY_CHANGED=true
+          fi
+
+          # 환경변수 설정
+          echo "FE_CHANGED=$FE_CHANGED" >> $GITHUB_ENV
+          echo "BE_CHANGED=$BE_CHANGED" >> $GITHUB_ENV
+          echo "ANY_CHANGED=$ANY_CHANGED" >> $GITHUB_ENV
+```
+
+## 🏷️ 빌드 및 태그 설정 및 ECR 푸시
+![03-빌드_및_태그_설정_및_ECR_푸시](/images/posts/projects/story-dict/GitHub-Action-CI-CD-v2/03-빌드_및_태그_설정_및_ECR_푸시.png)
+
+태그를 두 가지 설정해 주는데 첫 번째로는 최신을 쉽게 사용하기 위해서 `latest` 태그를 설정하고 두 번째로는 독립적인 태그를 위해서 `commit SHA`로 태그를 설정해줘요.<br />
+그 이유는 `latest`만 올렸다가 롤백해야 하는 상황이 생긴다면 다시 되돌릴 수 없기 때문에 `latest`만 올리는 것보다 `commit SHA`로 태그를 설정하는 것이 좋아요.<br />
+
+```yaml showLineNumbers
+jobs:
+  Deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build and tag FE image
+        if: env.FE_CHANGED == 'true'
+        run: |
+          export ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+
+          # ARM64 플랫폼용 빌드
+          DOCKER_DEFAULT_PLATFORM=${{ env.DOCKER_PLATFORM }} docker-compose build fe
+
+          # 태그 설정 (latest 및 commit SHA)
+          docker tag ${{ env.ECR_FE_REPO }}:latest $ECR_REGISTRY/${{ env.ECR_FE_REPO }}:latest
+          docker tag ${{ env.ECR_FE_REPO }}:latest $ECR_REGISTRY/${{ env.ECR_FE_REPO }}:${{ github.sha }}
+
+      - name: Build and tag BE image
+        if: env.BE_CHANGED == 'true'
+        run: |
+          export ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+
+          # ARM64 플랫폼용 빌드
+          DOCKER_DEFAULT_PLATFORM=${{ env.DOCKER_PLATFORM }} docker-compose build be
+
+          # 태그 설정 (latest 및 commit SHA)
+          docker tag ${{ env.ECR_BE_REPO }}:latest $ECR_REGISTRY/${{ env.ECR_BE_REPO }}:latest
+          docker tag ${{ env.ECR_BE_REPO }}:latest $ECR_REGISTRY/${{ env.ECR_BE_REPO }}:${{ github.sha }}
+
+      # ECR에 이미지 푸시
+      - name: Push FE image to ECR
+        if: env.FE_CHANGED == 'true'
+        run: |
+          export ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          docker push $ECR_REGISTRY/${{ env.ECR_FE_REPO }}:latest
+          docker push $ECR_REGISTRY/${{ env.ECR_FE_REPO }}:${{ github.sha }}
+
+      - name: Push BE image to ECR
+        if: env.BE_CHANGED == 'true'
+        run: |
+          export ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          docker push $ECR_REGISTRY/${{ env.ECR_BE_REPO }}:latest
+          docker push $ECR_REGISTRY/${{ env.ECR_BE_REPO }}:${{ github.sha }}
+```
+
+## 🔐 보안 그룹 설정
+`GitHub Actions` 러너의 `IP`를 보안 그룹에 추가하는 부분이에요.<br />
+`always()`를 이용해서 이전 단계가 실패하더라도 추가된 보안 그룹은 반드시 닫히도록 해요.<br />
+
+```yaml showLineNumbers
+jobs:
+  Deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add GitHub Actions IP to Security Group
+        id: add-ip
+        run: |
+          RUNNER_IP=$(curl -s https://api.ipify.org)
+          echo "RUNNER_IP=$RUNNER_IP" >> $GITHUB_ENV
+          echo "Adding GitHub Actions IP to Security Group: $RUNNER_IP"
+
+          aws ec2 authorize-security-group-ingress \
+            --group-id ${{ secrets.AWS_SECURITY_GROUP_ID }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr $RUNNER_IP/32
+
+      # ... 생략
+
+      - name: Remove GitHub Actions IP from Security Group
+        if: always()
+        run: |
+          echo "Removing GitHub Actions IP from Security Group: ${{ env.RUNNER_IP }}"
+          aws ec2 revoke-security-group-ingress \
+            --group-id ${{ secrets.AWS_SECURITY_GROUP_ID }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ env.RUNNER_IP }}/32 || true
+```
+
+## 🖥️ EC2 배포
+`SSH`를 이용해서 `EC2`에 배포하는 부분이에요.<br />
+`login-ecr` 단계에서 설정한 `ECR` 정보를 사용하고 있어요.<br />
+현재 실행 중인 컨테이너를 중지하고 도커 초기화 후 최신 이미지로 서비스를 시작하는 명령어를 적었어요.<br />
+
+```yaml showLineNumbers
+jobs:
+  Deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AWS_EC2_SSH_DNS }}
+          username: ${{ secrets.AWS_EC2_SSH_USER_NAME }}
+          key: ${{ secrets.AWS_EC2_SSH_PEM_KEY }}
+          port: ${{ secrets.AWS_EC2_SSH_PORT }}
+          script: |
+            cd workspace
+
+            # ECR 인증 및 로그인
+            export ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | sudo docker login --username AWS --password-stdin $ECR_REGISTRY
+
+            # 기존 컨테이너 정리
+            sudo docker stop $(sudo docker ps -aq) || true
+            sudo docker system prune -a --volumes -f
+
+            # 최신 이미지로 서비스 시작
+            sudo docker-compose pull
+            sudo docker-compose up -d
+
+            # 서비스 상태 확인
+            sudo docker-compose ps
+```
+
+## 🎉 마무리
+이전에는 `Docker Hub`를 통해서 이미지를 관리했었는데 현재는 `ECR`을 통해서 이미지를 관리하도록 변경했어요.<br />
+바꾼 이유는 초기에 만든 당시에 `ECR`이라는 존재를 몰랐었는데 이후에 알게 되었고 하는 김에 `AWS`에서 제공하는 서비스로 만들어두면 이후 `ECS`와 같이 새로운 도전을 할 때 더 쉽게 적용할 수 있을 것 같아서 변경했어요.<br />
+
+그리고 하는 김에 비효율적인 부분이나 사용성이 아쉬운 부분도 수정하고 `GitHub Actions`나 `.yaml`에서 사용할 수 있는 문법들에 대해서 배우고 익혀서 유용했던 것 같아요.<br />
