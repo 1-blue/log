@@ -127,7 +127,7 @@ const TOC: React.FC<IProps> = ({ toc }) => {
   }
 
   return (
-    <nav className="bg-accent fixed top-20 right-4 z-50 w-64 rounded-lg text-xs shadow-md">
+    <nav className="bg-accent fixed top-4 right-4 z-50 w-64 rounded-lg text-xs shadow-md">
       <Button
         onClick={() => setIsExpanded(false)}
         variant="ghost"
