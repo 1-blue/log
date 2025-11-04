@@ -1,0 +1,517 @@
+---
+title: "JavaScript는 싱글 스레드인데 어떻게 동시에 여러 작업을 할까?"
+description: "콜스택, 마이크로태스크 큐, 매크로태스크 큐, 이벤트 루프의 동작에 대한 이해를 위한 이야기"
+tags: [이벤트 루프, Event Loop, 콜스택, Call Stack, 마이크로태스크 큐, Microtask Queue, 매크로태스크 큐, Macrotask Queue, Task Queue, JavaScript 비동기, 싱글 스레드, Single Thread]
+icon: ""
+thumbnail: ""
+createdAt: 2025-11-04 15:50:00
+publishedAt: 2025-11-04 18:09:00
+sitemap:
+  lastmod: 2025-11-04 18:09:00
+  changefreq: weekly
+  priority: 0.5
+draft: false
+---
+
+## 🤔 시작하기 전에
+다음 코드의 출력 순서를 예측해볼 수 있나요?
+
+```js
+console.log('1');
+
+setTimeout(() => console.log('2'), 0);
+Promise.resolve().then(() => console.log('3'));
+
+console.log('4');
+```
+
+이런류에 대한 문제를 처음본다면 뭔가 `1 → 2 → 3 → 4`는 아닌 것 같은데 `1 → 4 → 2 → 3`인가? 라고 생각할 것 같아요.<br />
+하지만 실제 결과는 `1 → 4 → 3 → 2`예요.<br />
+`setTimeout()`의 대기 시간이 0초인데도 `Promise`보다 늦게 실행되는 이유가 뭘까요?<br />
+
+이 글에서는 위의 의문에 대한 답을 찾기 위해 JavaScript의 콜스택, 태스크 큐, 이벤트 루프에 대해 정리해볼게요.<br />
+
+## ⚙️ JavaScript의 비동기 처리 구조
+혹시 `JavaScript`는 싱글 스레드인데 어떻게 비동기를 처리하는지 의문을 가져보셨던적이 있나요?<br />
+현재 실행중인 코드에서 `setTimeout()`이나 `fetch()`와 같은 비동기 처리를 하는 함수가 있다면 어떻게 시간을 기다린후 실행하고, 어떻게 네트워크 응답이 오기를 기다리고 있을까요?<br />
+
+### 0️⃣ 싱글 스레드의 한계
+JavaScript는 **싱글 스레드** 언어예요. 즉, 한 번에 하나의 작업만 처리할 수 있어요.<br />
+
+```js
+console.log('첫 번째');
+console.log('두 번째');
+console.log('세 번째');
+
+// 첫 번째 → 두 번째 → 세 번째
+```
+
+만약 무거운 작업이 있다면 어떻게 될까요?
+```jsx
+const onClick = () => {
+  console.log('시작');
+
+  // 5초 걸리는 무거운 작업
+  for (let i = 0; i < 5_000_000_000; i++) {
+    // ...
+  }
+
+  // 5초 동안 아무것도 못하고 대기... (블로킹)
+
+  console.log('끝');
+
+  // 출력: 시작 → 끝
+
+  alert('함수종료');
+}
+
+<button onClick={onClick}>버튼</button>
+```
+
+이런 코드가 실행되면 5초 동안 웹페이지는 완전히 얼어붙어요. 버튼을 클릭해도 반응이 없고, 스크롤도 안 되죠. 이것이 **싱글 스레드의 한계**예요.<br />
+
+### 1️⃣ 비동기를 가능하게 하는 구조
+그렇다면 `JavaScript`는 어떻게 비동기 처리를 할 수 있을까요?<br />
+비밀은 **JavaScript 엔진과 Runtime Environment의 협력**에 있어요.<br />
+
+```text
+# claude가 그려준 그림
+
+┌────────────────────────────────────────┐
+│      Runtime (브라우저 or Node.js)       │
+│                                        │
+│  ┌───────────────────────────────┐     │
+│  │  JavaScript 엔진 (싱글 스레드)    │     │
+│  │  - 코드 실행                    │     │
+│  │  - 콜스택                       │     │
+│  └───────────────────────────────┘     │
+│              ↕                         │
+│  ┌───────────────────────────────┐     │
+│  │  Web APIs (멀티 스레드)          │     │
+│  │  - setTimeout                 │     │
+│  │  - fetch                      │     │
+│  │  - DOM Events                 │     │
+│  └───────────────────────────────┘     │
+│              ↓                         │
+│  ┌───────────────────────────────┐     │
+│  │  Task Queues                  │     │
+│  │  - Macrotask Queue            │     │
+│  │  - Microtask Queue            │     │
+│  └───────────────────────────────┘     │
+│              ↑                         │
+│         Event Loop                     │
+└────────────────────────────────────────┘
+```
+
+`JavaScript` 엔진은 싱글 스레드지만, 실행되는 환경인 **브라우저나 Node.js는 멀티 스레드**예요.<br />
+무거운 작업(타이머, 네트워크 요청 등)은 별도 스레드로 위임하고, `JavaScript` 엔진은 다른 코드를 계속 실행할 수 있어요.<br />
+
+```js
+console.log('시작');
+
+// setTimeout은 Web API로 위임
+setTimeout(() => console.log('타이머 완료'), 2000);
+
+// fetch도 Web API로 위임
+fetch('https://api.github.com/users/octocat')
+  .then(data => console.log('데이터 받음'));
+
+// JavaScript 엔진은 바로 다음 코드 실행
+console.log('끝');
+
+// 출력: 시작 → 끝 → (2초 후) 데이터 받음 → 타이머 완료
+```
+
+## 📚 콜스택: 코드 실행의 핵심
+나중에 다시 언급하겠지만 콜스택이 비어있을 때만 이벤트 루프가 큐에서 다음 작업을 가져올 수 있어요.<br />
+중요한 내용이라 기억해두면 좋아요.<br />
+
+### 0️⃣ 동작 원리
+**콜스택(Call Stack)**은 현재 실행 중인 코드를 추적하는 자료구조예요.<br />
+함수가 호출되면 스택에 `Push`되고, 실행이 끝나면 `Pop`돼요.<br />
+
+```text
+# claude가 그려준 그림
+
+Stack (LIFO: Last In First Out)
+
+┌─────────────┐
+│  함수 third  │ ← 가장 나중에 들어옴 ( 가장 먼저 나감 )
+├─────────────┤
+│  함수 second │
+├─────────────┤
+│  함수 first  │
+└─────────────┘
+```
+
+### 1️⃣ 예제로 이해하기
+콜스택의 실행순서에 대한 예시를 살펴볼게요.<br />
+아마 대부분 예상하는대로 동작할거예요.<br />
+
+```js
+const first = () => {
+  console.log('첫 번째 함수'); // 1: 콜스택에 넣고 실행
+  second(); // 2: 콜스택에 넣고 실행
+  console.log('첫 번째 함수 종료'); // 7: 2 ~ 6 실행 후 이전 실행 위치로 돌아옴
+}
+
+const second = () => {
+  console.log('두 번째 함수'); // 3: 콜스택에 넣고 실행
+  third(); // 4: 콜스택에 넣고 실행
+  console.log('두 번째 함수 종료'); // 6: 4 ~ 5 실행 후 이전 실행 위치로 돌아옴
+}
+
+const third = () => {
+  console.log('세 번째 함수'); // 5: 콜스택에 넣고 실행
+}
+
+first();
+
+// 첫 번째 함수 → 두 번째 함수 → 세 번째 함수 → 두 번째 함수 종료 → 첫 번째 함수 종료
+```
+
+## 📦 두 가지 태스크 큐
+이벤트 루프가 큐에서 다음 작업을 가져올 때 두 가지 태스크 큐가 있어요.<br />
+하나는 매크로태스크 큐(`Macrotask Queue`), 다른 하나는 마이크로태스크 큐(`Microtask Queue`)예요.<br />
+
+### 0️⃣ 매크로태스크 큐
+**매크로태스크 큐(Macrotask Queue)**는 다음과 같은 작업을 처리해요.<br />
+1. `setTimeout()`
+2. `setInterval()`
+3. `setImmediate()`
+4. `I/O` 작업
+
+```js
+console.log('1'); // 1: 콜스택에 넣고 실행
+// Call Stack: [console.log('1')]
+// Microtask Queue: []
+// Macrotask Queue: []
+// 출력:
+
+// Call Stack: []
+// Microtask Queue: []
+// Macrotask Queue: []
+// 출력: 1
+
+setTimeout(() => console.log('2'), 0); // 2: 콜스택에 넣고 실행 후 Web API로 전달 → 매크로태스크 큐에 등록
+// Call Stack: [setTimeout(() => console.log('2'), 0)]
+// Microtask Queue: []
+// Macrotask Queue: []
+// 출력: 1
+
+// Call Stack: []
+// Microtask Queue: []
+// Macrotask Queue: [console.log('2')] // 시간 계산은 Web API에서 이루어짐
+// 출력: 1
+
+setTimeout(() => console.log('3'), 0); // 3: 콜스택에 넣고 실행 후 Web API로 전달 → 매크로태스크 큐에 등록
+// Call Stack: [setTimeout(() => console.log('3'), 0)]
+// Microtask Queue: []
+// Macrotask Queue: [console.log('2')]
+// 출력: 1
+
+// Call Stack: []
+// Microtask Queue: []
+// Macrotask Queue: [console.log('2'), console.log('3')]
+// 출력: 1
+
+console.log('4'); // 4: 콜스택에 넣고 실행
+// Call Stack: [console.log('4')]
+// Microtask Queue: []
+// Macrotask Queue: [console.log('2'), console.log('3')]
+// 출력: 1
+
+// 콜스택이 비었기 때문에 이벤트 루프가 매크로태스크 큐에서 다음 작업 하나를 가져옴
+// Call Stack: []
+// Microtask Queue: []
+// Macrotask Queue: [console.log('2'), console.log('3')]
+// 출력: 1 → 4
+
+// 콜스택 실행
+// Call Stack: [console.log('2')]
+// Microtask Queue: []
+// Macrotask Queue: [console.log('3')]
+// 출력: 1 → 4
+
+// 콜스택이 비었기 때문에 이벤트 루프가 매크로태스크 큐에서 다음 작업 하나를 가져옴
+// Call Stack: []
+// Microtask Queue: []
+// Macrotask Queue: [console.log('3')]
+// 출력: 1 → 4 → 2
+
+// 콜스택 실행
+// Call Stack: [console.log('3')]
+// Microtask Queue: []
+// Macrotask Queue: []
+// 출력: 1 → 4 → 2
+
+// 콜스택, 마이크로태스크 큐, 매크로태스크 큐 모두 비었기 때문에 종료
+// Call Stack: []
+// Microtask Queue: []
+// Macrotask Queue: []
+// 출력: 1 → 4 → 2 → 3
+```
+
+### 1️⃣ 마이크로태스크 큐
+마이크로태스크 큐(Microtask Queue)는 다음과 같은 작업을 처리해요<br />
+1. `Promise.then/catch/finally`
+2. `async/await`
+3. `queueMicrotask()`
+4. `MutationObserver`
+
+마이크로태스크는 **매크로태스크보다 우선순위가 높아요**. 콜스택이 비면 매크로태스크보다 먼저 실행돼요.
+
+```js
+console.log('1'); // 1: 콜스택에 넣고 실행
+// Call Stack: [console.log('1')]
+// Microtask Queue: []
+// Macrotask Queue: []
+// 출력:
+
+// Call Stack: []
+// Microtask Queue: []
+// Macrotask Queue: []
+// 출력: 1
+
+// 2: 콜스택에 넣고 실행 후 Web API로 전달 → 마이크로태스크 큐에 등록
+Promise.resolve().then(() => console.log('2'));
+// Call Stack: [Promise.resolve().then(() => console.log('2'))]
+// Microtask Queue: []
+// Macrotask Queue: []
+// 출력: 1
+
+// Call Stack: []
+// Microtask Queue: [console.log('2')]
+// Macrotask Queue: []
+// 출력: 1
+
+// 3: 콜스택에 넣고 실행 후 Web API로 전달 → 마이크로태스크 큐에 등록
+Promise.resolve().then(() => console.log('3'));
+// Call Stack: [Promise.resolve().then(() => console.log('3'))]
+// Microtask Queue: [console.log('2')]
+// Macrotask Queue: []
+// 출력: 1
+
+// Call Stack: []
+// Microtask Queue: [console.log('2'), console.log('3')]
+// Macrotask Queue: []
+// 출력: 1
+
+// 4: 콜스택에 넣고 실행
+console.log('4');
+// Call Stack: [console.log('4')]
+// Microtask Queue: [console.log('2'), console.log('3')]
+// Macrotask Queue: []
+// 출력: 1
+
+// 콜스택이 비었기 때문에 이벤트 루프가 마이크로태스크 큐에서 다음 작업 하나를 가져옴
+// Call Stack: []
+// Microtask Queue: [console.log('2'), console.log('3')]
+// Macrotask Queue: []
+// 출력: 1 → 4
+
+// 콜스택 실행
+// Call Stack: [console.log('2')]
+// Microtask Queue: [console.log('3')]
+// Macrotask Queue: []
+// 출력: 1 → 4
+
+// 마이크로태스크 큐가 빌때까지 하나씩 콜스택으로 가져와서 실행
+// Call Stack: [console.log('3')]
+// Microtask Queue: []
+// Macrotask Queue: []
+// 출력: 1 → 4 → 2
+
+// 콜스택, 마이크로태스크 큐, 매크로태스크 큐 모두 비었기 때문에 종료
+// Call Stack: []
+// Microtask Queue: []
+// Macrotask Queue: []
+// // 출력: 1 → 4 → 2 → 3
+```
+
+## 🔄 이벤트 루프
+이벤트 루프는 이전에 언급했던 콜스택, 마이크로태스크 큐, 매크로태스크 큐를 유기적으로 연결하는 역할을 해요.<br />
+우선순위 규칙에 맞게 실행되도록 도와주는 교통경찰같은 역할을 해요.<br />
+
+### 0️⃣ 실행 순서
+- 이벤트 루프는 다음 순서로 동작해요.
+  1. 콜스택의 모든 동기 코드 실행
+  2. 마이크로태스크 큐가 빌 때까지 모두 실행
+  3. 필요시 렌더링 (브라우저)
+  4. 매크로태스크 큐에서 하나만 실행
+  5. 다시 2번으로 돌아감 (무한 반복)
+
+### 1️⃣ 복합적인 예제 분석
+아래 코드를 실행하면 어떻게 될까요?<br />
+
+```js
+console.log('call: 1');
+
+setTimeout(() => console.log('macro: 2'), 2000);
+Promise.resolve().then(() => console.log('micro: 3'));
+setTimeout(() => console.log('macro: 4'), 0);
+Promise.resolve().then(() => console.log('micro: 5'));
+
+// 5초 걸리는 무거운 작업
+for (let i = 0; i < 1_000_000_000; i++) {
+  // ...
+}
+
+console.log('call: 6');
+```
+
+```js showLineNumbers {3, 11, 15, 22, 27, 33, 39, 46, 51, 57, 65, 70, 78, 82-83, 90, 92-93, 100, 103, 105, 110, 112, 116-119}
+// ================================ 1번 코드 ================================
+console.log('call: 1');
+// Call Stack: [console.log('call: 1')]
+// Microtask Queue: []
+// Macrotask Queue: []
+// 출력:
+
+// Call Stack: []
+// Microtask Queue: []
+// Macrotask Queue: []
+// 출력: call: 1
+
+// ================================ 2번 코드 ================================
+setTimeout(() => console.log('macro: 2'), 2000);
+// Call Stack: [setTimeout(() => console.log('macro: 2'), 2000)]
+// Microtask Queue: []
+// Macrotask Queue: []
+// 출력: call: 1
+
+// Call Stack: []
+// Microtask Queue: []
+// Macrotask Queue: [] // Web API에서 시간 계산 후 2초후 "() => console.log('macro: 2')" 함수를 매크로태스크 큐에 등록
+// 출력: call: 1
+
+// ================================ 3번 코드 ================================
+Promise.resolve().then(() => console.log('micro: 3'));
+// Call Stack: [Promise.resolve().then(() => console.log('micro: 3'))]
+// Microtask Queue: []
+// Macrotask Queue: []
+// 출력: call: 1
+
+// Call Stack: []
+// Microtask Queue: [console.log('micro: 3')] // 바로 resolve 되어 바로 마이크로태스크 큐에 등록
+// Macrotask Queue: []
+// 출력: call: 1
+
+// ================================ 4번 코드 ================================
+setTimeout(() => console.log('macro: 4'), 0);
+// Call Stack: [setTimeout(() => console.log('macro: 4'), 0)]
+// Microtask Queue: []
+// Macrotask Queue: []
+// 출력: call: 1
+
+// Call Stack: []
+// Microtask Queue: [console.log('micro: 3')]
+// Macrotask Queue: [console.log('macro: 4')] // Web API에서 시간 계산 후 넣음 ( 0초라 바로 넣어둠 )
+// 출력: call: 1
+
+// ================================ 5번 코드 ================================
+Promise.resolve().then(() => console.log('micro: 5'));
+// Call Stack: [Promise.resolve().then(() => console.log('micro: 5'))]
+// Microtask Queue: [console.log('micro: 3'), ]
+// Macrotask Queue: [console.log('macro: 4')]
+// 출력: call: 1
+
+// Call Stack: []
+// Microtask Queue: [console.log('micro: 3'), console.log('micro: 5')]
+// Macrotask Queue: [console.log('macro: 4')]
+// 출력: call: 1
+
+// ================================ 5~6번 for문 ================================
+// 5 ~ 6번 가는 도중에 for에서 5초 블로킹되는 도중에 매크로태스크 큐에 2초짜리 등록됨
+// Call Stack: []
+// Microtask Queue: [console.log('micro: 3'), console.log('micro: 5')]
+// Macrotask Queue: [console.log('macro: 4'), console.log('macro: 2')]
+// 출력: call: 1
+
+// ================================ 6번 코드 ================================
+console.log('call: 6');
+// Call Stack: [console.log('call: 6')]
+// Microtask Queue: [console.log('micro: 3'), console.log('micro: 5')]
+// Macrotask Queue: [console.log('macro: 4'), console.log('macro: 2')]
+// 출력: call: 1
+
+// Call Stack: []
+// Microtask Queue: [console.log('micro: 3'), console.log('micro: 5')]
+// Macrotask Queue: [console.log('macro: 4'), console.log('macro: 2')]
+// 출력: call: 1 → call: 6
+
+// 콜스택이 비어있기 때문에 이벤트루프가 우선순위가 높은 마이크로태스크 큐에서 다음 함수를 콜스택으로 가져와서 실행
+// 마이크로태스크 큐가 빌때까지 반복
+// Call Stack: [console.log('micro: 3')]
+// Microtask Queue: [console.log('micro: 5')]
+// Macrotask Queue: [console.log('macro: 4'), console.log('macro: 2')]
+// 출력: call: 1 → call: 6
+
+// Call Stack: []
+// Microtask Queue: [console.log('micro: 5')]
+// Macrotask Queue: [console.log('macro: 4'), console.log('macro: 2')]
+// 출력: call: 1 → call: 6 → micro: 3
+
+// Call Stack: [console.log('micro: 5')]
+// Microtask Queue: []
+// Macrotask Queue: [console.log('macro: 4'), console.log('macro: 2')]
+// 출력: call: 1 → call: 6 → micro: 3
+
+// Call Stack: []
+// Microtask Queue: []
+// Macrotask Queue: [console.log('macro: 4'), console.log('macro: 2')]
+// 출력: call: 1 → call: 6 → micro: 3 → micro: 5
+
+// 마이크로태스크 큐가 비어서 이벤트루프가 매크로태스크 큐에서 다음 함수를 콜스택으로 가져와서 실행
+// Call Stack: [console.log('macro: 4')]
+// Microtask Queue: []
+// Macrotask Queue: [console.log('macro: 2')]
+// 출력: call: 1 → call: 6 → micro: 3 → micro: 5 → macro: 4
+
+// 매크로태스크 큐에서 하나 실행 후 다시 마이크로태스크 큐를 확인 후 마이크로태스크 큐 내부가 빌때까지 콜스택으로 이동 후 실행을 반복
+// 마이크로태스크 큐가 비어서 매크로태스크 큐에서 다음 함수를 콜스택으로 가져와서 실행
+// Call Stack: [console.log('macro: 2')]
+// Microtask Queue: []
+// Macrotask Queue: []
+// 출력: call: 1 → call: 6 → micro: 3 → micro: 5 → macro: 4
+
+// 콜스택, 마이크로태스크 큐, 매크로태스크 큐 모두 비었기 때문에 종료
+// Call Stack: []
+// Microtask Queue: []
+// Macrotask Queue: []
+// 출력: call: 1 → call: 6 → micro: 3 → micro: 5 → macro: 4 → macro: 2
+```
+
+되게 복잡해보이지만 규칙에 맞게 순서대로 생각하면 어렵지 않아요.<br />
+마이크로태스크 큐가 먼저 실행되는 이유는 마이크로태스크 큐가 우선순위가 높기 때문이에요.<br />
+
+<Blockquote type="tip">
+  `settimeout()`이 시간을 완벽하게 계산할 수 없는 이유도 위에서 확인할 수 있어요.<br />
+  동기적인 코드가 먼저 실행되기 때문에 `settimeout(() => {}, 2000)`이더라도 for문이 끝날때까지 실행되지않고 기다리게 돼요.<br />
+</Blockquote>
+
+## 📝 정리
+이벤트 루프는 JavaScript의 비동기 처리를 가능하게 하는 핵심 메커니즘이에요.<br />
+
+- **핵심 개념:**
+  - **콜스택**: 현재 실행 중인 코드를 추적하는 자료구조
+  - **마이크로태스크 큐**: Promise, async/await 등이 들어가는 높은 우선순위 큐
+  - **매크로태스크 큐**: setTimeout, setInterval 등이 들어가는 낮은 우선순위 큐
+  - **이벤트 루프**: 콜스택과 큐들을 연결하는 무한 루프
+
+- **실행 순서:**
+  1. 동기 코드 실행
+  2. 마이크로태스크 큐 비우기
+  3. 매크로태스크 하나 실행
+  4. 2번으로 돌아가기
+
+이제 처음 예제의 답을 명확하게 이해할 수 있어요:
+```js
+console.log('1'); // 동기
+setTimeout(() => console.log('2'), 0); // 매크로태스크
+Promise.resolve().then(() => console.log('3')); // 마이크로태스크
+console.log('4'); // 동기
+
+// 출력: 1 → 4 → 3 → 2
+// 마이크로태스크(Promise)가 매크로태스크(setTimeout)보다 먼저 실행
+```
