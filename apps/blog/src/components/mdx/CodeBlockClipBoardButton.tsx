@@ -16,14 +16,12 @@ const CodeBlockClipBoardButton = () => {
    * 클립보드 핸들러
    * `DOM`에 직접 접근하는 방법은 안좋지만 `<Pre />를 서버 컴포넌트로 만들기 위해서 사용
    */
-  const onClipboard = () => {
-    if (!buttonRef.current) return;
-    const $pre = buttonRef.current.parentElement?.nextElementSibling;
-
-    if (!$pre) return;
+  const onClipboard: React.MouseEventHandler<HTMLButtonElement> = (e) => {
+    const $pre = e.currentTarget.parentElement?.parentElement;
+    if (!$pre) return toast.error("코드 블럭을 찾을 수 없습니다.");
 
     try {
-      navigator.clipboard.writeText($pre.textContent as string);
+      navigator.clipboard.writeText($pre.textContent);
 
       setCopied(true);
       setTimeout(() => setCopied(false), 1000);
@@ -37,16 +35,16 @@ const CodeBlockClipBoardButton = () => {
 
   return (
     <Button
-      ref={buttonRef}
       type="button"
       variant="ghost"
       size="icon"
       className="relative top-2 right-2 h-10 min-h-10 w-10 cursor-pointer border-none bg-gray-500 text-gray-100 opacity-50 hover:bg-gray-600"
+      onClick={onClipboard}
     >
       {copied ? (
         <ClipboardDocumentCheckIcon className="h-6 w-6 text-green-400" />
       ) : (
-        <ClipboardDocumentIcon className="h-6 w-6" onClick={onClipboard} />
+        <ClipboardDocumentIcon className="h-6 w-6" />
       )}
     </Button>
   );
