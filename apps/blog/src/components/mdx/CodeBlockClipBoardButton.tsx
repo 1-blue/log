@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import {
   ClipboardDocumentCheckIcon,
@@ -9,7 +9,6 @@ import {
 import { Button } from "@workspace/ui/components/Button";
 
 const CodeBlockClipBoardButton = () => {
-  const buttonRef = useRef<null | HTMLButtonElement>(null);
   const [copied, setCopied] = useState(false);
 
   /**
@@ -20,8 +19,13 @@ const CodeBlockClipBoardButton = () => {
     const $pre = e.currentTarget.parentElement?.parentElement;
     if (!$pre) return toast.error("코드 블럭을 찾을 수 없습니다.");
 
+    const textContent = $pre.textContent;
+    if (!textContent) {
+      return toast.error("코드 블럭 텍스트를 찾을 수 없습니다.");
+    }
+
     try {
-      navigator.clipboard.writeText($pre.textContent);
+      navigator.clipboard.writeText(textContent);
 
       setCopied(true);
       setTimeout(() => setCopied(false), 1000);
