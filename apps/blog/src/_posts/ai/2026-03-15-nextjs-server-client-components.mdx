@@ -1,0 +1,216 @@
+---
+title: "[🤖] Next.js App Router에서 Server Components와 Client Components 제대로 활용하기"
+description: "Next.js 13+ App Router 환경에서 Server Components와 Client Components의 개념, 차이점, 그리고 실용적인 활용 전략을 상세히 알아보고, 성능 최적화와 개발 효율성을 높이는 방법을 공유해요."
+tags: ["Next.js", "Server Components", "Client Components", "App Router", "성능 최적화"]
+icon: ""
+thumbnail: ""
+createdAt: 2026-03-16 06:00:13
+publishedAt: 2026-03-16 06:00:13
+sitemap:
+  lastmod: 2026-03-16 06:00:13
+  changefreq: weekly
+  priority: 0.5
+draft: false
+ai: true
+---
+
+> Next.js 13+ App Router의 핵심인 Server Components와 Client Components를 제대로 이해하고 활용하여 웹 애플리케이션의 성능과 개발 경험을 극대화하는 방법을 함께 탐구해요.<br />
+> 우리는 Server Components를 기본으로 하고, 필요한 곳에만 Client Components를 사용하여 최적화된 아키텍처를 구축하는 전략을 배워볼 거예요.
+
+## 🤔 문제/배경
+### 0️⃣ 왜 이 주제를 다루는가요?
+Next.js 13부터 도입된 App Router는 기존 Pages Router와는 근본적으로 다른 패러다임을 제시했어요.<br />
+특히 Server Components는 React의 새로운 기능으로, 백엔드 로직과 프론트엔드 UI를 통합하는 강력한 가능성을 열어주었죠.<br />
+하지만 많은 개발자분들이 Server Components와 Client Components의 정확한 차이점, 그리고 언제 무엇을 사용해야 하는지에 대해 혼란을 겪고 계세요.<br />
+이러한 혼란은 불필요한 Client Component 사용으로 이어져 Next.js가 제공하는 성능 최적화 이점을 제대로 누리지 못하게 만들 수 있어요.
+
+### 1️⃣ 기존 방식의 한계 (또는 오해)
+기존 Pages Router나 다른 SPA(Single Page Application) 프레임워크에서는 모든 컴포넌트가 기본적으로 클라이언트에서 동작했어요.<br />
+서버 사이드 렌더링(SSR)을 사용하더라도, 렌더링 결과만 서버에서 생성될 뿐, 이후의 모든 인터랙션은 클라이언트 JavaScript에 의존했죠.<br />
+이로 인해 다음과 같은 한계가 있었어요.
+*   **번들 사이즈 증가**: 모든 컴포넌트의 JavaScript 코드가 클라이언트로 전송되어야 했어요. 특히, 인터랙션이 없는 정적인 UI까지도요.
+*   **데이터 페칭의 복잡성**: 클라이언트에서 데이터를 페칭하거나, 서버에서 데이터를 페칭하려면 `getServerSideProps`나 `getStaticProps` 같은 특별한 함수를 사용해야 했어요. 컴포넌트 내부에서 직접 데이터베이스에 접근하는 것은 불가능했죠.
+*   **초기 로딩 성능 저하**: 클라이언트 JavaScript 번들이 다운로드되고 실행되기 전까지는 상호작용이 불가능했어요.
+
+App Router가 도입되면서 Server Components가 기본값이라는 점을 간과하고, 관성적으로 모든 컴포넌트에 `"use client";` 지시어를 추가하는 경우가 많아요.<br />
+이는 Server Components의 장점을 포기하고 다시 기존의 SPA 방식으로 돌아가는 것과 다름없어요.
+
+<Blockquote type="warning">
+  불필요하게 `"use client";`를 사용하는 것은 Server Components의 핵심 이점인 **번들 크기 감소**와 **초기 로딩 속도 향상**을 저해할 수 있어요.<br />
+  클라이언트 컴포넌트는 항상 JavaScript 번들에 포함되어 클라이언트로 전송되기 때문이에요.
+</Blockquote>
+
+## ⚙️ 해결 방법
+### 0️⃣ 핵심 아이디어: Server First 전략
+Next.js App Router의 핵심 아이디어는 **"Server First"** 원칙이에요.<br />
+기본적으로 모든 컴포넌트는 Server Component로 동작하며, 클라이언트 측 상호작용(useState, useEffect, onClick 등)이 필요한 경우에만 명시적으로 Client Component로 전환하라는 의미예요.<br />
+이것이 바로 `"use client";` 지시어가 필요한 이유죠.
+
+**Server Components (기본값):**
+*   **어디서 렌더링될까요?** 서버에서만 렌더링돼요.
+*   **무엇을 할 수 있을까요?** 데이터베이스 직접 접근, 파일 시스템 접근, API 키와 같은 민감한 정보 사용 등 서버 전용 로직을 실행할 수 있어요.
+*   **클라이언트로 전송될까요?** JavaScript 번들에 포함되지 않고, 렌더링된 HTML만 클라이언트로 전송돼요. (따라서 번들 사이즈가 줄어들죠!)
+*   **무엇을 사용할 수 없을까요?** `useState`, `useEffect`, `onClick`과 같은 React 훅이나 브라우저 API(window, document)를 직접 사용할 수 없어요.
+*   **언제 사용할까요?** 데이터 페칭, 정적인 UI 렌더링, SEO 최적화가 필요한 페이지, 백엔드 로직과 밀접한 컴포넌트 등에 적합해요.
+
+**Client Components (`"use client";`):**
+*   **어디서 렌더링될까요?** 클라이언트(브라우저)에서 렌더링돼요. (초기 렌더링은 서버에서 이루어질 수 있지만, 이후 하이드레이션 및 상호작용은 클라이언트에서 담당해요.)
+*   **무엇을 할 수 있을까요?** `useState`, `useEffect`, `useRef`, `onClick` 등의 React 훅과 이벤트 리스너, 그리고 브라우저 API에 접근할 수 있어요.
+*   **클라이언트로 전송될까요?** JavaScript 번들에 포함되어 클라이언트로 전송돼요.
+*   **무엇을 사용할 수 없을까요?** 서버 전용 로직(데이터베이스 직접 접근 등)을 실행할 수 없어요.
+*   **언제 사용할까요?** 상호작용이 필요한 UI (카운터, 폼 입력, 모달), 클라이언트 전용 라이브러리 (차트 라이브러리 등), Context API 사용 등 사용자 경험과 직접 관련된 부분에 적합해요.
+
+### 1️⃣ 적용 방법: 경계 명확화와 컴포넌트 분리
+성공적인 Server/Client Component 활용은 이 둘의 경계를 명확히 하고, 역할을 적절히 분리하는 데 달려있어요.
+
+1.  **"Server First" 마인드셋**: 새로운 컴포넌트를 만들 때는 항상 Server Component로 시작하세요. 클라이언트 기능이 필요하다는 명확한 이유가 있을 때만 `"use client";`를 추가합니다.
+2.  **데이터 페칭은 Server Component에서**: 가능한 한 데이터 페칭은 Server Component에서 직접 처리하여 클라이언트 번들에서 데이터 페칭 로직을 제거하고, 불필요한 API 호출 오버헤드를 줄이세요.
+3.  **Client Component는 'Leaf' 노드로**: 상호작용이 필요한 Client Component는 되도록 트리 구조의 가장 하위(Leaf) 노드에 배치하세요.<br />
+    Server Component 안에 Client Component를 렌더링할 수 있지만, Client Component 안에 Server Component를 직접 렌더링할 수는 없어요.<br />
+    (Server Component는 Client Component의 props로 전달될 수 있지만, 자식으로 렌더링되는 것은 아니에요.)
+4.  **Props로 데이터 전달**: Server Component에서 페칭한 데이터를 Client Component로 props를 통해 전달할 수 있어요.<br />
+    이때 전달되는 데이터는 직렬화 가능한(serializable) 형태여야 해요.
+
+<Blockquote type="tip">
+  `"use client";` 지시어는 파일의 맨 위에 한 번만 선언하면 해당 파일 내의 모든 컴포넌트와 모듈이 Client Component로 처리돼요.<br />
+  따라서 작은 단위의 재사용 가능한 Client Component를 만들고, 이를 Server Component에서 불러와 사용하는 것이 좋은 전략이에요.
+</Blockquote>
+
+## 🧪 예시
+### 0️⃣ 코드/설정 예시
+다음은 Server Components와 Client Components를 활용하는 일반적인 패턴이에요.
+
+**1. Server Component (데이터 페칭)**
+`app/dashboard/page.tsx`
+```tsx showLineNumbers
+import { fetchRecentOrders } from '../lib/data'; // 서버에서만 사용될 데이터 페칭 함수
+
+// 이 컴포넌트는 기본적으로 Server Component입니다.
+export default async function DashboardPage() {
+  const orders = await fetchRecentOrders(); // 서버에서 직접 데이터 페칭
+  // console.log(process.env.DATABASE_URL); // 서버 환경 변수 접근 가능
+
+  return (
+    <section>
+      <h1>대시보드</h1>
+      <p>최근 주문 목록:</p>
+      <ul>
+        {orders.map((order: any) => (
+          <li key={order.id}>{order.productName} - {order.amount}원</li>
+        ))}
+      </ul>
+      {/* Client Component를 자식으로 포함할 수 있어요 */}
+      <InteractiveButton /> 
+    </section>
+  );
+}
+```
+
+**2. Client Component (상호작용)**
+`app/dashboard/InteractiveButton.tsx`
+```tsx showLineNumbers {1, 3-4, 11-12}
+"use client"; // 이 파일은 Client Component임을 명시합니다.
+
+import { useState } from 'react';
+
+export default function InteractiveButton() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <button onClick={() => setCount(count + 1)}>
+      클릭 횟수: {count}
+    </button>
+  );
+}
+```
+
+**3. Server Component가 Client Component에 데이터 전달**
+`app/product/[id]/page.tsx`
+```tsx showLineNumbers
+import { fetchProductDetail } from '@/lib/api';
+import AddToCartButton from './AddToCartButton'; // Client Component 임포트
+
+export default async function ProductDetailPage({ params }: { params: { id: string } }) {
+  const product = await fetchProductDetail(params.id);
+
+  if (!product) {
+    return <div>상품을 찾을 수 없어요.</div>;
+  }
+
+  return (
+    <div>
+      <h1>{product.name}</h1>
+      <p>{product.description}</p>
+      <p>가격: {product.price}원</p>
+      {/* Server Component가 Client Component에 props를 전달해요 */}
+      <AddToCartButton productId={product.id} productName={product.name} />
+    </div>
+  );
+}
+```
+
+`app/product/[id]/AddToCartButton.tsx`
+```tsx showLineNumbers {1}
+"use client";
+
+import { useState } from 'react';
+
+interface AddToCartButtonProps {
+  productId: string;
+  productName: string;
+}
+
+export default function AddToCartButton({ productId, productName }: AddToCartButtonProps) {
+  const [quantity, setQuantity] = useState(1);
+
+  const handleAddToCart = () => {
+    // 장바구니 로직 (클라이언트에서 동작)
+    console.log(`${productName} (ID: ${productId}) ${quantity}개를 장바구니에 담았어요.`);
+    alert(`${productName} ${quantity}개가 장바구니에 추가되었어요!`);
+  };
+
+  return (
+    <div>
+      <input
+        type="number"
+        min="1"
+        value={quantity}
+        onChange={(e) => setQuantity(Number(e.target.value))}
+      />
+      <button onClick={handleAddToCart}>장바구니에 추가</button>
+    </div>
+  );
+}
+```
+
+### 1️⃣ 적용 결과 및 고려사항
+위 예시처럼 컴포넌트를 분리하면 다음과 같은 이점을 얻을 수 있어요.
+
+*   **성능 향상**: `DashboardPage`와 `ProductDetailPage`는 Server Component이므로, 데이터 페칭 로직이 클라이언트 번들에 포함되지 않아요.<br />
+    클라이언트는 최소한의 JavaScript (상호작용이 필요한 `InteractiveButton`과 `AddToCartButton`의 코드만)를 다운로드하게 되어 초기 로딩 속도가 빨라져요.
+*   **SEO 최적화**: 서버에서 렌더링된 HTML이 클라이언트로 전송되므로, 검색 엔진 크롤러가 페이지 콘텐츠를 쉽게 파악할 수 있어요.
+*   **보안 강화**: 민감한 API 키나 데이터베이스 접근 로직은 Server Component 내부에 안전하게 유지될 수 있어요.
+*   **개발 경험**: `async/await`를 사용하여 데이터 페칭을 컴포넌트 레벨에서 직접 할 수 있어, 기존 `getServerSideProps`와 같은 특수 함수를 사용하는 것보다 직관적이에요.
+
+<Blockquote type="info">
+  **Server Component의 Props 직렬화**: Server Component에서 Client Component로 전달하는 props는 **직렬화 가능한(serializable)** 값이어야 해요.<br />
+  함수나 심볼, 날짜 객체 같은 직렬화 불가능한 값은 Client Component로 직접 전달될 수 없다는 점을 기억하세요.
+</Blockquote>
+
+## 📝 정리
+### 0️⃣ 핵심 요약
+Next.js App Router에서 Server Components와 Client Components는 애플리케이션의 성능과 구조를 결정하는 핵심 요소예요.<br />
+*   **Server Components**: 기본값이며, 서버에서 렌더링되어 JavaScript 번들에 포함되지 않고, 데이터 페칭과 백엔드 로직에 적합해요.
+*   **Client Components**: `"use client";` 지시어를 통해 명시하며, 클라이언트에서 상호작용(훅, 이벤트 리스너)을 처리하고 브라우저 API에 접근할 수 있어요.
+
+**"Server First"** 원칙을 따라 가능한 한 Server Component를 활용하고, 상호작용이 필요한 최소한의 부분에만 Client Component를 사용하는 것이 가장 좋은 전략이에요. 이는 번들 사이즈 감소, 초기 로딩 속도 향상, SEO 최적화, 그리고 보안 강화로 이어져요.
+
+### 1️⃣ 다음 액션
+오늘 배운 내용을 바탕으로 기존 Next.js 프로젝트의 컴포넌트들을 Server Component와 Client Component로 어떻게 분리할 수 있을지 고민해보세요.<br />
+새로운 프로젝트를 시작한다면, Server First 마인드셋으로 컴포넌트를 설계하고, 불필요한 `"use client";` 사용을 지양하며 최적화된 Next.js 애플리케이션을 구축해보시길 권해드려요.<br />
+더 깊이 있는 이해를 위해 Next.js 공식 문서를 참고하여 다양한 예시와 패턴들을 탐색하는 것도 아주 좋은 방법이에요.
+
+## 📮 참고
+*   [Next.js 공식 문서: Server Components](https://nextjs.org/docs/app/building-your-application/rendering/server-components) <br />
+*   [Next.js 공식 문서: Client Components](https://nextjs.org/docs/app/building-your-application/rendering/client-components) <br />
+*   [React 공식 문서: Server Components](https://react.dev/reference/rsc/server-components) <br />
