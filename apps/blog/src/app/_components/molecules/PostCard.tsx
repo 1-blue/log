@@ -31,7 +31,7 @@ const PostCard: React.FC<Props> = ({ post }) => {
         <div className="flex gap-4 text-xs *:flex *:items-center *:gap-1">
           <div>
             <CalendarDaysIcon className="h-5 w-5" />
-            <time>{post.publishedAt}</time>
+            <time>{post.createdAt}</time>
           </div>
           <div className="mr-auto">
             <Bars3BottomLeftIcon className="h-5 w-5" />

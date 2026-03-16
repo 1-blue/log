@@ -1,13 +1,23 @@
 import { cache } from "react";
 import path from "path";
-import dayjs from "dayjs";
 import fs from "fs";
 import matter from "gray-matter";
+import yaml from "js-yaml";
 import readingTime from "reading-time";
 import { sync } from "glob";
 
 import type { IPost, IPostWithETC } from "#/types";
-import { makeThumbnailPath } from "#/libs";
+import { makeThumbnailPath, toKoreaDate } from "#/libs";
+
+/** YAML 날짜 자동 파싱 비활성화 - 입력값을 항상 한국 시간 문자열로 유지 */
+const matterOptions = {
+  engines: {
+    yaml: {
+      parse: (str: string) =>
+        yaml.load(str, { schema: yaml.JSON_SCHEMA }) as Record<string, unknown>,
+    },
+  },
+};
 
 /** 게시글 기본 경로 */
 const DEFAULT_PATH = "/posts";
@@ -23,8 +33,8 @@ export const getAllPosts = cache((publishedOnly = true): IPostWithETC[] => {
     /** 특정 게시글 파일 데이터 */
     const postFileData = fs.readFileSync(postPath, { encoding: "utf8" });
 
-    // 게시글 메타데이터 얻기
-    const { data, content } = matter(postFileData);
+    // 게시글 메타데이터 얻기 (날짜는 문자열로 유지 → 한국 시간 기준 파싱)
+    const { data, content } = matter(postFileData, matterOptions);
     const metadata = data as IPost;
 
     /** 게시글 상대 경로 ( `/state-management/redux` ) */
@@ -32,20 +42,25 @@ export const getAllPosts = cache((publishedOnly = true): IPostWithETC[] => {
       .slice(postFolderPath.length)
       .replace(".mdx", "");
 
+    const createdAtFormatted = toKoreaDate(
+      String(metadata.createdAt ?? ""),
+    );
+    const publishedAtFormatted = toKoreaDate(
+      String(metadata.publishedAt ?? ""),
+    );
+
     return {
       content,
       ...metadata,
-      createdAt: dayjs(data.createdAt).subtract(9, "hour").format("YYYY-MM-DD"),
-      publishedAt: dayjs(data.publishedAt)
-        .subtract(9, "hour")
-        .format("YYYY-MM-DD"),
+      createdAt: createdAtFormatted,
+      publishedAt: publishedAtFormatted,
       path: DEFAULT_PATH + relativePostPath,
       thumbnail:
         metadata.thumbnail ||
         makeThumbnailPath({
           title: metadata.title,
           description: metadata.description,
-          publishedAt: metadata.publishedAt,
+          createdAt: metadata.createdAt as string,
         }),
       breadcrumbs: relativePostPath.split("/").filter((v) => v !== ""),
       readingMinutes: Math.ceil(readingTime(content).minutes),

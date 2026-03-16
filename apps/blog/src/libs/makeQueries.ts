@@ -3,7 +3,10 @@ export const makeQueries = (url: string, queries?: Record<string, string>) => {
   if (!queries) return url;
 
   const queryString = Object.entries(queries)
-    .map(([key, value]) => `${key}=${value}`)
+    .map(
+      ([key, value]) =>
+        `${encodeURIComponent(key)}=${encodeURIComponent(value)}`,
+    )
     .join("&");
 
   return `${url}?${queryString}`;

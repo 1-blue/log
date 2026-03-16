@@ -7,6 +7,7 @@ import { ListBulletIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 import { cn } from "@workspace/ui/lib/utils";
 import { Button } from "@workspace/ui/components/Button";
+import { useRouter } from "next/navigation";
 
 interface IProps {
   toc: {
@@ -22,6 +23,7 @@ const TOC: React.FC<IProps> = ({ toc }) => {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const observerEntriesRef = useRef<Map<string, number>>(new Map());
   const tocListRef = useRef<HTMLUListElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const headingElements = toc
@@ -108,6 +110,7 @@ const TOC: React.FC<IProps> = ({ toc }) => {
     const element = document.getElementById(id);
     if (element) {
       element.scrollIntoView({ behavior: "smooth" });
+      router.replace(`#${id}`);
       setActiveId(id);
     }
   };

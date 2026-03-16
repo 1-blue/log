@@ -7,7 +7,7 @@ import type { IPost } from "#/types";
 interface Props {
   latestSortedPosts: Pick<
     IPost,
-    "title" | "description" | "publishedAt" | "path"
+    "title" | "description" | "createdAt" | "path"
   >[];
 }
 
@@ -19,7 +19,7 @@ const Timeline: React.FC<Props> = ({ latestSortedPosts }) => {
 
       <ul className="relative z-10">
         {latestSortedPosts.map(
-          ({ publishedAt, title, description, path }, index) => (
+          ({ createdAt, title, description, path }, index) => (
             <li key={title} className="relative mb-8">
               {/* 모바일 뷰 */}
               <div className="flex items-start md:hidden">
@@ -31,7 +31,7 @@ const Timeline: React.FC<Props> = ({ latestSortedPosts }) => {
                 {/* 오른쪽 컨텐츠 - 모바일 */}
                 <div className="ml-8 pl-4">
                   <time className="block text-xs font-semibold">
-                    {publishedAt}
+                    {createdAt}
                   </time>
                   <Link
                     href={path}
@@ -56,7 +56,7 @@ const Timeline: React.FC<Props> = ({ latestSortedPosts }) => {
                   {index % 2 === 0 && (
                     <>
                       <time className="block text-xs font-semibold">
-                        {publishedAt}
+                        {createdAt}
                       </time>
                       <Link
                         href={path}
@@ -85,7 +85,7 @@ const Timeline: React.FC<Props> = ({ latestSortedPosts }) => {
                   {index % 2 !== 0 && (
                     <>
                       <time className="block text-xs font-semibold">
-                        {publishedAt}
+                        {createdAt}
                       </time>
                       <Link
                         href={path}
