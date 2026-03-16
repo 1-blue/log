@@ -1,0 +1,488 @@
+---
+title: "[🚀] Next.js Server Actions: App Router 데이터 변경을 혁신하는 방법"
+description: "Next.js App Router의 Server Actions를 활용하여 클라이언트와 서버 간의 데이터 변경을 안전하고 효율적으로 처리하는 방법을 배워보세요. 폼 제출, 낙관적 UI, 에러 핸들링까지 실용적인 예시와 함께 최적의 전략을 제시해 드려요."
+tags: ["Next.js", "Server Actions", "React", "App Router", "데이터 변경", "폼 처리", "웹 개발", "성능 최적화"]
+icon: ""
+thumbnail: ""
+createdAt: 2026-03-17 08:02:08
+publishedAt: 2026-03-17 08:02:08
+sitemap:
+  lastmod: 2026-03-17 08:02:08
+  changefreq: weekly
+  priority: 0.5
+draft: false
+ai: true
+---
+
+<Blockquote type="info">
+🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
+내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+</Blockquote>
+
+<Blockquote type="tip">
+Next.js Server Actions의 기본 개념부터 폼 처리, 낙관적 UI 업데이트, 에러 핸들링, 보안까지 실전 예시를 통해 자세히 알아보고, App Router에서 데이터를 변경하는 가장 효율적인 방법을 제시해 드려요.
+</Blockquote>
+
+## 🚀 Next.js Server Actions, 왜 필요한가요?
+
+### 0️⃣ 서버와 클라이언트의 경계를 허물다
+
+최근 웹 개발 트렌드에서 클라이언트와 서버의 경계는 점점 모호해지고 있어요. 특히 Next.js App Router는 Server Components를 도입하면서 서버에서 UI를 렌더링하는 새로운 패러다임을 제시했는데요.<br />
+하지만 데이터를 변경(Create, Update, Delete)하는 작업은 여전히 API 라우트를 통해 처리하는 것이 일반적이었어요. 클라이언트에서 데이터를 변경하려면 별도의 API 엔드포인트를 만들고, `fetch` 요청을 보내는 번거로운 과정을 거쳐야 했죠.
+
+Server Actions는 이러한 한계를 극복하고, 클라이언트 컴포넌트에서 마치 일반 함수를 호출하듯이 직접 서버 코드를 실행할 수 있게 해주는 강력한 기능이에요. 이를 통해 개발 복잡도를 줄이고, 사용자 경험을 개선하며, 웹 애플리케이션의 성능을 최적화할 수 있답니다.
+
+### 1️⃣ 기존 데이터 변경 방식의 한계
+
+기존에는 클라이언트에서 서버의 데이터를 변경하려면 다음과 같은 단계를 거쳐야 했어요.
+
+1.  클라이언트 컴포넌트에서 사용자 액션(예: 폼 제출) 감지<br />
+2.  `fetch` 또는 `axios` 등으로 API 라우트에 HTTP 요청 전송<br />
+3.  API 라우트에서 데이터베이스 작업 수행<br />
+4.  API 라우트에서 응답을 클라이언트로 전송<br />
+5.  클라이언트에서 응답을 받아 UI 업데이트 및 캐시 무효화
+
+이 과정은 여러 계층을 거치기 때문에 네트워크 오버헤드가 발생하고, 클라이언트와 서버 간의 데이터 직렬화/역직렬화 비용이 추가되며, 각 계층마다 에러 핸들링 로직을 구현해야 하는 복잡성이 있었어요. Server Actions는 이러한 중간 단계를 상당 부분 제거하여 개발 과정을 간소화해 준답니다.
+
+## ⚙️ Server Actions, 어떻게 사용하나요?
+
+Server Actions는 `"use server"` 지시어를 사용하여 정의해요. 이 지시어는 해당 함수 또는 모듈이 서버에서만 실행되어야 함을 Next.js에게 알려준답니다.
+
+### 0️⃣ "use server" 지시어의 마법
+
+`"use server"` 지시어는 함수 정의부의 최상단이나 파일의 최상단에 위치할 수 있어요. 어디에 위치하느냐에 따라 스코프가 달라져요.
+
+```tsx showLineNumbers
+// 📄 app/actions.ts
+"use server"; // 파일 최상단에 선언 시, 이 파일의 모든 export 함수는 Server Action이 돼요.
+
+export async function createPost(formData: FormData) {
+  const title = formData.get("title");
+  const content = formData.get("content");
+  // 데이터베이스에 게시물 생성 로직
+  console.log("서버에서 게시물 생성: ", { title, content });
+  // ...
+}
+
+export async function deletePost(id: string) {
+  // 데이터베이스에서 게시물 삭제 로직
+  console.log("서버에서 게시물 삭제: ", id);
+  // ...
+}
+```
+
+### 1️⃣ 컴포넌트 내부에서 정의하기
+
+Server Components 내에서는 Server Action을 직접 정의하여 사용할 수 있어요. 이는 해당 컴포넌트에서만 사용되는 액션에 유용해요.
+
+```tsx showLineNumbers
+// 📄 app/page.tsx (Server Component)
+import { revalidatePath } from 'next/cache';
+
+export default function HomePage() {
+  async function createTodo(formData: FormData) { // "use server"는 함수 내부에서 선언해도 돼요.
+    "use server"; 
+    const todo = formData.get("todo")?.toString();
+    console.log("서버에서 할 일 생성: ", todo); // 이 코드는 서버에서 실행돼요.
+    // 데이터베이스 저장 로직...
+    revalidatePath("/"); // 캐시 무효화
+  }
+
+  return (
+    <form action={createTodo}>
+      <input type="text" name="todo" placeholder="새 할 일을 입력하세요" />
+      <button type="submit">추가</button>
+    </form>
+  );
+}
+```
+
+### 2️⃣ 별도 파일로 분리하기
+
+재사용 가능한 Server Actions나 여러 컴포넌트에서 사용될 액션은 별도의 파일로 분리하는 것이 좋아요. 파일 최상단에 `"use server"`를 선언하면 해당 파일의 모든 export 함수가 Server Action이 된답니다.
+
+```tsx showLineNumbers
+// 📄 lib/actions.ts
+"use server";
+
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+
+interface CreatePostResult {
+  success: boolean;
+  message?: string;
+  errors?: { [key: string]: string };
+}
+
+export async function createPost(prevState: CreatePostResult, formData: FormData): Promise<CreatePostResult> {
+  // 입력값 유효성 검사
+  const title = formData.get("title")?.toString();
+  const content = formData.get("content")?.toString();
+
+  if (!title || title.length < 5) {
+    return { success: false, errors: { title: "제목은 5자 이상이어야 해요." } };
+  }
+  if (!content || content.length < 10) {
+    return { success: false, errors: { content: "내용은 10자 이상이어야 해요." } };
+  }
+
+  try {
+    // 데이터베이스에 게시물 생성 로직
+    console.log("서버에서 새 게시물 생성: ", { title, content });
+    // await db.posts.create({ data: { title, content } });
+
+    revalidatePath("/posts"); // '/posts' 경로의 캐시를 무효화해요.
+    redirect("/posts"); // 게시물 목록 페이지로 리다이렉트해요.
+
+    // 성공 시 반환 (redirect로 인해 이 코드는 실행되지 않을 수 있어요)
+    return { success: true, message: "게시물이 성공적으로 생성되었어요." };
+  } catch (error) {
+    console.error("게시물 생성 실패: ", error);
+    return { success: false, message: "게시물 생성 중 오류가 발생했어요." };
+  }
+}
+
+export async function deletePost(id: string) {
+  // 데이터베이스에서 게시물 삭제 로직
+  console.log("서버에서 게시물 삭제: ", id);
+  // await db.posts.delete({ where: { id } });
+  revalidatePath("/posts");
+}
+```
+
+<Blockquote type="tip">
+Server Actions 내에서 `revalidatePath`나 `redirect`와 같은 Next.js 함수를 직접 호출할 수 있어요. 이는 데이터 변경 후 UI 업데이트나 페이지 이동을 서버에서 직접 제어할 수 있게 해준답니다.
+</Blockquote>
+
+### 3️⃣ 폼(Form)과 함께 사용하기
+
+Server Actions의 가장 일반적인 사용 사례는 HTML `<form>` 태그의 `action` 속성과 함께 사용하는 것이에요. `action` 속성에 Server Action 함수를 직접 전달하면, 폼 제출 시 해당 함수가 자동으로 실행된답니다.
+
+```tsx showLineNumbers
+// 📄 app/posts/create/page.tsx (Client Component)
+"use client";
+
+import { createPost } from '@/lib/actions';
+import { useFormState, useFormStatus } from 'react-dom';
+
+const initialState = {
+  success: false,
+  message: undefined,
+  errors: undefined,
+};
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" aria-disabled={pending}>
+      {pending ? "생성 중..." : "게시물 생성"}
+    </button>
+  );
+}
+
+export default function CreatePostPage() {
+  const [state, formAction] = useFormState(createPost, initialState);
+
+  return (
+    <form action={formAction} className="space-y-4">
+      <div>
+        <label htmlFor="title" className="block text-sm font-medium text-gray-700">제목</label>
+        <input
+          type="text"
+          id="title"
+          name="title"
+          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+          required
+        />
+        {state.errors?.title && (
+          <p className="mt-1 text-sm text-red-600">{state.errors.title}</p>
+        )}
+      </div>
+      <div>
+        <label htmlFor="content" className="block text-sm font-medium text-gray-700">내용</label>
+        <textarea
+          id="content"
+          name="content"
+          rows={5}
+          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+          required
+        ></textarea>
+        {state.errors?.content && (
+          <p className="mt-1 text-sm text-red-600">{state.errors.content}</p>
+        )}
+      </div>
+      {state.message && state.success && (
+        <p className="text-green-600">{state.message}</p>
+      )}
+      {state.message && !state.success && (
+        <p className="text-red-600">{state.message}</p>
+      )}
+      <SubmitButton />
+    </form>
+  );
+}
+```
+
+위 예시에서는 `react-dom`에서 제공하는 `useFormState`와 `useFormStatus` 훅을 활용했어요.<br />
+
+*   `useFormState`: Server Action의 결과(state)와 이 결과에 따라 폼을 업데이트하는 함수(`formAction`)를 반환해요. 에러 메시지나 성공 메시지를 UI에 표시할 때 유용하답니다.<br />
+*   `useFormStatus`: 폼이 제출되는 동안의 상태(예: `pending`)를 알려줘요. 이를 활용하여 제출 버튼을 비활성화하거나 로딩 스피너를 표시할 수 있어요.
+
+<LinkPreviewCard href="https://react.dev/reference/react-dom/hooks/useFormState" />
+<LinkPreviewCard href="https://react.dev/reference/react-dom/hooks/useFormStatus" />
+
+### 4️⃣ `startTransition`으로 UI 응답성 개선하기
+
+폼 제출이 아닌 일반적인 함수 호출 방식으로 Server Action을 사용할 때, UI 블로킹을 피하고 싶다면 `React.useTransition`의 `startTransition`을 사용할 수 있어요. 이는 Server Action이 백그라운드에서 실행되는 동안 UI를 반응형으로 유지해 준답니다.
+
+```tsx showLineNumbers
+// 📄 app/posts/[id]/page.tsx (Client Component)
+"use client";
+
+import { useState, useTransition } from 'react';
+import { deletePost } from '@/lib/actions';
+
+export default function PostDetailPage({ params }: { params: { id: string } }) {
+  const [isPending, startTransition] = useTransition();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setIsDeleting(true); // UI 상에서 삭제 중임을 표시
+    startTransition(async () => {
+      await deletePost(params.id); // Server Action 호출
+      // 삭제 후 추가적인 클라이언트 로직 (예: 성공 메시지, UI 업데이트 등)
+    });
+    // setIsDeleting(false); // 낙관적 업데이트가 아니라면 여기서 해제
+  };
+
+  return (
+    <div>
+      <h1>게시물 상세 페이지</h1>
+      <p>ID: {params.id}</p>
+      <button
+        onClick={handleDelete}
+        disabled={isPending || isDeleting}
+        className="bg-red-500 text-white px-4 py-2 rounded-md disabled:opacity-50"
+      >
+        {(isPending || isDeleting) ? "삭제 중..." : "게시물 삭제"}
+      </button>
+    </div>
+  );
+}
+```
+
+## 🛠️ 실전 활용 및 고급 기법
+
+### 0️⃣ 낙관적 UI 업데이트 (Optimistic UI Update)
+
+사용자 경험을 크게 개선하는 방법 중 하나는 낙관적 UI 업데이트를 적용하는 것이에요. Server Action이 완료되기 전에 UI를 미리 업데이트하여 사용자가 즉각적인 피드백을 받는 것처럼 느끼게 하는 방식이죠. `useOptimistic` 훅을 사용하여 구현할 수 있어요.
+
+```tsx showLineNumbers
+// 📄 app/todos/page.tsx (Client Component)
+"use client";
+
+import { useOptimistic } from 'react';
+import { addTodo } from '@/lib/todoActions'; // 가정: todoActions.ts에 addTodo Server Action 정의
+
+interface Todo {
+  id: number;
+  text: string;
+  completed: boolean;
+}
+
+interface AddTodoResult {
+  success: boolean;
+  todo?: Todo;
+  message?: string;
+}
+
+// lib/todoActions.ts 파일 예시
+// "use server";
+// let nextId = 0;
+// const todos: Todo[] = [];
+// export async function addTodo(text: string): Promise<AddTodoResult> {
+//   await new Promise(resolve => setTimeout(resolve, 1000)); // 네트워크 지연 시뮬레이션
+//   const newTodo = { id: nextId++, text, completed: false };
+//   todos.push(newTodo);
+//   return { success: true, todo: newTodo };
+// }
+
+export default function TodosPage({ initialTodos }: { initialTodos: Todo[] }) {
+  const [optimisticTodos, addOptimisticTodo] = useOptimistic(
+    initialTodos,
+    (currentTodos: Todo[], newTodoText: string) => [
+      ...currentTodos,
+      { id: Date.now(), text: newTodoText, completed: false, pending: true }, // 임시 ID와 pending 상태 추가
+    ]
+  );
+
+  async function handleSubmit(formData: FormData) {
+    const todoText = formData.get("todo")?.toString();
+    if (!todoText) return;
+
+    addOptimisticTodo(todoText); // 서버 응답을 기다리지 않고 UI를 즉시 업데이트
+
+    const result = await addTodo(todoText); // 실제 서버 액션 호출
+
+    if (!result.success) {
+      // 에러 발생 시 낙관적 업데이트 되돌리기 또는 에러 메시지 표시
+      console.error("할 일 추가 실패: ", result.message);
+      // 실제 앱에서는 optimisticTodos를 이전 상태로 되돌리는 로직이 필요할 수 있어요.
+      // 여기서는 간단히 에러 로깅만 할게요.
+    } else {
+      // 성공 시 실제 데이터로 UI 업데이트 (revalidatePath 등으로 처리)
+      console.log("할 일 성공적으로 추가: ", result.todo);
+    }
+  }
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold mb-4">할 일 목록</h1>
+      <form action={handleSubmit} className="flex gap-2 mb-4">
+        <input
+          type="text"
+          name="todo"
+          placeholder="새 할 일을 입력하세요"
+          className="border p-2 rounded flex-grow"
+        />
+        <button type="submit" className="bg-blue-500 text-white p-2 rounded">
+          추가
+        </button>
+      </form>
+      <ul>
+        {optimisticTodos.map((todo) => (
+          <li key={todo.id} className={`p-2 border-b ${todo.pending ? 'opacity-50' : ''}`}>
+            {todo.text} {todo.pending && "(추가 중...)"}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+`useOptimistic` 훅은 첫 번째 인자로 현재 상태를, 두 번째 인자로 Server Action이 호출되었을 때 낙관적으로 상태를 업데이트하는 함수를 받아요. 이를 통해 사용자는 서버 응답을 기다리지 않고도 UI가 즉시 변경되는 것처럼 느낄 수 있답니다.
+
+<LinkPreviewCard href="https://react.dev/reference/react/useOptimistic" />
+
+### 1️⃣ 에러 핸들링 전략
+
+Server Actions도 일반적인 서버 함수와 마찬가지로 에러가 발생할 수 있어요. 에러를 적절히 처리하여 사용자에게 피드백을 제공하는 것이 중요하답니다.
+
+*   **`try...catch` 블록 사용:** Server Action 내부에서 데이터베이스 작업 등 실패할 수 있는 로직은 `try...catch`로 감싸는 것이 기본이에요.
+*   **에러 객체 반환:** `useFormState`와 함께 사용하여 Server Action이 에러 정보를 클라이언트로 반환하도록 할 수 있어요. 위 `createPost` 예시에서 `CreatePostResult` 인터페이스와 `errors` 필드를 사용한 것이 좋은 예시예요.
+
+```tsx showLineNumbers {13-17, 23-26}
+// 📄 lib/actions.ts (일부 발췌)
+"use server";
+
+// ...
+
+export async function createPost(prevState: CreatePostResult, formData: FormData): Promise<CreatePostResult> {
+  // 입력값 유효성 검사
+  // ...
+
+  if (!title || title.length < 5) {
+    return { success: false, errors: { title: "제목은 5자 이상이어야 해요." } };
+  }
+  // ...
+
+  try {
+    // 데이터베이스에 게시물 생성 로직
+    // ...
+    return { success: true, message: "게시물이 성공적으로 생성되었어요." };
+  } catch (error) {
+    console.error("게시물 생성 실패: ", error);
+    return { success: false, message: "게시물 생성 중 오류가 발생했어요." };
+  }
+}
+```
+
+### 2️⃣ 데이터 재검증 (Revalidation)
+
+Server Action을 통해 데이터가 변경되었다면, 해당 데이터가 사용되는 페이지나 컴포넌트의 캐시를 무효화(revalidate)하여 최신 데이터를 보여주어야 해요. `next/cache`에서 제공하는 `revalidatePath`와 `revalidateTag` 함수를 사용해요.
+
+*   `revalidatePath(path: string)`: 특정 경로의 캐시를 무효화해요. 해당 경로로 들어오는 다음 요청 시 데이터를 다시 가져오게 된답니다.
+*   `revalidateTag(tag: string)`: 특정 태그로 캐시된 데이터를 무효화해요. `fetch` API에서 `next.tags` 옵션을 사용하여 데이터를 캐시할 때 유용해요.
+
+```tsx showLineNumbers {17, 26}
+// 📄 lib/actions.ts (일부 발췌)
+"use server";
+
+import { revalidatePath, revalidateTag } from 'next/cache';
+import { redirect } from 'next/navigation';
+
+// ...
+
+export async function createPost(prevState: CreatePostResult, formData: FormData): Promise<CreatePostResult> {
+  // ...
+  try {
+    // 데이터베이스에 게시물 생성 로직
+    // ...
+
+    revalidatePath("/posts"); // '/posts' 경로의 캐시를 무효화하여 최신 게시물 목록을 반영해요.
+    revalidateTag("posts-data"); // 'posts-data' 태그로 캐시된 데이터 무효화 (fetch 사용 시)
+    redirect("/posts");
+
+    return { success: true, message: "게시물이 성공적으로 생성되었어요." };
+  } catch (error) {
+    // ...
+  }
+}
+```
+
+<LinkPreviewCard href="https://nextjs.org/docs/app/api-reference/functions/revalidatePath" />
+<LinkPreviewCard href="https://nextjs.org/docs/app/api-reference/functions/revalidateTag" />
+
+### 3️⃣ 보안 고려사항
+
+Server Actions는 서버에서 실행되는 코드이므로 보안에 각별히 유의해야 해요. 사용자로부터 받은 모든 입력값은 반드시 서버에서 유효성 검사를 거쳐야 하고, 인증 및 권한 부여(Authentication & Authorization) 로직도 Server Action 내부에서 철저히 구현해야 한답니다.
+
+*   **입력 유효성 검사:** 클라이언트에서 유효성 검사를 하더라도, 서버에서도 반드시 다시 검증해야 해요. 악의적인 사용자가 클라이언트 로직을 우회할 수 있기 때문이에요.
+*   **인증 및 권한 부여:** Server Action 내부에서 현재 사용자가 해당 작업을 수행할 권한이 있는지 확인해야 해요. 예를 들어, `auth()` 함수(NextAuth.js 등)를 호출하여 사용자 세션을 확인하고, 권한이 없는 경우 에러를 반환해야 한답니다.
+
+```tsx showLineNumbers {6-10}
+// 📄 lib/actions.ts (보안 예시)
+"use server";
+
+import { revalidatePath } from 'next/cache';
+// import { auth } from '@/auth'; // NextAuth.js 등 인증 라이브러리 가정
+
+export async function deletePost(id: string) {
+  // const session = await auth();
+  // if (!session || !session.user || session.user.role !== 'admin') {
+  //   throw new Error('권한이 없어요.');
+  // }
+
+  // 데이터베이스에서 게시물 삭제 로직
+  console.log("서버에서 게시물 삭제: ", id);
+  // await db.posts.delete({ where: { id } });
+  revalidatePath("/posts");
+}
+```
+
+## 📝 정리하며
+
+### 0️⃣ 핵심 요약
+
+*   **Server Actions**는 클라이언트 컴포넌트에서 서버 코드를 직접 실행할 수 있게 해주는 Next.js App Router의 강력한 기능이에요.
+*   `"use server"` 지시어를 사용하여 정의하며, 컴포넌트 내부나 별도 파일에서 사용할 수 있어요.
+*   `<form action={serverAction}>` 형태로 폼 제출을 간소화하고, `useFormState`, `useFormStatus` 훅으로 상태 관리 및 UI 피드백을 제공해요.
+*   `useTransition`의 `startTransition`을 사용하여 비동기 Server Action 호출 시 UI 블로킹을 방지할 수 있어요.
+*   `useOptimistic` 훅으로 낙관적 UI 업데이트를 구현하여 사용자 경험을 개선할 수 있답니다.
+*   `revalidatePath`, `revalidateTag`를 사용하여 데이터 변경 후 캐시를 무효화하여 최신 데이터를 반영해요.
+*   모든 사용자 입력은 서버에서 **유효성 검사**를 거쳐야 하며, **인증 및 권한 부여** 로직을 철저히 구현하여 보안을 강화해야 해요.
+
+### 1️⃣ Server Actions, 더 나은 개발 경험을 위한 선택
+
+Server Actions는 데이터 변경 로직을 클라이언트와 서버 간에 더욱 효율적으로 통합하여 개발 복잡성을 줄이고, 애플리케이션의 성능과 사용자 경험을 향상시켜 주는 혁신적인 도구예요. 처음에는 새로운 개념에 익숙해지는 시간이 필요할 수 있지만, 한번 익숙해지면 Next.js App Router 개발에서 없어서는 안 될 핵심 기능이 될 것이라고 확신해요.<br />
+실무에 적용하시면서 Server Actions의 진정한 가치를 느껴보시길 바라요!
+
+## 📮 참고
+
+*   [Next.js Docs: Server Actions](https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions)
+*   [React Docs: useFormStatus](https://react.dev/reference/react-dom/hooks/useFormStatus)
+*   [React Docs: useFormState](https://react.dev/reference/react-dom/hooks/useFormState)
+*   [React Docs: useOptimistic](https://react.dev/reference/react/useOptimistic)
+*   [Next.js Docs: revalidatePath](https://nextjs.org/docs/app/api-reference/functions/revalidatePath)
+*   [Next.js Docs: revalidateTag](https://nextjs.org/docs/app/api-reference/functions/revalidateTag)
