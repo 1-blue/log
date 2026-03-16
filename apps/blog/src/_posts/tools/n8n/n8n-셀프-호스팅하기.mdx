@@ -1,0 +1,415 @@
+---
+title: "n8n 셀프 호스팅하기 ( with GCP, Docker, nginx, SSL )"
+description: "GCP e2-micro 인스턴스에 n8n을 설치하고,\nnginx와 Let's Encrypt로 HTTPS 도메인을 연결하는 과정을 처음부터 끝까지 상세히 설명해요."
+tags: ["n8n", "GCP", "Docker", "nginx", "셀프호스팅", "자동화"]
+icon: ""
+thumbnail: ""
+createdAt: 2026-03-16 00:00:00
+publishedAt: 2026-03-16 16:47:00
+sitemap:
+  lastmod: 2026-03-16 00:00:00
+  changefreq: weekly
+  priority: 0.5
+draft: false
+---
+
+> `GCP` 무료 티어 `VM`에 Docker로 `n8n`을 설치하고, 커스텀 도메인과 HTTPS까지 연결하는 전체 과정을 다뤄요.<br />
+> 다만 하루 이틀정도만 직접 사용해보면 익숙해지기도하고 필요한 부분은 claude에게 물어보면 구체적인 내용을 얻을 수 있기때문에 상세한 내용은 다루지 않아요.<br />
+
+이 글에서는 아래 순서로 진행해요.
+
+1. `GCP` `VM` 생성
+2. `Docker` 설치 및 `n8n` 실행
+3. `nginx` 설치 및 리버스 프록시 설정
+4. `Let's Encrypt` `SSL` 인증서 발급
+5. 커스텀 도메인 연결
+
+## 🕹️ n8n 소개
+
+<LinkPreviewCard href="https://n8n.io/" />
+
+`n8n`은 **노코드/로우코드 자동화 도구**로, 여러 서비스의 API를 블록처럼 연결해 원하는 업무 흐름을 만들 수 있어요.<br />
+예를 들어 `Google Sheets`에 행이 추가되면 `Slack`으로 알림을 보내거나, 폼 제출 데이터를 가공해 다른 시스템으로 전달하는 작업을 시각적으로 구성할 수 있어요.<br />
+`Zapier`, `Make`와 비슷한 목적을 가지지만 오픈소스 기반이라 직접 서버에 설치해 비용과 확장성을 스스로 통제할 수 있고, 개발자 친화적이라 사용하기 편했어요.<br />
+
+직접 호스팅하지 않아도 서비스에 가입하면 2주동안 대부분 무료로 사용해볼 수 있어서 가입해서 서비스를 이용해보시고 주기적으로 계속 사용할 것 같거나 자동화해보고 싶은게 있다면 호스팅해서 사용하는걸 추천드려요.<br />
+플랜을 구매하면 정말 편하게 사용할 수 있긴한데 `20$`를 내야하는데 호스팅하면 무료로 사용할 수 있어서 비용적인 부분에서도 이점이 있어요.<br />
+
+## 🖥️ GCP VM 생성
+`GCP`를 사용한 이유는 무료 티어가 있기 때문이에요.<br />
+`AWS` 프리티어 기간도 이미 끝나서 무료중에서 가장 괜찮은걸 찾아보다가 선택하게 되었어요.<br />
+메모리가 `1GB`에 `Docker`를 띄워도 괜찮을까 걱정했었는데 스왑메모리 설정해둬서 그런지 아직까진 괜찮은거 같아요.<br />
+
+### 0️⃣ 인스턴스 만들기
+
+[GCP 콘솔 접속](https://console.cloud.google.com) → VM 만들기
+
+아래 설정으로 생성해요.
+
+```txt
+이름: n8n-server
+리전: us-central1 (아이오와) ← 영구 무료 리전
+영역: us-central1-a
+```
+
+<Blockquote type="warning">
+리전을 반드시 `us-central1`, `us-east1`, `us-west1` 중 하나로 선택해야 영구 무료예요.<br />
+다른 리전은 90일 크레딧 소진 후 과금돼요.<br />
+</Blockquote>
+
+### 1️⃣ 머신 구성
+![01-GCP-VM-구성](/images/posts/tools/n8n/n8n-셀프-호스팅하기/01-GCP-VM-구성.png)
+
+```txt
+시리즈: E2
+머신 유형: e2-micro (vCPU 2개, 메모리 1GB)
+```
+
+RAM이 1GB라 다소 빠듯해요. 스왑 메모리를 추가해서 보완할 거예요.<br />
+
+### 2️⃣ 부팅 디스크
+![02-GCP-VM-부팅-디스크](/images/posts/tools/n8n/n8n-셀프-호스팅하기/02-GCP-VM-부팅-디스크.png)
+
+**변경** 클릭 후 아래처럼 설정해요.
+
+```txt
+운영체제: Ubuntu
+버전: Ubuntu 22.04 LTS
+크기: 30GB
+```
+
+### 3️⃣ 방화벽
+![03-GCP-VM-방화벽](/images/posts/tools/n8n/n8n-셀프-호스팅하기/03-GCP-VM-방화벽.png)
+
+```txt
+✅ HTTP 트래픽 허용
+✅ HTTPS 트래픽 허용
+```
+
+**만들기** 클릭 → 1~2분 후 생성 완료<br />
+생성된 인스턴스의 **외부 IP**를 복사해두세요.<br />
+
+### 4️⃣ 방화벽 규칙 추가
+![04-GCP-VM-방화벽-규칙-생성-01](/images/posts/tools/n8n/n8n-셀프-호스팅하기/04-GCP-VM-방화벽-규칙-생성-01.png)
+![05-GCP-VM-방화벽-규칙-생성-02](/images/posts/tools/n8n/n8n-셀프-호스팅하기/05-GCP-VM-방화벽-규칙-생성-02.png)
+
+```txt
+이름: allow-n8n
+대상: 네트워크의 모든 인스턴스
+소스 IP 범위: 0.0.0.0/0
+프로토콜 및 포트: TCP - 5678, 80, 443
+```
+
+<Blockquote type="warning">
+사실 제대로하려면 모든 인스턴스에 하면 안되는데 어차피 `n8n`말고 다른 인스턴스도 없고 사용할 계획도 없어서 그냥 모든 인스턴스에 하는걸로 했어요.<br />
+`5678` 포트는 `n8n`의 기본 포트, `80`, `443`은 `nginx`의 기본 포트와 `SSL` 포트이에요.<br />
+</Blockquote>
+
+## 🔧 VM 초기 설정
+
+생성한 VM 인스턴스 상세 페이지에 들어가면 브라우저창으로 SSH 접속할 수 있어요.<br />
+
+### 0️⃣ 패키지 업데이트
+
+> 생성하자마자 접근하면 설치할때 이상한 에러가 발생하기 때문에 5분정도 있다가 접근하시는걸 추천드려요.<br />
+
+```bash
+sudo apt update && sudo apt upgrade -y
+```
+
+### 1️⃣ 스왑 메모리 설정
+
+`e2-micro`는 `RAM`이 `1GB`라 `n8n` 실행 시 메모리가 부족할 수 있어요.<br />
+스왑 메모리` 2GB`를 추가해서 안정성을 높여요.<br />
+
+```bash
+sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+
+# 재부팅 후에도 유지
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+
+# 확인 (Swap: 2.0G 나오면 성공)
+free -h
+```
+
+### 2️⃣ 방화벽 포트 열기
+
+```bash
+sudo iptables -I INPUT -p tcp --dport 80 -j ACCEPT
+sudo iptables -I INPUT -p tcp --dport 443 -j ACCEPT
+sudo iptables -I INPUT -p tcp --dport 5678 -j ACCEPT
+```
+
+## 🐳 Docker 설치
+
+> 처음에는 메모리때문에 도커가 안될 것 같아서 로컬에서 n8n 실행하고 pm2로 백그라운드에서도 동작하게 하려고 했어요.<br />
+> 근데 `n8n`이 너무 커서 그런지 `npm i -g n8n`으로 `vm`에 설치하는데 1시간정도 걸려서 초기에 여러번 테스트한다고 다시 설치를 몇번 했는데 너무 오래걸리고 설치 중간에 실패하는 경우도 종종 있어서 그냥 도커를 사용하는걸로 했어요.<br />
+> 도커를 사용해도 메모리 이슈는 없더라고요.<br />
+
+```bash
+# Docker 설치 스크립트 실행
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+
+# 현재 유저에 Docker 권한 부여
+sudo usermod -aG docker $USER
+
+# 터미널 재접속 (권한 적용)
+exit
+```
+
+SSH 버튼 다시 눌러서 재접속 후 정상 설치 확인해요.<br />
+
+```bash
+docker --version
+# Docker version 24.x.x 나오면 성공
+```
+
+## 🚀 n8n 실행
+
+### 0️⃣ 데이터 폴더 생성
+
+> n8n 버전 업데이트, 종료 등으로 데이터가 날아가는걸 방지하기 위해 데이터 폴더를 생성해두는거에요.<br />
+> 도커가 이 폴더를 공유해서 사용하기 때문에 n8n 이미지를 지워도 데이터가 날아가지 않아요.<br />
+
+```bash
+mkdir -p ~/.n8n
+sudo chown -R 1000:1000 ~/.n8n
+```
+
+### 1️⃣ Docker 컨테이너 실행
+
+> 저는 개인적으로 `story-dict.com` 도메인을 사용하고 있어서 `n8n.story-dict.com` 으로 설정했어요.<br />
+> 도메인 하나 구매해두면 [블로그](https://blog.story-dict.com), [api 문서](https://docs.story-dict.com), 개인 서비스 등 여러곳에서 사용할 수 있어서 구매하는걸 추천드려요.<br />
+
+```bash
+docker run -d \
+  --name n8n \
+  --restart always \
+  -p 5678:5678 \
+  -v ~/.n8n:/home/node/.n8n \
+  -e GENERIC_TIMEZONE="Asia/Seoul" \
+  -e TZ="Asia/Seoul" \
+  -e N8N_HOST=n8n.yourdomain.com \
+  -e N8N_PROTOCOL=https \
+  -e WEBHOOK_URL=https://n8n.yourdomain.com \
+  -e N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false \
+  docker.n8n.io/n8nio/n8n
+```
+
+<Blockquote type="info">
+`n8n.yourdomain.com` 부분은 실제로 사용할 도메인으로 교체해주세요. 도메인 설정은 아래에서 진행해요.
+</Blockquote>
+
+### 2️⃣ 실행 확인
+
+```bash
+# 컨테이너 상태 확인
+docker ps
+
+# 로그 확인
+docker logs n8n
+```
+
+아래 메시지가 나오면 성공이에요.<br />
+
+```
+Editor is now accessible via:
+http://localhost:5678
+```
+
+> 만약 도메인 연결을 안하실거라면 여러분의 VM 인스턴스 외부 IP 주소를 사용하시면 접근이 되실거예요.<br />
+> ( `http://{VM 외부 IP}:5678` 로 접근하시면 됩니다. )
+
+## 🌐 도메인 연결 (Route 53 기준)
+
+> Route 53 기준으로 작성했지만 원리는 동일해서 다른 서비스를 사용하시는 분들도 참고하셔도 되고, 헷갈리면 claude에게 물어보시면 잘설명해줄거예요.<br />
+
+### 0️⃣ A 레코드 추가
+![06-Route-53-A-레코드-추가](/images/posts/tools/n8n/n8n-셀프-호스팅하기/06-Route-53-A-레코드-추가.png)
+
+[AWS Route 53 콘솔](https://console.aws.amazon.com/route53/home) → 호스팅 영역 → 도메인 클릭 → 레코드 생성
+
+```txt
+레코드 이름: n8n
+레코드 유형: A
+값: GCP VM 외부 IP
+TTL: 300
+```
+
+DNS 적용까지 5~10분 소요돼요.<br />
+
+> 레코드 이름은 적용하고 싶은 서브 도메인을 넣으면 돼요.<br />
+> 여기 값을 `n8n`이 아닌 다른 값을 넣을거라면 위에서 적용한 `https://n8n.yourdomain.com`도 동일하게 수정해주세요.<br />
+
+### 1️⃣ DNS 적용 확인
+
+```bash
+nslookup n8n.yourdomain.com
+# VM IP 주소가 나오면 성공
+```
+
+## 🔒 nginx + SSL 설정
+
+> 옛날에 제로초님 인프런 노드버드 강의 보면서 nginx + ssl 설정을 해봤었는데 그때는 AI가 없어서 직접 부딪히고 여러 시도해보면서 며칠을 고생했었는데 요즘은 클로드가 다 알려주고 시키는대로 명령어치니까 잘되네요 ..<br />
+> 뭔가 기분이 참 오묘하네요 .. 🥲<br />
+> ( [과거에 삽질 후 작성했던 블로그 글](https://1-blue.github.io/posts/deploy) )<br />
+> 아래 글은 간단하게 읽어만 보시고 클로드에서 본인 도메인 알려주고 명령어 만들어달라고 하시면 편할거예요.<br />
+> 수동으로 `n8n.yourdomain.com`을 바꾸기 귀찮으니까요 !<br />
+
+### 0️⃣ nginx 설치
+
+```bash
+sudo apt install -y nginx
+sudo systemctl start nginx
+sudo systemctl enable nginx
+```
+
+### 1️⃣ SSL 인증서 발급
+
+Let's Encrypt를 사용해서 무료 SSL 인증서를 발급해요.<br />
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d n8n.yourdomain.com
+```
+
+진행 중 나오는 질문에 아래처럼 답해요.<br />
+
+```txt
+Enter email address: 본인 이메일 입력
+(Y)es/(N)o: Y
+(Y)es/(N)o: Y or N
+```
+
+`Successfully received certificate` 메시지가 나오면 성공이에요.<br />
+
+<Blockquote type="tip">
+`Let's Encrypt` 인증서는 90일마다 갱신이 필요해요. `certbot`이 자동으로 갱신해주는데 `sudo certbot renew --dry-run` 으로 정상 동작하는지 확인해두세요.
+</Blockquote>
+
+### 2️⃣ nginx 설정
+
+```bash
+# 기본 설정 삭제
+sudo rm /etc/nginx/sites-enabled/default
+
+# n8n 설정 파일 생성
+sudo tee /etc/nginx/sites-available/n8n << 'EOF'
+server {
+    listen 80;
+    server_name n8n.yourdomain.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name n8n.yourdomain.com;
+
+    ssl_certificate /etc/letsencrypt/live/n8n.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/n8n.yourdomain.com/privkey.pem;
+
+    location / {
+        proxy_pass http://localhost:5678;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+EOF
+
+# 설정 활성화
+sudo ln -s /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/
+
+# 문법 확인
+sudo nginx -t
+
+# nginx 재시작
+sudo systemctl restart nginx
+```
+
+### 3️⃣ n8n 재시작
+
+`nginx`에서 `HTTPS`를 처리하므로 `n8n` 컨테이너에 도메인 환경변수를 적용해서 재시작해요.<br />
+
+```bash
+docker stop n8n
+docker rm n8n
+
+docker run -d \
+  --name n8n \
+  --restart always \
+  -p 5678:5678 \
+  -v ~/.n8n:/home/node/.n8n \
+  -e GENERIC_TIMEZONE="Asia/Seoul" \
+  -e TZ="Asia/Seoul" \
+  -e N8N_HOST=n8n.yourdomain.com \
+  -e N8N_PROTOCOL=https \
+  -e WEBHOOK_URL=https://n8n.yourdomain.com \
+  -e N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=false \
+  docker.n8n.io/n8nio/n8n
+```
+
+## ✅ 접속 확인
+
+브라우저에서 아래 주소로 접속해요.<br />
+
+```
+https://n8n.yourdomain.com
+```
+
+`n8n` 계정 생성 화면이 나오면 성공이에요! 🎉<br />
+이메일과 비밀번호를 입력해서 계정을 생성하면 `n8n`을 사용할 수 있어요.<br />
+
+## 🛠️ 문제 해결
+
+자주 발생하는 문제와 해결 방법을 정리했어요.<br />
+
+### 접속이 안 될 때
+
+```bash
+# Docker 컨테이너 상태 확인
+docker ps
+
+# n8n 로그 확인
+docker logs n8n
+
+# nginx 에러 로그 확인
+sudo tail -f /var/log/nginx/error.log
+
+# 포트 열려있는지 확인
+sudo ss -tlnp | grep 5678
+```
+
+### 메모리 부족으로 컨테이너가 죽을 때
+
+```bash
+# 메모리 상태 확인
+free -h
+
+# 스왑이 없으면 추가
+sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+```
+
+### IP가 바뀌었을 때
+
+`GCP e2-micro`는 `VM`을 **중지(stop)** 후 재시작하면 `IP`가 바뀔 수 있어요.<br />
+단순 **재부팅(reboot)** 은 IP가 유지돼요.<br />
+`IP`가 바뀌면 `Route 53`의 `A 레코드`를 새 `IP`로 업데이트해주세요.<br />
+
+## 📮 참고
+
+- [n8n 공식 문서](https://docs.n8n.io)
+- [GCP 무료 티어 공식 문서](https://cloud.google.com/free)
+- [Let's Encrypt 공식 문서](https://letsencrypt.org)
+- [certbot 공식 문서](https://certbot.eff.org)

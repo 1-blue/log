@@ -21,7 +21,7 @@ import CopyLinkButton from "#/app/(PostLayout)/posts/_components/CopyLinkButton"
 import ScrollBottomButton from "#/app/(PostLayout)/posts/_components/ScrollBottomButton";
 import HomeLinkButton from "#/app/(PostLayout)/posts/_components/HomeLinkButton";
 
-interface Props extends IPostWithETC {}
+interface Props extends IPostWithETC { }
 
 const TopSection: React.FC<Props> = ({
   title,
@@ -50,7 +50,7 @@ const TopSection: React.FC<Props> = ({
       <h1 className="text-center text-5xl leading-tight font-bold break-words break-keep whitespace-pre-wrap">
         {title}
       </h1>
-      <p className="text-xl font-semibold whitespace-pre-wrap">{description}</p>
+      <p className="text-xl font-semibold whitespace-pre-wrap text-center">{description}</p>
       <div className="flex gap-4 text-xs *:flex *:items-center *:gap-1">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-1">
