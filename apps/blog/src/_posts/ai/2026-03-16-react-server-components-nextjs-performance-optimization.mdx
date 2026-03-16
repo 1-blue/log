@@ -1,0 +1,244 @@
+---
+title: "React 19와 Next.js 15: 서버 컴포넌트로 성능 최적화 마스터하기"
+description: "React 19의 핵심, React Server Components(RSC)로 웹 성능을 혁신하세요. Next.js 15 앱 라우터에서 RSC의 개념, 작동 원리, 데이터 페칭 전략, 최적화 팁까지 마스터하고 사용자 경험을 극대화하는 방법을 알아봅니다."
+tags: ["React", "React Server Components", "RSC", "Next.js", "Next.js 15", "App Router", "웹 성능", "프론트엔드 최적화", "React 19", "Server Side Rendering"]
+icon: ""
+thumbnail: ""
+createdAt: 2026-03-16 12:47:21
+publishedAt: 2026-03-16 12:47:21
+sitemap:
+  lastmod: 2026-03-16T12:47:21+09:00
+  changefreq: weekly
+  priority: 0.5
+draft: false
+ai: true
+---
+
+React Server Components(RSC)는 React 19와 Next.js 15 앱 라우터의 핵심으로, 웹 애플리케이션의 성능과 사용자 경험을 혁신하는 방법을 이 글에서 마스터해 보세요.
+클라이언트 사이드 렌더링(CSR)과 기존 서버 사이드 렌더링(SSR)의 한계를 넘어, 새로운 차원의 최적화를 경험하실 수 있을 거예요.
+
+## 🤔 문제/배경
+### 왜 이 주제를 다루는가
+현대의 웹 애플리케이션은 점점 더 복잡해지고 기능이 많아지고 있어요.
+그 결과, 번들 크기가 커지고 초기 로딩 속도가 느려지는 문제가 자주 발생하곤 해요.
+사용자는 빠른 페이지 로딩과 즉각적인 반응을 기대하지만, 기존 방식으로는 이러한 기대를 충족하기 어려웠어요.
+
+<Blockquote type="info">
+  사용자 경험(UX)은 웹 서비스 성공의 핵심 요소 중 하나예요. 특히 초기 로딩 성능은 사용자 이탈률에 큰 영향을 미치므로, 최적화는 매우 중요합니다.
+</Blockquote>
+
+### 기존 방식의 한계
+기존 React 애플리케이션은 주로 클라이언트 측에서 모든 JavaScript 번들을 다운로드하고 실행하는 CSR 방식을 사용했어요.
+이는 초기 로딩 시 많은 JavaScript를 전송해야 한다는 단점이 있었죠.
+물론 Next.js 같은 프레임워크를 통해 SSR이나 SSG(Static Site Generation)를 활용하여 초기 로딩 성능을 개선할 수 있었어요.
+
+하지만 SSR/SSG도 나름의 한계가 있었는데요.
+*   **SSR:** 서버에서 HTML을 생성하여 보내주지만, 이후 클라이언트에서 Hydration 과정을 거쳐야 해요. 이 과정에서 여전히 많은 JavaScript 번들이 필요하며, Hydration이 완료되기 전까지는 상호작용이 불가능한 '정적인' 페이지로 남아있게 돼요. 또한, 서버의 부하가 커질 수 있어요.
+*   **SSG:** 빌드 시점에 모든 페이지를 미리 생성하므로 매우 빠르지만, 동적인 데이터를 자주 업데이트해야 하는 페이지에는 적합하지 않았어요.
+
+이러한 한계는 개발자들이 더 나은 성능과 유연성을 추구하게 만들었고, 그 해답으로 React Server Components(RSC)가 등장하게 되었답니다.
+
+## ⚙️ 해결 방법
+### 핵심 아이디어: React Server Components (RSC)란 무엇인가?
+React Server Components는 클라이언트에서 렌더링되는 기존의 React 컴포넌트와 달리, 서버에서 렌더링되는 컴포넌트예요.
+이들은 클라이언트 측 JavaScript 번들에 포함되지 않으며, 최종적으로 HTML이나 JSON 형태로 클라이언트에 전송된답니다.
+가장 큰 특징은 클라이언트 번들 크기를 획기적으로 줄여, 초기 로딩 속도를 향상시킬 수 있다는 점이에요.
+
+<Blockquote type="tip">
+  RSC는 '제로 번들 사이즈' 컴포넌트라고도 불려요. 이는 RSC 자체의 JavaScript 코드가 클라이언트로 전송되지 않기 때문이죠.
+</BlockQuote>
+
+### 작동 원리
+RSC의 작동 원리는 기존의 렌더링 방식과는 차이가 있어요.
+1.  **빌드 타임/요청 시점:** 서버 컴포넌트는 서버에서 실행되어, HTML 구조와 필요한 React Element 트리 정보를 생성해요.
+2.  **직렬화 및 스트리밍:** 생성된 React Element 트리는 특수 포맷(RSC 페이로드)으로 직렬화되어 클라이언트로 스트리밍됩니다. 이때 데이터 페칭 결과도 함께 포함될 수 있어요.
+3.  **클라이언트 렌더링:** 클라이언트는 이 스트림을 받아 HTML로 변환하거나, 기존 클라이언트 컴포넌트와 병합하여 렌더링해요. 이 과정에서 클라이언트 컴포넌트만 Hydration이 필요하며, 서버 컴포넌트는 Hydration 없이 바로 상호작용 가능한 형태로 통합된답니다.
+
+이러한 방식을 통해, 초기 로딩 시 불필요한 JavaScript 다운로드 및 실행을 최소화하고, 서버에서 미리 데이터를 페칭하여 더욱 빠르게 콘텐츠를 사용자에게 제공할 수 있게 돼요.
+
+### Server 컴포넌트와 Client 컴포넌트의 상호작용
+RSC는 단독으로 사용되기보다는 클라이언트 컴포넌트와 함께 사용될 때 시너지를 발휘해요.
+Next.js App Router에서는 기본적으로 모든 컴포넌트가 Server 컴포넌트이며, 클라이언트 컴포넌트로 만들고 싶을 때만 파일 상단에 `"use client";` 지시어를 추가해야 해요.
+
+**주요 상호작용 규칙:**
+*   **서버 -> 클라이언트:** 서버 컴포넌트에서 클라이언트 컴포넌트를 직접 import 하여 렌더링할 수 있어요. 이때, 서버 컴포넌트에서 클라이언트 컴포넌트로 props를 전달할 수 있지만, 전달되는 props는 직렬화 가능한 값(string, number, boolean, array, plain object, React elements 등)이어야 해요. 함수나 클래스 인스턴스는 직접 전달할 수 없어요.
+*   **클라이언트 -> 서버:** 클라이언트 컴포넌트 내에서는 서버 컴포넌트를 직접 import 할 수 없어요. 하지만 클라이언트 컴포넌트의 `children` prop으로 서버 컴포넌트를 전달받아 렌더링하는 패턴은 가능해요. 이는 'Server Component as a Child' 패턴으로, 클라이언트 컴포넌트의 Hydration 영역을 최소화하는 데 도움이 된답니다.
+
+<Blockquote type="warning">
+  서버 컴포넌트에서 클라이언트 컴포넌트로 전달되는 props는 반드시 직렬화 가능해야 해요. 클로저나 함수 같은 비직렬화 데이터는 오류를 발생시킬 수 있으니 주의해야 합니다.
+</Blockquote>
+
+### 데이터 페칭 전략
+React 19와 Next.js 15의 RSC 환경에서는 데이터 페칭이 훨씬 더 간결해졌어요.
+서버 컴포넌트 내부에서는 `async/await` 문법을 사용하여 서버에서 직접 데이터를 페칭할 수 있어요.
+별도의 useEffect나 data fetching 라이브러리 없이도 간단하게 데이터를 가져올 수 있죠.
+
+Next.js App Router는 `fetch` API를 확장하여 자동으로 요청을 메모이제이션(캐싱)하고 중복 제거를 해주기 때문에, 여러 컴포넌트에서 동일한 데이터를 요청해도 한 번만 네트워크 요청이 발생해요.
+이러한 캐싱 전략은 `fetch` 요청뿐만 아니라 전체적인 데이터 흐름을 최적화하는 데 중요한 역할을 한답니다.
+
+## 🧪 예시
+### 기본적인 Server/Client 컴포넌트 분리 예시
+먼저, 간단한 Server 컴포넌트와 Client 컴포넌트를 분리하는 예시를 보여드릴게요.
+
+```tsx showLineNumbers {1-2, 11}
+// app/page.tsx (Server Component by default)
+import ClientButton from './ClientButton'; // Client 컴포넌트 import 가능
+
+export default async function HomePage() {
+  const data = await fetch('https://api.example.com/items').then(res => res.json()); // 서버에서 직접 데이터 페칭
+  const items = data.slice(0, 3).map(item => item.name).join(', ');
+
+  return (
+    <div>
+      <h1>서버에서 가져온 데이터: {items}</h1>
+      <ClientButton />
+    </div>
+  );
+}
+```
+
+```tsx showLineNumbers {1}
+// app/ClientButton.tsx (Client Component)
+"use client";
+
+import { useState } from 'react';
+
+export default function ClientButton() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <button onClick={() => setCount(prev => prev + 1)}>
+      클라이언트 카운트: {count}
+    </button>
+  );
+}
+```
+
+`HomePage`는 `async` 함수로 서버에서 데이터를 페칭하고, 클라이언트에서 상호작용이 필요한 `ClientButton`을 import하여 사용하고 있어요.
+`ClientButton` 상단에는 `"use client";` 지시어가 명시되어 클라이언트 컴포넌트임을 알려줍니다.
+
+### 데이터 페칭을 포함한 Server 컴포넌트 예시
+실제로 서버 컴포넌트에서 데이터를 페칭하는 과정을 자세히 살펴볼게요.
+
+```tsx showLineNumbers {5-6, 10-15}
+// app/posts/[id]/page.tsx (Server Component)
+import PostDetail from './PostDetail';
+
+interface PostPageProps {
+  params: { id: string };
+}
+
+async function getPost(id: string) {
+  // fetch API는 Next.js에서 자동으로 캐싱 및 중복 제거 기능을 제공해요.
+  const res = await fetch(`https://jsonplaceholder.typicode.com/posts/${id}`);
+  if (!res.ok) {
+    // 에러 처리: notFound() 또는 throw new Error(...)
+    throw new Error('Failed to fetch post');
+  }
+  return res.json();
+}
+
+export default async function PostPage({ params }: PostPageProps) {
+  const post = await getPost(params.id);
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold mb-4">게시글 상세</h1>
+      <PostDetail post={post} />
+    </div>
+  );
+}
+```
+
+```tsx showLineNumbers {1}
+// app/posts/[id]/PostDetail.tsx (Client Component)
+"use client";
+
+import { useEffect } from 'react';
+
+interface Post {
+  id: number;
+  title: string;
+  body: string;
+}
+
+interface PostDetailProps {
+  post: Post;
+}
+
+export default function PostDetail({ post }: PostDetailProps) {
+  useEffect(() => {
+    console.log('PostDetail 클라이언트 컴포넌트 마운트');
+  }, []);
+
+  return (
+    <div className="border p-4 rounded-md">
+      <h2 className="text-xl font-semibold mb-2">{post.title}</h2>
+      <p>{post.body}</p>
+      <Blockquote type="tip">
+        이 부분은 클라이언트에서 상호작용이 가능한 영역이에요.
+      </Blockquote>
+    </div>
+  );
+}
+```
+
+`PostPage`는 서버 컴포넌트로서, `getPost` 함수를 통해 데이터를 비동기적으로 가져와요.
+가져온 데이터는 `PostDetail` 클라이언트 컴포넌트의 props로 전달됩니다.
+`PostDetail`은 클라이언트에서 `useEffect`와 같은 클라이언트 전용 훅을 사용하여 상호작용을 처리할 수 있어요.
+
+<Blockquote type="success">
+  서버 컴포넌트에서 데이터 페칭 로직을 분리하면, 클라이언트 번들에서 해당 로직을 제거하여 번들 사이즈를 줄일 수 있어요. 이는 성능 최적화에 매우 효과적입니다.
+</Blockquote>
+
+### 변경 전후 비교: 컴포넌트 번들 사이즈 (가상 예시)
+`diff-tsx`를 사용하여 RSC 적용 전후의 가상적인 번들 사이즈 변화를 보여드릴게요.
+실제 번들링 결과는 더 복잡하지만, 개념을 이해하는 데 도움이 될 거예요.
+
+```diff-tsx showLineNumbers
+// before (모든 컴포넌트가 클라이언트 번들에 포함)
+// 클라이언트 번들 (초기 로딩 시): 250KB
+
+// components/HeavyComponent.tsx (가정)
+// import 'heavy-library'; // 100KB
+// export default function HeavyComponent() { ... }
+
+// after (HeavyComponent가 Server Component로 분리)
+// 클라이언트 번들 (초기 로딩 시): 150KB (-100KB)
+
+// components/HeavyComponent.tsx (Server Component)
+// import 'heavy-library'; // 서버에서만 사용, 클라이언트 번들에서 제외
+// export default async function HeavyComponent() { ... }
+
+// app/page.tsx (Server Component)
+// import HeavyComponent from '../components/HeavyComponent';
+// export default function HomePage() {
+//   return <HeavyComponent />;
+// }
+```
+
+위 가상 예시처럼, 무거운 라이브러리를 사용하는 컴포넌트를 서버 컴포넌트로 분리하면, 해당 라이브러리의 코드가 클라이언트 번들에 포함되지 않아 초기 로딩 시 다운로드할 JavaScript 양을 크게 줄일 수 있어요.
+
+## 📝 정리
+### 핵심 요약
+React Server Components(RSC)는 React 19와 Next.js 15 앱 라우터의 핵심 기능으로, 웹 애플리케이션의 성능과 개발 경험을 혁신하는 강력한 도구예요.
+*   **번들 사이즈 최적화:** 서버에서 렌더링되므로 클라이언트 JavaScript 번들에 포함되지 않아, 초기 로딩 속도를 크게 향상시켜요.
+*   **데이터 페칭 간소화:** 서버 컴포넌트에서 `async/await`를 사용하여 데이터 페칭 로직을 직접 포함할 수 있으며, Next.js의 `fetch` 확장 기능을 통해 캐싱 및 중복 제거를 자동으로 수행해요.
+*   **향상된 개발 경험:** 서버와 클라이언트의 역할을 명확히 분리하여, 개발자가 더 효율적으로 코드를 작성하고 유지보수할 수 있게 도와줍니다.
+
+하지만 모든 컴포넌트를 서버 컴포넌트로 만들 필요는 없어요.
+상호작용이 필요한 부분은 클라이언트 컴포넌트로 유지하고, 정적인 콘텐츠나 데이터 페칭이 필요한 부분에 RSC를 전략적으로 활용하는 것이 중요해요.
+
+### 다음 액션
+*   **Next.js App Router 학습:** RSC는 Next.js App Router와 밀접하게 연관되어 있으므로, App Router의 개념과 사용법을 숙지하는 것이 필수예요.
+*   **기존 프로젝트 분석:** 현재 프로젝트에서 번들 사이즈를 줄일 수 있는 Server 컴포넌트 후보군을 찾아보세요. 데이터 페칭이 많거나, 외부 라이브러리 의존성이 높은 컴포넌트가 좋은 후보가 될 수 있어요.
+*   **점진적 도입:** 한 번에 모든 것을 변경하기보다는, 새로운 기능이나 페이지부터 RSC를 적용하며 경험을 쌓는 것을 추천드려요.
+
+<Blockquote type="info">
+  React 19와 Next.js 15는 계속해서 진화하고 있어요. 공식 문서를 꾸준히 참고하며 최신 정보를 놓치지 않는 것이 중요합니다.
+</Blockquote>
+
+## 📮 참고
+*   [Next.js 공식 문서: React Server Components](https://nextjs.org/docs/getting-started/react-essentials/server-components)
+*   [React 공식 문서: React Server Components](https://react.dev/reference/rsc/server-components)
+*   [Vercel Blog: The Next.js 15 Compiler and Turbo](https://vercel.com/blog/nextjs-15-compiler-turbo)
