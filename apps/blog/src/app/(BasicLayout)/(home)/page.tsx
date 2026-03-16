@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import dayjs from "dayjs";
 
 import { getAllPosts } from "#/libs/post";
+import { dayjs } from "#/libs/dayjs";
 import { getSharedMetadata } from "#/libs";
 
 import PostSection from "#/app/(BasicLayout)/_components/sections/PostSection";
@@ -10,7 +10,9 @@ export const metadata: Metadata = getSharedMetadata();
 
 const allPosts = getAllPosts();
 const latestSortedPosts = allPosts.sort(
-  (a, b) => dayjs(b.publishedAt).unix() - dayjs(a.publishedAt).unix(),
+  (a, b) =>
+    dayjs.tz(b.createdAt, "Asia/Seoul").unix() -
+    dayjs.tz(a.createdAt, "Asia/Seoul").unix(),
 );
 const Page: React.FC = () => {
   return (

@@ -11,6 +11,7 @@ import twColors from "tailwindcss/colors";
 
 import "react-tooltip/dist/react-tooltip.css";
 
+import { nowKorea } from "#/libs/dayjs";
 import { useCalendarStore } from "#/stores";
 
 const LABELS = {
@@ -62,8 +63,6 @@ const explicitTheme: ThemeInput = {
   ],
 };
 
-const TODAY = new Date();
-
 interface Props {
   publishedDates: Record<string, number>;
 }
@@ -75,13 +74,8 @@ const Calendar: React.FC<Props> = ({ publishedDates }) => {
   const onSelectDate = (date: Date) => setSelectedDate(date);
 
   const data: Activity[] = Array.from({ length: 365 }, (_, i) => {
-    const date = new Date(
-      TODAY.getFullYear(),
-      TODAY.getMonth() + 1,
-      TODAY.getDay() - i,
-    );
-
-    const targetDate = date.toISOString().slice(0, 10);
+    const date = nowKorea().subtract(i, "day");
+    const targetDate = date.format("YYYY-MM-DD");
     const countAndLevel = publishedDates[targetDate] || 0;
 
     return {
@@ -114,7 +108,7 @@ const Calendar: React.FC<Props> = ({ publishedDates }) => {
             () =>
             ({ date, count }) => {
               if (count === 0) return resetSelectedDate();
-              onSelectDate(new Date(date));
+              onSelectDate(new Date(date + "T12:00:00+09:00"));
             },
         }}
       />

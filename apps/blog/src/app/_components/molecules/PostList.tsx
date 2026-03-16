@@ -31,7 +31,7 @@ const PostList: React.FC<Props> = ({ post }) => {
         <div className="flex gap-4 text-xs *:flex *:items-center *:gap-1">
           <div>
             <CalendarDaysIcon className="h-5 w-5" />
-            <time className="whitespace-nowrap">{post.publishedAt}</time>
+            <time className="whitespace-nowrap">{post.createdAt}</time>
           </div>
           <div>
             <Bars3BottomLeftIcon className="h-5 w-5" />

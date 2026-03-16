@@ -1,5 +1,3 @@
-import dayjs from "dayjs";
-
 import { getAllPosts } from "#/libs/post";
 
 import InfoSection from "#/app/(BasicLayout)/_components/sections/InfoSection";
@@ -8,7 +6,7 @@ import SelectedPostSection from "#/app/(BasicLayout)/_components/SelectedPostSec
 
 const allPosts = getAllPosts();
 const publishedDates = allPosts.reduce<Record<string, number>>((prev, curr) => {
-  const publishedDate = dayjs(curr.publishedAt).format("YYYY-MM-DD");
+  const publishedDate = curr.createdAt;
   if (prev[publishedDate]) {
     prev[publishedDate]++;
   } else {
