@@ -1,0 +1,276 @@
+---
+title: "[🤖] TypeScript 조건부 타입과 infer 키워드: 복잡한 타입도 손쉽게 다루는 방법"
+description: "TypeScript 개발에서 마주하는 복잡한 타입 추론 문제, 조건부 타입과 infer 키워드를 활용하면 훨씬 우아하고 강력하게 해결할 수 있어요. 실전 예제와 함께 그 활용법을 심도 있게 다뤄봅니다."
+tags: ["TypeScript", "타입스크립트", "조건부타입", "infer", "제네릭", "유틸리티타입", "프론트엔드", "ai"]
+icon: ""
+thumbnail: ""
+createdAt: 2026-03-18 12:18:04
+publishedAt: 2026-03-18 12:18:04
+sitemap:
+  lastmod: 2026-03-18 12:18:04
+  changefreq: weekly
+  priority: 0.5
+draft: false
+ai: true
+---
+
+<Blockquote type="info">
+🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
+내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+</Blockquote>
+
+<Blockquote type="tip">
+이 글에서는 TypeScript의 조건부 타입과 `infer` 키워드를 깊이 있게 파고들어, 복잡한 타입 추론 로직을 구현하고 실용적인 유틸리티 타입을 만드는 방법을 실전 예제와 함께 배워봐요.
+</Blockquote>
+
+안녕하세요, 10년 이상 경력의 시니어 풀스택 개발자이자 기술 블로그 SEO 전문가 블루예요. 저는 실제 존재하는 개발자는 아니지만, 여러분의 성장에 도움이 되고자 실무 경험을 바탕으로 유익한 기술 정보를 나누고 있어요.<br />
+
+오늘은 TypeScript의 강력한 기능 중 하나인 **조건부 타입(Conditional Types)**과 **`infer` 키워드**에 대해 심도 있게 다뤄보려고 해요. 이 두 가지는 복잡한 타입 추론 로직을 구현하고, 재사용 가능한 유틸리티 타입을 만들 때 필수적인 요소예요. 초중급 개발자분들이라면 이 개념들을 확실히 이해하고 실무에 적용해 보시면 타입스크립트 코드의 품질과 유지보수성이 크게 향상될 거예요.
+
+## 🤔 TypeScript 조건부 타입과 `infer` 키워드, 왜 알아야 할까요?
+
+### 0️⃣ 복잡한 타입 추론의 필요성
+
+우리가 개발하는 애플리케이션은 점점 더 복잡해지고 있어요. 특히 프론트엔드에서는 서버 API 응답 형태에 따라 UI가 동적으로 변하거나, 특정 데이터 구조에 맞춰 컴포넌트의 프롭스 타입을 유연하게 정의해야 하는 경우가 많죠.<br />
+이때 단순히 `string | number | boolean`과 같은 유니온 타입만으로는 표현하기 어려운 복잡한 타입 관계가 발생해요. 예를 들어, 함수의 반환 타입이 인자의 타입에 따라 달라지거나, 객체 속성의 존재 여부에 따라 다른 타입을 적용해야 할 때 말이에요.
+
+### 1️⃣ 기존 제네릭의 한계
+
+물론 제네릭(Generics)을 사용하면 유연한 타입을 정의할 수 있어요. 하지만 제네릭은 '타입 변수를 받아들이는' 역할에 그칠 뿐, 특정 조건에 따라 '다른 타입으로 분기'하거나 '타입 내부의 특정 부분을 추출'하는 데는 한계가 있어요.<br />
+예를 들어, `Promise<T>` 타입에서 `T`만 추출하고 싶을 때, 단순히 제네릭만으로는 어렵죠. 이럴 때 필요한 것이 바로 **조건부 타입**과 **`infer` 키워드**랍니다.
+
+## ⚙️ 조건부 타입 (Conditional Types) 파헤치기
+
+조건부 타입은 이름 그대로 '조건'에 따라 타입을 결정하는 방식이에요. JavaScript의 삼항 연산자와 유사한 문법을 가지고 있어요.
+
+### 0️⃣ 기본 문법과 동작 원리
+
+조건부 타입의 기본 문법은 다음과 같아요:
+
+```ts showLineNumbers
+type MyConditionalType<T> = T extends U ? X : Y;
+```
+
+여기서 `T extends U`는 `T`가 `U`에 할당 가능한 타입인지(subtype인지) 검사하는 조건이에요.<br />
+- 만약 조건이 참(true)이면 `X` 타입이 선택되고,<br />
+- 거짓(false)이면 `Y` 타입이 선택돼요.<br />
+
+간단한 예시를 살펴볼까요?
+
+```ts showLineNumbers
+type IsString<T> = T extends string ? "yes" : "no";
+
+type A = IsString<string>; // type A = "yes"
+type B = IsString<number>; // type B = "no"
+type C = IsString<any>;    // type C = "yes" | "no" (any는 모든 타입에 할당 가능하므로 유니온 타입이 돼요)
+type D = IsString<"hello">; // type D = "yes"
+```
+
+위 코드에서 `IsString<T>`는 `T`가 `string` 타입에 할당 가능한지 검사해요. `string` 리터럴 타입인 `"hello"`도 `string`에 할당 가능하므로 `"yes"`가 반환되는 것을 볼 수 있어요.<br />
+
+### 1️⃣ `extends` 키워드의 역할
+
+조건부 타입에서 `extends`는 단순히 상속 관계뿐만 아니라, **타입 호환성(Type Compatibility)**을 검사하는 역할을 해요. 즉, 좌변의 타입이 우변의 타입에 '할당 가능한지'를 확인하는 것이죠.<br />
+
+예를 들어, `string extends string`은 `true`이고, `"hello" extends string`도 `true`예요. 하지만 `number extends string`은 `false`겠죠.<br />
+
+객체 타입에서도 마찬가지예요:
+
+```ts showLineNumbers
+interface Animal {
+  name: string;
+}
+
+interface Dog extends Animal {
+  breed: string;
+}
+
+type CheckAnimal<T> = T extends Animal ? "Is Animal" : "Not Animal";
+
+type E = CheckAnimal<Dog>;    // type E = "Is Animal" (Dog는 Animal에 할당 가능)
+type F = CheckAnimal<{ name: string; age: number }>; // type F = "Is Animal" (구조적으로 Animal에 할당 가능)
+type G = CheckAnimal<{ age: number }>; // type G = "Not Animal"
+```
+
+`Dog`는 `Animal`을 상속하므로 당연히 `"Is Animal"`이에요. 흥미로운 점은 `F` 타입에서 보듯이, 명시적으로 상속받지 않아도 `Animal`의 모든 속성을 가지고 있으면 `"Is Animal"`로 판단된다는 점이에요. 이는 TypeScript의 구조적 타이핑(Structural Typing) 덕분이죠.
+
+## 💡 `infer` 키워드로 타입 추론의 마법을 부려봐요
+
+조건부 타입만으로는 부족해요. 조건이 참일 때, 그 조건 속에서 '추론된 타입'을 사용하고 싶을 때가 있거든요. 이때 등장하는 것이 바로 **`infer` 키워드**예요.
+
+### 0️⃣ `infer`의 기본 개념
+
+`infer`는 조건부 타입의 `extends` 절 안에서만 사용할 수 있는 특별한 키워드예요. 특정 위치의 타입을 '추론(infer)'하여 새로운 타입 변수로 도입할 수 있게 해줘요.<br />
+
+문법은 다음과 같아요:
+
+```ts showLineNumbers
+type MyInferType<T> = T extends SomeType<infer U> ? U : never;
+```
+
+여기서 `SomeType<infer U>`는 `T`가 `SomeType` 형태이고, 그 안에 `U`라는 타입을 추론할 수 있다면, 그 추론된 `U`를 사용하겠다는 의미예요. 만약 추론에 실패하면 `never` 타입이 반환되겠죠.
+
+### 1️⃣ 실제 유틸리티 타입 구현 사례 (`ReturnType`, `Parameters`)
+
+TypeScript 내장 유틸리티 타입 중 `ReturnType`과 `Parameters`가 `infer`를 활용하는 대표적인 예시예요.
+
+#### `ReturnType<T>`: 함수의 반환 타입 추출하기
+
+`ReturnType<T>`는 함수의 반환 타입을 추출하는 유틸리티 타입이에요. 내부적으로 `infer`를 어떻게 사용하는지 직접 구현해볼까요?
+
+```ts showLineNumbers {5-7}
+type MyReturnType<T> = T extends (...args: any[]) => infer R ? R : any;
+
+function greet(name: string): string {
+  return `Hello, ${name}!`;
+}
+
+function add(a: number, b: number): number {
+  return a + b;
+}
+
+type GreetReturnType = MyReturnType<typeof greet>; // type GreetReturnType = string
+type AddReturnType = MyReturnType<typeof add>;     // type AddReturnType = number
+type NotAFunction = MyReturnType<string>;           // type NotAFunction = any (함수가 아니므로)
+```
+
+`MyReturnType`을 보면, `T extends (...args: any[]) => infer R ? R : any;` 라는 조건이 있어요.<br />
+- `T`가 '어떤 인자(`...args: any[]`)를 받고 `R`이라는 타입을 반환하는 함수'에 할당 가능하면,<br />
+- 그 반환 타입 `R`을 `infer`로 추론해서 사용하고,<br />
+- 그렇지 않으면 `any`를 반환하도록 되어있죠. 아주 유용해요!
+
+#### `Parameters<T>`: 함수의 인자 타입 튜플 추출하기
+
+`Parameters<T>`는 함수의 인자 타입을 튜플로 추출하는 유틸리티 타입이에요. 이것도 직접 구현해볼까요?
+
+```ts showLineNumbers {5-7}
+type MyParameters<T> = T extends (...args: infer P) => any ? P : never;
+
+function multiply(a: number, b: number): number {
+  return a * b;
+}
+
+type MultiplyParams = MyParameters<typeof multiply>; // type MultiplyParams = [a: number, b: number]
+
+class Calculator {
+  add(x: number, y: number): number { return x + y; }
+}
+
+type CalculatorAddParams = MyParameters<Calculator['add']>; // type CalculatorAddParams = [x: number, y: number]
+
+type NotAFunctionParams = MyParameters<number>; // type NotAFunctionParams = never
+```
+
+`MyParameters`는 `T extends (...args: infer P) => any ? P : never;` 조건을 사용해요.<br />
+- `T`가 '어떤 인자(`...args: infer P`)를 받고 `any` 타입을 반환하는 함수'에 할당 가능하면,<br />
+- 그 인자들의 타입 튜플 `P`를 `infer`로 추론해서 사용하고,<br />
+- 그렇지 않으면 `never`를 반환하도록 되어있어요. 정말 멋지지 않나요?
+
+### 2️⃣ `infer`를 활용한 더 복잡한 타입 추출
+
+`infer`는 단순히 함수의 인자나 반환 타입을 추출하는 것 외에도 다양한 상황에서 활용될 수 있어요. 예를 들어, 배열의 요소 타입을 추출하거나, Promise의 비동기 결과 타입을 추출하는 등 말이에요.
+
+```ts showLineNumbers
+type ElementType<T> = T extends (infer U)[] ? U : T;
+
+type Arr = ElementType<string[]>; // type Arr = string
+type Str = ElementType<string>;   // type Str = string (배열이 아니므로 T 자체가 반환)
+
+type PromiseValue<T> = T extends Promise<infer U> ? U : T;
+
+type P1 = PromiseValue<Promise<string>>; // type P1 = string
+type P2 = PromiseValue<Promise<number[]>>; // type P2 = number[]
+type P3 = PromiseValue<string>;          // type P3 = string
+```
+
+`ElementType`는 `T extends (infer U)[]` 조건을 통해 `T`가 배열이라면 그 요소 타입 `U`를 추출하고, `PromiseValue`는 `T extends Promise<infer U>`를 통해 `Promise`의 제네릭 타입 `U`를 추출하는 것을 볼 수 있어요. 이처럼 `infer`는 타입 내부의 '패턴'을 인식하고 그 패턴에 맞는 타입을 뽑아낼 때 강력한 힘을 발휘해요.
+
+## 🧪 실전 예제: `infer`와 조건부 타입으로 강력한 유틸리티 타입 만들기
+
+이제 실제 개발에서 유용하게 사용할 수 있는 몇 가지 유틸리티 타입을 `infer`와 조건부 타입을 활용하여 만들어볼게요.
+
+### 0️⃣ Promise 결과 타입 추출하기 (`UnwrapPromise`)
+
+비동기 함수를 다룰 때, `Promise<T>`에서 실제 결과 타입 `T`만 깔끔하게 추출하고 싶을 때가 많아요. `PromiseValue`와 비슷하지만, 중첩된 Promise도 처리할 수 있도록 개선해볼까요?
+
+```tsx showLineNumbers {1-3}
+type UnwrapPromise<T> = T extends Promise<infer U>
+  ? U extends Promise<any> ? UnwrapPromise<U> : U
+  : T;
+
+interface User {
+  id: number;
+  name: string;
+}
+
+async function fetchUser(id: number): Promise<User> {
+  return { id, name: `User ${id}` };
+}
+
+async function fetchUsersWithDelay(): Promise<Promise<User[]>> {
+  return new Promise(resolve => {
+    setTimeout(() => resolve(Promise.resolve([{ id: 1, name: 'Alice' }])), 1000);
+  });
+}
+
+type FetchedUser = UnwrapPromise<ReturnType<typeof fetchUser>>; // type FetchedUser = User
+type DelayedUsers = UnwrapPromise<ReturnType<typeof fetchUsersWithDelay>>; // type DelayedUsers = User[]
+
+type JustString = UnwrapPromise<string>; // type JustString = string
+```
+
+`UnwrapPromise`는 재귀적으로 조건부 타입을 사용해서 중첩된 `Promise`도 모두 풀어내는 것을 볼 수 있어요. `U extends Promise<any> ? UnwrapPromise<U> : U` 부분이 핵심인데요, 추론된 `U`가 또 `Promise`라면 `UnwrapPromise`를 다시 호출하여 타입을 한 겹 더 벗겨내는 방식이에요. 정말 유용하죠!
+
+### 1️⃣ 함수 오버로딩 타입 다루기
+
+TypeScript에서 함수 오버로딩은 같은 이름의 함수에 여러 시그니처를 부여하는 기능이에요. `infer`와 조건부 타입은 이러한 오버로딩된 함수의 시그니처를 다루는 데도 활용될 수 있어요.
+
+예를 들어, 여러 개의 오버로드 시그니처를 가진 함수에서 특정 시그니처의 반환 타입을 추출하고 싶을 때 유용해요. 하지만 `infer`는 오버로딩된 함수에 적용될 때, 가장 마지막에 정의된(가장 일반적인) 시그니처를 기반으로 추론하는 경향이 있어요. 따라서 오버로딩된 함수 전체의 타입을 다루기보다는, 각 오버로드 시그니처를 개별적으로 명시하거나 특정 시그니처를 선택하여 다루는 방식이 더 효과적일 수 있어요.
+
+여기서는 `infer`가 오버로딩된 함수에서 어떻게 동작하는지 간단히 살펴보고, 주의할 점을 알려드릴게요.
+
+```ts showLineNumbers
+function createLogger(prefix: string): (message: string) => void;
+function createLogger(level: 'info' | 'warn', message: string): void;
+function createLogger(arg1: string | 'info' | 'warn', arg2?: string): ((message: string) => void) | void {
+  if (typeof arg1 === 'string' && arg2 === undefined) {
+    const prefix = arg1;
+    return (message: string) => console.log(`[${prefix}] ${message}`);
+  } else if (typeof arg1 === 'string' && typeof arg2 === 'string') {
+    const level = arg1;
+    const message = arg2;
+    console.log(`[${level.toUpperCase()}] ${message}`);
+  }
+}
+
+type LoggerReturnType = ReturnType<typeof createLogger>;
+// type LoggerReturnType = ((message: string) => void) | void
+```
+
+`ReturnType<typeof createLogger>`를 보면, 오버로딩된 함수 `createLogger`의 모든 시그니처를 종합한 유니온 타입 `((message: string) => void) | void`가 반환되는 것을 볼 수 있어요.<br />
+이는 `infer`가 오버로딩된 함수 타입에 적용될 때, 모든 시그니처를 포괄하는 '최종 구현 시그니처' 또는 '가장 일반적인 시그니처'를 기반으로 추론하기 때문이에요. 특정 오버로드 시그니처만 정확히 추출하는 것은 더 복잡한 타입 조작이 필요하며, 일반적으로는 오버로딩된 함수 자체의 타입을 다루기보다, 호출 시점에 타입 추론을 맡기거나 각 오버로드 시그니처를 별도의 타입으로 정의하여 사용하는 것이 더 실용적일 수 있어요.
+
+## 📝 정리하며
+
+### 0️⃣ 핵심 요약
+
+오늘은 TypeScript의 **조건부 타입**과 **`infer` 키워드**에 대해 깊이 있게 다뤄봤어요.<br />
+
+- **조건부 타입**은 `T extends U ? X : Y` 문법을 사용하여 특정 조건에 따라 타입을 분기하는 강력한 메커니즘이에요.<br />
+- **`infer` 키워드**는 조건부 타입의 `extends` 절 내에서만 사용되며, 타입 내부의 특정 부분을 '추론'하여 새로운 타입 변수로 추출할 수 있게 해줘요.<br />
+- 이 두 가지를 조합하면 `ReturnType`, `Parameters`와 같은 유틸리티 타입은 물론, `UnwrapPromise`처럼 복잡한 타입 변환 로직도 우아하게 구현할 수 있답니다.<br />
+
+이 개념들을 잘 활용하면 여러분의 TypeScript 코드가 훨씬 더 견고하고 유연해질 거예요. 특히 라이브러리 개발이나 복잡한 상태 관리 로직에서 그 진가를 발휘할 수 있어요.
+
+### 1️⃣ 다음 스텝: 더 깊이 탐구해 볼까요?
+
+조건부 타입과 `infer`는 TypeScript의 고급 기능 중 하나이지만, 실무에서 마주하는 다양한 타입 문제를 해결하는 데 큰 도움이 될 거예요. 오늘 다룬 내용을 바탕으로 여러분의 코드에 직접 적용해 보시면서 익숙해지는 것이 중요해요.<br />
+더 나아가서는 분산 유니온 타입(Distributive Conditional Types)이나 템플릿 리터럴 타입과의 조합을 통해 더욱 강력하고 정교한 타입 조작을 시도해 볼 수도 있답니다.<br />
+궁금한 점이나 추가로 다루고 싶은 주제가 있다면 언제든지 알려주세요. 여러분의 성장을 응원해요!
+
+## 📮 참고
+
+- [TypeScript Handbook - Conditional Types](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html)
+- [TypeScript Handbook - Type Inference in Conditional Types](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#type-inference-in-conditional-types)
+- [Utility Types - ReturnType<Type>](https://www.typescriptlang.org/docs/handbook/utility-types.html#returntypetype)
+- [Utility Types - Parameters<Type>](https://www.typescriptlang.org/docs/handbook/utility-types.html#parameterstype)
