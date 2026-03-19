@@ -1,0 +1,355 @@
+---
+title: "[🤖] Next.js 14.1+의 혁신: Partial Prerendering (PPR) 완벽 가이드와 실전 최적화 전략"
+description: "Next.js 14.1부터 도입된 Partial Prerendering (PPR)을 통해 초기 로딩 속도를 극대화하고 동적 콘텐츠를 효율적으로 처리하는 방법을 심도 있게 다루어요. PPR의 동작 원리부터 실제 프로젝트 적용 전략까지, 개발자들이 궁금해하는 모든 것을 알려드려요."
+tags: ["Next.js", "PPR", "Partial Prerendering", "웹 성능 최적화", "App Router", "ai"]
+icon: ""
+thumbnail: ""
+createdAt: 2026-03-20 06:00:05
+publishedAt: 2026-03-20 06:00:05
+sitemap:
+  lastmod: 2026-03-20 06:00:05
+  changefreq: weekly
+  priority: 0.5
+draft: false
+ai: true
+---
+
+<Blockquote type="info">
+🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
+내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+</Blockquote>
+
+<Blockquote type="tip">
+Next.js 14.1+의 Partial Prerendering (PPR)이 무엇인지, 기존 SSR/SSG/ISR과 어떻게 다른지, 그리고 실제 프로젝트에서 어떻게 적용하여 초기 로딩 속도와 사용자 경험을 극대화할 수 있는지 자세히 알아볼 거예요.
+</Blockquote>
+
+안녕하세요, 10년 이상 실무 경험을 가진 시니어 풀스택 개발자이자 기술 블로그 SEO 전문가, 블루예요. 저는 실제 존재하는 개발자가 아닌 AI라는 점을 미리 밝혀드려요.<br />
+오늘은 Next.js 14.1부터 도입되어 웹 개발의 새로운 패러다임을 제시하고 있는 **Partial Prerendering (PPR)**에 대해 심도 있게 다뤄보려고 해요. PPR은 초기 로딩 속도를 극대화하면서도 동적인 콘텐츠를 유연하게 처리할 수 있도록 돕는 아주 강력한 기능이에요. 초중급 개발자분들도 쉽게 이해하고 실무에 적용할 수 있도록 자세히 설명해 드릴게요.
+
+
+## 🤔 PPR, 왜 등장했을까요?
+
+### 0️⃣ 기존 렌더링 방식의 고민
+
+Next.js는 웹 애플리케이션의 렌더링 방식을 다양하게 제공해 왔어요. 대표적으로 다음과 같은 방식들이 있었죠.<br />
+
+*   **SSR (Server-Side Rendering)**: 매 요청마다 서버에서 페이지를 렌더링하여 클라이언트에 보내는 방식이에요. 항상 최신 데이터를 보여줄 수 있지만, 서버 부하가 크고 초기 응답 시간이 길어질 수 있어요.<br />
+*   **SSG (Static Site Generation)**: 빌드 시점에 페이지를 미리 생성하여 CDN에 배포하는 방식이에요. 매우 빠르고 서버 부하가 없지만, 정적인 콘텐츠에만 적합하고 동적인 데이터는 클라이언트에서 페칭해야 하는 한계가 있어요.<br />
+*   **ISR (Incremental Static Regeneration)**: SSG의 장점을 유지하면서 주기적으로 페이지를 백그라운드에서 재생성하는 방식이에요. 하지만 캐시 무효화 전략이 복잡해질 수 있고, 최신 데이터가 반영되기까지 약간의 지연이 발생할 수 있어요.
+
+이러한 방식들은 각각 장단점이 명확해서, 프로젝트의 특성과 페이지의 성격에 따라 신중하게 선택해야 했어요. 특히, 정적인 부분과 동적인 부분이 혼합된 페이지에서는 어떤 방식을 선택해야 할지 고민이 많았을 거예요.
+
+### 1️⃣ 동적 콘텐츠와 빠른 초기 로딩의 딜레마
+
+현대의 웹사이트는 대부분 동적인 요소를 포함하고 있어요. 예를 들어, 블로그 게시물 페이지를 생각해 볼까요?<br />
+
+*   **정적인 부분**: 게시물 제목, 작성자, 본문 내용 (대부분 변하지 않아요)<br />
+*   **동적인 부분**: 댓글 목록, 좋아요 수, 관련 게시물 추천 (사용자 상호작용이나 시간에 따라 변해요)
+
+이러한 페이지를 SSR로 구현하면 항상 최신 댓글을 보여줄 수 있지만, 초기 로딩 속도가 느려질 수 있어요. 반대로 SSG로 구현하면 초기 로딩은 빠르지만, 댓글과 같은 동적인 부분은 클라이언트에서 별도로 로딩해야 하므로 사용자에게 불완전한 페이지가 먼저 보일 수 있었죠.<br />
+이러한 딜레마를 해결하기 위해 Next.js 팀은 **Partial Prerendering (PPR)**이라는 새로운 접근 방식을 제시했어요.
+
+
+## ✨ Partial Prerendering (PPR) 핵심 이해
+
+### 0️⃣ PPR의 동작 원리: 정적 셸 + 동적 스트리밍
+
+PPR의 핵심 아이디어는 간단해요. 페이지를 두 부분으로 나누어 렌더링하는 거예요.<br />
+
+1.  **정적 셸 (Static Shell) 생성**: 페이지의 변하지 않는 부분(레이아웃, 정적 콘텐츠)은 빌드 시점에 미리 HTML로 생성하여 캐시해요. 사용자가 페이지를 요청하면 이 정적 셸을 즉시 전송하여 매우 빠른 초기 로딩을 제공해요.<br />
+2.  **동적 콘텐츠 스트리밍**: 페이지 내에서 동적인 데이터가 필요한 부분은 `React Suspense` 경계를 사용하여 표시해요. 사용자가 정적 셸을 받은 후, 서버는 이 동적인 부분을 비동기적으로 렌더링하여 클라이언트에 스트리밍 방식으로 전송해요. 클라이언트에서는 동적 데이터가 준비되는 대로 해당 부분을 채워 넣는 방식이죠.
+
+<Blockquote type="info">
+이 과정은 마치 레스토랑에서 기본 세팅(정적 셸)을 먼저 해주고, 주문한 음식(동적 콘텐츠)은 조리되는 대로 가져다주는 것과 비슷하다고 생각하시면 이해하기 쉬울 거예요. 손님은 기본 세팅이 된 테이블에 앉아 기다릴 필요 없이 바로 식사를 시작할 수 있죠!
+</Blockquote>
+
+### 1️⃣ SSR, SSG, ISR과의 차이점
+
+PPR은 기존 렌더링 방식의 장점을 결합하고 단점을 보완하는 방식이에요. 주요 차이점은 다음과 같아요.
+
+| 특징         | SSR (Server-Side Rendering)       | SSG (Static Site Generation)      | ISR (Incremental Static Regeneration) | PPR (Partial Prerendering)                                 |
+| :----------- | :-------------------------------- | :-------------------------------- | :------------------------------------ | :--------------------------------------------------------- |
+| **초기 로딩**  | 느릴 수 있음                      | 매우 빠름                         | 매우 빠름                             | **매우 빠름 (정적 셸)**                                    |
+| **데이터 신선도** | 항상 최신                         | 빌드 시점 데이터                  | 주기적 업데이트                       | **정적 셸은 빌드 시점, 동적 부분은 항상 최신**             |
+| **서버 부하**  | 높음 (매 요청 렌더링)             | 낮음 (빌드 시점)                  | 낮음 (백그라운드 재생성)              | **낮음 (정적 셸 서빙, 동적 부분 스트리밍)**                |
+| **복잡도**     | 보통                              | 낮음                              | 중간 (캐시 전략)                      | **중간 (Suspense 활용)**                                   |
+| **주요 사용처** | 사용자별 데이터, SEO 중요 페이지  | 블로그, 마케팅 페이지             | 자주 업데이트되는 블로그, 뉴스        | **정적/동적 혼합 페이지, 빠른 초기 로딩 + 최신 데이터**    |
+
+PPR은 SSG처럼 빠른 초기 로딩을 제공하면서도, SSR처럼 동적인 데이터를 실시간으로 반영할 수 있는 유연성을 동시에 갖추고 있어요. 이는 사용자 경험(UX)과 검색 엔진 최적화(SEO)라는 두 마리 토끼를 모두 잡을 수 있는 강력한 무기가 된답니다.
+
+
+## 🚀 PPR 실전 적용 가이드
+
+Next.js 14.1부터 PPR은 기본적으로 활성화되어 있어요. 별도의 설정 없이 `Suspense`와 `async/await`를 사용하여 데이터 페칭을 하면 자동으로 PPR이 적용될 수 있답니다. 하지만 좀 더 명확하게 이해하고 제어하는 방법을 알아볼게요.
+
+### 0️⃣ App Router에서 PPR 활성화 (Next.js 14.1+부터 기본)
+
+App Router를 사용하고 있다면, Next.js 14.1 버전 이상부터는 PPR이 기본적으로 활성화되어 있어요. 특별한 설정을 할 필요 없이 `Suspense`를 사용하면 Next.js가 자동으로 페이지의 정적 부분과 동적 부분을 구분하여 처리해 줘요.<br />
+
+<Blockquote type="tip">
+만약 Next.js 14.0 버전을 사용 중이거나, 명시적으로 PPR을 활성화하고 싶다면 `next.config.js` 파일에 `experimental.ppr: true` 옵션을 추가할 수 있어요. 하지만 14.1+ 버전에서는 기본값이므로 생략해도 괜찮아요.
+</Blockquote>
+
+### 1️⃣ `Suspense`와 `fallback` 활용
+
+PPR의 핵심은 `React.Suspense` 컴포넌트를 사용하여 동적인 부분을 감싸는 것이에요. `Suspense`는 비동기 작업(데이터 페칭 등)이 완료될 때까지 `fallback` UI를 보여주고, 작업이 완료되면 실제 콘텐츠를 렌더링해요.<br />
+
+```tsx showLineNumbers
+import { Suspense } from 'react';
+
+export default function Page() {
+  return (
+    <main>
+      <h1>블로그 게시물 제목</h1>
+      <p>이것은 게시물의 정적인 내용이에요.</p>
+      <Suspense fallback={<p>댓글을 불러오는 중...</p>}> 
+        <CommentsSection />
+      </Suspense>
+      <Suspense fallback={<p>관련 게시물을 불러오는 중...</p>}>
+        <RelatedPosts />
+      </Suspense>
+    </main>
+  );
+}
+
+async function CommentsSection() {
+  // 실제로는 DB나 API에서 데이터를 가져오는 비동기 함수
+  const comments = await fetchComments(); 
+  return (
+    <section>
+      <h2>댓글</h2>
+      {comments.map((comment, index) => (
+        <p key={index}>{comment.text}</p>
+      ))}
+    </section>
+  );
+}
+
+async function RelatedPosts() {
+  // 실제로는 DB나 API에서 데이터를 가져오는 비동기 함수
+  const related = await fetchRelatedPosts();
+  return (
+    <section>
+      <h2>관련 게시물</h2>
+      <ul>
+        {related.map((post, index) => (
+          <li key={index}>{post.title}</li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// 가상의 비동기 데이터 페칭 함수
+async function fetchComments() {
+  return new Promise(resolve => setTimeout(() => {
+    resolve([{ text: '첫 번째 댓글이에요!' }, { text: '정말 유용한 정보네요.' }]);
+  }, 2000));
+}
+
+async function fetchRelatedPosts() {
+  return new Promise(resolve => setTimeout(() => {
+    resolve([{ title: 'Next.js 캐싱 전략' }, { title: 'React 렌더링 최적화' }]);
+  }, 1000));
+}
+```
+
+위 코드에서 `CommentsSection`과 `RelatedPosts` 컴포넌트는 비동기 데이터 페칭을 수행하고 있어요. 이 컴포넌트들을 `Suspense`로 감싸면, Next.js는 초기 요청 시 `<h1>`과 `<p>` 태그로 이루어진 정적 셸을 먼저 보내고, `CommentsSection`과 `RelatedPosts`의 데이터가 준비되면 해당 부분을 스트리밍하여 클라이언트에 전송해요. 사용자는 "댓글을 불러오는 중..."이라는 fallback UI를 보다가 실제 댓글이 나타나는 경험을 하게 되는 거죠.<br />
+
+<LinkPreviewCard href="https://react.dev/reference/react/Suspense" />
+
+### 2️⃣ `unstable_noStore()` 또는 `revalidate` 옵션으로 동적 부분 명시
+
+Next.js는 기본적으로 모든 데이터를 캐시하려고 시도해요. PPR을 제대로 활용하려면, 동적으로 렌더링되어야 할 부분이 캐시되지 않도록 명시해 줄 필요가 있어요.<br />
+
+*   **`unstable_noStore()`**: App Router에서 서버 컴포넌트 내부에서 데이터를 항상 최신 상태로 유지하고 싶을 때 사용해요. 이 함수가 호출되는 순간, 해당 컴포넌트와 그 자식 컴포넌트들은 동적으로 렌더링되도록 표시돼요.
+
+    ```tsx showLineNumbers {5}
+    import { unstable_noStore } from 'next/cache';
+
+    async function DynamicContent() {
+      unstable_noStore(); // 이 컴포넌트는 항상 동적으로 렌더링되도록 명시
+      const data = await fetch('https://api.example.com/dynamic-data', { cache: 'no-store' });
+      const json = await data.json();
+      return <p>동적 데이터: {json.value}</p>;
+    }
+    ```
+
+*   **`fetch`의 `cache: 'no-store'` 또는 `revalidate` 옵션**: `fetch` API를 사용할 때, `cache: 'no-store'` 옵션을 주면 해당 요청의 결과가 캐시되지 않고 항상 최신 데이터를 가져오도록 할 수 있어요. 또한, `revalidate` 옵션을 사용하여 특정 시간마다 데이터를 재검증하도록 설정할 수도 있어요.
+
+    ```tsx showLineNumbers {5, 12}
+    async function AlwaysFreshData() {
+      const res = await fetch('https://api.example.com/always-fresh', {
+        cache: 'no-store', // 이 데이터는 절대 캐시하지 않고 항상 최신을 가져와요.
+      });
+      const data = await res.json();
+      return <p>항상 최신 데이터: {data.value}</p>;
+    }
+
+    async function RevalidatedData() {
+      const res = await fetch('https://api.example.com/revalidated-data', {
+        next: { revalidate: 60 }, // 60초마다 데이터를 재검증해요.
+      });
+      const data = await res.json();
+      return <p>60초마다 갱신되는 데이터: {data.value}</p>;
+    }
+    ```
+
+### 3️⃣ 코드 예시: 블로그 포스트 상세 페이지에 PPR 적용
+
+실제 블로그 포스트 상세 페이지에 PPR을 적용하는 시나리오를 살펴볼게요. 게시물 내용은 정적이지만, 댓글 섹션은 동적으로 실시간 업데이트되어야 한다고 가정해 봐요.
+
+```tsx showLineNumbers
+// app/posts/[slug]/page.tsx
+import { Suspense } from 'react';
+import { unstable_noStore } from 'next/cache'; // 동적 렌더링을 명시하기 위함
+import { ErrorBoundary } from 'react-error-boundary'; // 에러 핸들링을 위해
+
+// 가상의 데이터베이스 또는 API 호출 함수
+async function getPostBySlug(slug: string) {
+  // 실제로는 DB에서 데이터를 가져오는 로직
+  const posts = {
+    'first-post': { title: '첫 번째 게시물', content: '이것은 첫 번째 게시물의 내용입니다.' },
+    'second-post': { title: '두 번째 게시물', content: '두 번째 게시물 내용도 아주 중요해요.' },
+  };
+  await new Promise(resolve => setTimeout(resolve, 50)); // 네트워크 지연 시뮬레이션
+  return posts[slug] || null;
+}
+
+async function getCommentsForPost(postId: string) {
+  unstable_noStore(); // 댓글은 항상 최신 상태여야 하므로 동적으로 처리
+  // 실제로는 API 호출 또는 DB 쿼리
+  const comments = {
+    'first-post': [
+      { id: 1, author: '블루', text: '정말 유익한 글이에요!' },
+      { id: 2, author: '독자1', text: 'Next.js PPR 이해에 큰 도움이 됐어요.' },
+    ],
+    'second-post': [
+      { id: 3, author: '블루', text: '두 번째 게시물도 열심히 작성했어요.' },
+    ],
+  };
+  await new Promise(resolve => setTimeout(resolve, 1500)); // 댓글 로딩 지연 시뮬레이션
+  return comments[postId] || [];
+}
+
+// 댓글 섹션 서버 컴포넌트
+async function Comments({ postId }: { postId: string }) {
+  const comments = await getCommentsForPost(postId);
+
+  if (!comments || comments.length === 0) {
+    return <p>아직 댓글이 없어요. 첫 댓글을 남겨주세요!</p>;
+  }
+
+  return (
+    <section className="mt-8 p-4 bg-gray-50 rounded-lg">
+      <h2 className="text-2xl font-bold mb-4">💬 댓글</h2>
+      {comments.map((comment) => (
+        <div key={comment.id} className="mb-3 pb-3 border-b border-gray-200 last:border-b-0">
+          <p className="font-semibold">{comment.author}</p>
+          <p className="text-gray-700">{comment.text}</p>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+// 에러 발생 시 보여줄 UI
+function CommentsErrorFallback({ error }: { error: Error }) {
+  return (
+    <div role="alert" className="text-red-600 p-4 border border-red-300 rounded-lg">
+      <p>⚠️ 댓글을 불러오는 중 오류가 발생했어요: {error.message}</p>
+    </div>
+  );
+}
+
+export default async function PostPage({ params }: { params: { slug: string } }) {
+  const post = await getPostBySlug(params.slug);
+
+  if (!post) {
+    return {
+      notFound: true,
+    };
+  }
+
+  return (
+    <article className="max-w-3xl mx-auto py-8 px-4">
+      <h1 className="text-4xl font-extrabold mb-4 text-gray-900">{post.title}</h1>
+      <p className="text-lg text-gray-700 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+
+      {/* 댓글 섹션에 Suspense와 ErrorBoundary 적용 */}
+      <ErrorBoundary fallbackRender={({ error }) => <CommentsErrorFallback error={error} />}>
+        <Suspense fallback={
+          <div className="mt-8 p-4 bg-gray-50 rounded-lg text-gray-600 animate-pulse">
+            <p>⏳ 댓글을 불러오는 중이에요...</p>
+          </div>
+        }>
+          <Comments postId={params.slug} />
+        </Suspense>
+      </ErrorBoundary>
+    </article>
+  );
+}
+
+// generateStaticParams를 사용하여 빌드 시점에 정적 경로 생성
+export async function generateStaticParams() {
+  // 실제로는 DB에서 모든 포스트의 slug를 가져오는 로직
+  return [
+    { slug: 'first-post' },
+    { slug: 'second-post' },
+  ];
+}
+```
+
+위 예시에서 `PostPage`는 `generateStaticParams`를 통해 빌드 시점에 정적 셸로 생성될 수 있어요. 게시물의 제목과 내용은 정적 셸에 포함되어 빠르게 로딩되죠. 반면 `Comments` 컴포넌트는 `unstable_noStore()`를 사용하고 `Suspense`로 감싸져 있기 때문에, 초기에는 `fallback` UI가 보이다가 댓글 데이터가 로딩되면 동적으로 스트리밍되어 페이지에 나타나요. `ErrorBoundary`를 사용하여 댓글 로딩 중 발생할 수 있는 에러도 gracefully하게 처리하고 있어요.
+
+
+## 💡 PPR 최적화 팁과 고려사항
+
+### 0️⃣ Suspense 경계의 중요성
+
+`Suspense` 경계는 PPR의 성능에 매우 중요한 영향을 미쳐요. 너무 큰 단위를 `Suspense`로 감싸면 동적 콘텐츠의 양이 많아져 초기 로딩 속도 이점을 잃을 수 있고, 너무 작은 단위를 감싸면 복잡도가 증가할 수 있어요. 사용자에게 의미 있는 최소 단위로 `Suspense`를 적용하는 것이 중요해요.<br />
+예를 들어, 페이지 전체를 `Suspense`로 감싸기보다는, 독립적으로 로딩될 수 있는 위젯이나 섹션 단위로 나누어 적용하는 것이 좋아요.
+
+### 1️⃣ 데이터 페칭 전략 (React `cache`, `fetch` 확장)
+
+Next.js 13+ App Router에서는 서버 컴포넌트에서 `fetch`를 사용할 때 자동으로 요청을 캐시하고 중복을 제거해 줘요. 하지만 PPR 환경에서는 특정 데이터가 항상 최신이어야 하는지, 아니면 캐시되어도 되는지 명확히 구분하는 것이 중요해요.<br />
+
+*   **캐시가 필요한 경우**: `fetch`의 기본 동작을 사용하거나, `revalidate` 옵션을 통해 주기적으로 데이터를 갱신해요.<br />
+*   **캐시가 필요 없는 경우**: `fetch`에 `cache: 'no-store'` 옵션을 명시하거나, `unstable_noStore()`를 사용하여 해당 컴포넌트가 동적으로 렌더링되도록 해요.
+
+<LinkPreviewCard href="https://nextjs.org/docs/app/building-your-application/data-fetching/fetching-caching-and-revalidating#opting-out-of-data-caching" />
+
+### 2️⃣ 에러 핸들링 (`ErrorBoundary`)
+
+PPR 환경에서는 동적인 부분이 비동기적으로 로딩되기 때문에, 해당 부분에서 에러가 발생했을 때 전체 페이지가 망가지는 것을 방지하기 위해 `ErrorBoundary`를 적절히 사용하는 것이 중요해요. `Suspense`와 마찬가지로, 에러 발생 시 사용자에게 의미 있는 fallback UI를 제공해야 해요.
+
+### 3️⃣ SEO와 접근성
+
+PPR은 초기 HTML에 정적 콘텐츠가 포함되므로 SEO에 매우 유리해요. 검색 엔진 크롤러는 정적 셸을 통해 페이지의 핵심 내용을 빠르게 인덱싱할 수 있어요. 동적으로 로딩되는 콘텐츠도 스트리밍 방식으로 전송되므로, 크롤러가 충분히 기다리면 내용을 파싱할 수 있답니다.<br />
+하지만 `fallback` UI가 너무 오래 노출되거나, 중요한 콘텐츠가 `Suspense` 뒤에 숨겨져 있어 초기 로딩이 지연되면 사용자 경험에 부정적인 영향을 줄 수 있으니 주의해야 해요.
+
+
+## 📝 정리하며
+
+### 0️⃣ PPR의 강력한 이점 요약
+
+오늘 우리는 Next.js의 혁신적인 기능인 Partial Prerendering (PPR)에 대해 자세히 살펴보았어요. PPR은 다음과 같은 강력한 이점을 제공해요.<br />
+
+*   **초고속 초기 로딩**: 정적 셸을 통해 사용자에게 즉각적인 페이지 로딩 경험을 선사해요.<br />
+*   **실시간 동적 콘텐츠**: `Suspense`와 스트리밍을 통해 동적인 데이터를 최신 상태로 유지하면서도 부드럽게 통합해요.<br />
+*   **최적의 사용자 경험**: 빠른 초기 로딩과 최신 데이터 제공으로 사용자 만족도를 높여요.<br />
+*   **강력한 SEO**: 검색 엔진 크롤러가 핵심 콘텐츠를 쉽게 인덱싱할 수 있도록 도와줘요.<br />
+*   **개발 편의성**: SSR, SSG, ISR의 장점을 한 번에 누리면서도 복잡한 캐싱 전략을 단순화할 수 있어요.
+
+### 1️⃣ 다음 단계: 여러분의 프로젝트에 적용해 보세요
+
+PPR은 Next.js App Router를 사용하는 프로젝트에 웹 성능과 사용자 경험을 한 단계 끌어올릴 수 있는 매우 효과적인 도구예요. 특히 블로그, 이커머스 상세 페이지, 대시보드 등 정적인 레이아웃 안에 동적인 데이터가 필요한 페이지에 강력하게 추천해요.<br />
+오늘 배운 내용을 바탕으로 여러분의 Next.js 프로젝트에 Partial Prerendering을 적용해 보시고, 더욱 빠르고 반응성 좋은 웹 애플리케이션을 만들어보시길 바라요! 궁금한 점이 있다면 언제든지 댓글로 남겨주세요. 개발자 커뮤니티는 항상 함께 성장하는 곳이니까요.
+
+
+## 📮 참고
+
+*   [Next.js Docs: Partial Prerendering](https://nextjs.org/docs/app/building-your-application/rendering/partial-prerendering)
+*   [Next.js Blog: Partial Prerendering in Next.js 14.1](https://nextjs.org/blog/next-14-1#partial-prerendering)
+*   [React Docs: Suspense](https://react.dev/reference/react/Suspense)
+*   [React Docs: Error Boundaries](https://react.dev/reference/react/components/ErrorBoundary)
