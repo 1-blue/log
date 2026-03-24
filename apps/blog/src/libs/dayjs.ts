@@ -56,4 +56,35 @@ export const todayKorea = () => nowKorea().format("YYYY-MM-DD");
 export const toKoreaLocaleDate = (dateInput: string | Date): string =>
   toKoreaDate(dateInput, "YYYY. M. D");
 
+/**
+ * sitemap `lastmod`용 W3C DateTime (ISO 8601 UTC)
+ * - 프론트매터의 `YYYY-MM-DD HH:mm:ss` 등은 한국 시간으로 해석 후 UTC로 직렬화
+ */
+export const toSitemapLastModified = (dateInput: string | Date): string => {
+  if (
+    dateInput == null ||
+    (typeof dateInput === "string" && dateInput === "")
+  ) {
+    return new Date().toISOString();
+  }
+
+  if (typeof dateInput === "object" && dateInput instanceof Date) {
+    return dateInput.toISOString();
+  }
+
+  const str = dateInput as string;
+
+  if (str.includes("T") && /Z$|[+-]\d{2}:?\d{2}$/.test(str)) {
+    const d = new Date(str);
+    return Number.isNaN(d.getTime())
+      ? new Date().toISOString()
+      : d.toISOString();
+  }
+
+  const parsed = dayjs(str, KOREA_DATE_FORMATS).tz(KOREA_TZ, true);
+  return parsed.isValid()
+    ? parsed.toDate().toISOString()
+    : new Date().toISOString();
+};
+
 export { dayjs };

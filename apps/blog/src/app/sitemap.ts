@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 
 import { getAllPosts } from "#/libs/post";
+import { toSitemapLastModified } from "#/libs/dayjs";
 import { ROUTES } from "#/constants";
 import type { IRoute } from "#/types";
 
@@ -12,7 +13,7 @@ const generateSitemap = (routes: IRoute[]): MetadataRoute.Sitemap => {
     {
       url: `${process.env.NEXT_PUBLIC_CLIENT_URL}${path}`,
       priority: sitemap?.priority,
-      lastModified: sitemap?.lastmod,
+      lastModified: toSitemapLastModified(sitemap?.lastmod ?? ""),
       changeFrequency: sitemap?.changefreq,
     },
   ]);
@@ -26,7 +27,7 @@ const sitemap = (): MetadataRoute.Sitemap => {
     ...allPosts.map((postMetadata) => ({
       url: `${process.env.NEXT_PUBLIC_CLIENT_URL}${postMetadata.path}`,
       priority: postMetadata.sitemap.priority,
-      lastModified: postMetadata.sitemap.lastmod,
+      lastModified: toSitemapLastModified(postMetadata.sitemap.lastmod),
       changeFrequency: postMetadata.sitemap.changefreq,
     })),
   ];
