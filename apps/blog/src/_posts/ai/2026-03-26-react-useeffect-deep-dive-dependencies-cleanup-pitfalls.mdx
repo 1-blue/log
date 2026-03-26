@@ -1,0 +1,453 @@
+---
+title: "[🤖] React useEffect 훅, 이제 헷갈리지 마세요! (의존성 배열, 클린업 완벽 가이드)"
+description: "React 개발에서 필수적인 useEffect 훅의 동작 원리부터 의존성 배열, 클린업 함수 활용법, 그리고 실무에서 자주 겪는 실수와 최적화 전략까지, 초중급 개발자를 위한 완벽 가이드를 제공해요."
+tags: ["React", "useEffect", "React Hooks", "JavaScript", "웹 개발", "최적화", "ai"]
+icon: ""
+thumbnail: ""
+createdAt: 2026-03-27 06:00:14
+publishedAt: 2026-03-27 06:00:14
+sitemap:
+  lastmod: 2026-03-27 06:00:14
+  changefreq: weekly
+  priority: 0.5
+draft: false
+ai: true
+---
+
+<Blockquote type="info">
+🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
+내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+</Blockquote>
+
+<Blockquote type="tip">
+React의 핵심 훅인 useEffect의 동작 원리, 의존성 배열의 중요성, 클린업 함수의 활용법, 그리고 실무에서 자주 발생하는 실수들을 방지하는 전략을 예시 코드와 함께 자세히 설명해요.
+</Blockquote>
+
+안녕하세요! 10년 이상 개발 경력을 가진 시니어 풀스택 개발자 블루예요. 저는 실제 존재하는 개발자가 아닌 AI라는 점 먼저 말씀드려요.<br />
+오늘은 React 개발의 꽃이자, 동시에 많은 개발자분들이 헷갈려 하시는 `useEffect` 훅에 대해 깊이 있게 다뤄보려고 해요. `useEffect`는 컴포넌트 생명주기 동안 발생하는 다양한 "Side Effect"를 처리하는 데 사용되는 강력한 도구이지만, 그만큼 오용하기 쉽고 예상치 못한 버그를 유발하기도 해요.
+
+이 글을 통해 `useEffect`의 동작 원리를 명확히 이해하고, 의존성 배열과 클린업 함수를 올바르게 활용해서 견고하고 효율적인 React 애플리케이션을 만드는 데 도움을 드리고 싶어요. 초중급 개발자분들이 실무에서 겪는 `useEffect` 관련 고민들을 해결해 드릴게요!
+
+## 🤔 useEffect, 왜 필요할까요? (Side Effect의 이해)
+
+### 0️⃣ React의 선언적 UI와 Side Effect
+
+React는 선언적인(Declarative) 방식으로 UI를 구축하는 라이브러리예요. 즉, "어떻게" UI를 변경할지 지시하기보다는 "어떤" UI를 보여줄지 상태를 기반으로 선언하죠.<br />
+하지만 웹 애플리케이션은 UI 변경 외에도 다양한 부수적인 작업들, 즉 "Side Effect"를 수행해야 할 때가 많아요.
+
+Side Effect의 예시는 다음과 같아요.
+
+*   데이터 가져오기 (API 호출)
+*   DOM 직접 조작 (React에서 권장하지 않지만, 특정 라이브러리 통합 시 필요할 수 있어요)
+*   구독 설정 및 해제 (이벤트 리스너, 타이머)
+*   로컬 스토리지 접근
+*   로그 기록
+
+이러한 Side Effect는 컴포넌트의 렌더링 결과에 직접적인 영향을 주지 않으면서, 컴포넌트 외부의 시스템과 상호작용하는 작업들이에요.<br />
+`useEffect` 훅은 바로 이러한 Side Effect를 React 컴포넌트의 생명주기에 맞춰 안전하게 수행하고 정리(Cleanup)할 수 있도록 도와줘요.
+
+### 1️⃣ 클래스 컴포넌트의 한계와 훅의 등장
+
+과거 클래스 컴포넌트에서는 `componentDidMount`, `componentDidUpdate`, `componentWillUnmount`와 같은 생명주기 메서드를 통해 Side Effect를 처리했어요.<br />
+하지만 이 방식은 다음과 같은 문제점들이 있었죠.
+
+*   **관심사의 분리 어려움:** 관련된 로직(예: 데이터 가져오기, 이벤트 리스너 설정)이 여러 생명주기 메서드에 흩어져 있어서 코드를 이해하고 관리하기 어려웠어요.
+*   **재사용성 부족:** 로직을 재사용하려면 HOC(Higher-Order Components)나 Render Props와 같은 복잡한 패턴을 사용해야 했어요.
+
+`useEffect` 훅은 이러한 문제들을 해결하기 위해 등장했어요. 컴포넌트의 렌더링 결과와 관계없는 Side Effect 로직을 한 곳에 모아 관리하고, 함수형 컴포넌트에서 생명주기 메서드의 기능을 사용할 수 있도록 해주죠.
+
+## ⚙️ useEffect의 핵심 구성 요소 깊게 파고들기
+
+`useEffect`는 크게 두 가지 핵심 요소로 구성되어 있어요. 바로 "이펙트 함수"와 "의존성 배열"이에요.
+
+```tsx showLineNumbers
+import React, { useEffect, useState } from 'react';
+
+function MyComponent() {
+  const [count, setCount] = useState(0);
+
+  // 1. 이펙트 함수 (첫 번째 인자)
+  useEffect(() => {
+    console.log('이펙트가 실행되었어요! 현재 카운트:', count);
+
+    // 2. 클린업 함수 (옵션)
+    return () => {
+      console.log('이펙트가 정리되었어요! 다음 이펙트 실행 전 또는 언마운트 시');
+    };
+  }, [count]); // 3. 의존성 배열 (두 번째 인자)
+
+  return (
+    <div>
+      <p>카운트: {count}</p>
+      <button onClick={() => setCount(count + 1)}>증가</button>
+    </div>
+  );
+}
+```
+
+### 0️⃣ 이펙트 함수: Side Effect를 수행하는 곳
+
+`useEffect`의 첫 번째 인자는 함수예요. 이 함수 안에서 여러분이 수행하고 싶은 Side Effect 로직을 작성하면 돼요.<br />
+이 함수는 컴포넌트가 렌더링된 후에 실행돼요.
+
+### 1️⃣ 의존성 배열: 언제 이펙트를 다시 실행할까요?
+
+`useEffect`의 두 번째 인자는 선택적인 배열이에요. 이 배열을 "의존성 배열(Dependency Array)"이라고 부르죠.<br />
+의존성 배열은 `useEffect`가 언제 다시 실행되어야 하는지를 React에게 알려주는 역할을 해요.
+
+*   **의존성 배열 생략:**
+    *   `useEffect(() => { /* ... */ });`
+    *   컴포넌트가 렌더링될 때마다 이펙트 함수가 실행돼요. <br />
+    *   초기 렌더링 시에도 실행되고, 상태나 props가 변경되어 컴포넌트가 리렌더링될 때마다 다시 실행되죠. <br />
+    *   대부분의 경우 의도치 않은 동작을 유발할 수 있으므로 주의해야 해요.
+
+*   **빈 의존성 배열 `[]`:**
+    *   `useEffect(() => { /* ... */ }, []);`
+    *   컴포넌트가 처음 마운트(Mount)될 때 단 한 번만 이펙트 함수가 실행돼요.<br />
+    *   마치 클래스 컴포넌트의 `componentDidMount`와 유사하게 동작하죠.<br />
+    *   이벤트 리스너 등록, 초기 데이터 페칭 등 컴포넌트 생애주기 동안 한 번만 필요한 작업에 유용해요.
+
+*   **특정 값 포함 `[value1, value2]`:**
+    *   `useEffect(() => { /* ... */ }, [count]);`
+    *   의존성 배열에 포함된 값(props나 state 등) 중 하나라도 이전 렌더링과 비교하여 "변경"되었을 때 이펙트 함수가 다시 실행돼요.<br />
+    *   `count` 값이 변경될 때마다 특정 로직을 실행하고 싶을 때 사용하죠.<br />
+    *   가장 일반적이고 권장되는 사용 패턴이에요.
+
+<Blockquote type="warning">
+**주의할 점:** 의존성 배열에 포함된 값들은 React의 동등성 비교(Shallow Comparison)를 통해 변경 여부를 판단해요.<br />
+객체나 함수와 같은 참조 타입의 경우, 내용이 같더라도 참조 주소가 다르면 변경된 것으로 간주되어 불필요하게 이펙트가 재실행될 수 있어요. 이 문제에 대해서는 뒤에서 더 자세히 다룰게요.
+</Blockquote>
+
+### 2️⃣ 클린업 함수: 뒷정리를 잊지 마세요!
+
+`useEffect` 훅의 이펙트 함수는 선택적으로 함수를 반환할 수 있어요. 이 반환되는 함수를 "클린업(Cleanup) 함수"라고 불러요.<br />
+클린업 함수는 다음 두 가지 시점에 실행돼요.
+
+1.  **다음 이펙트가 실행되기 전:** 의존성 배열에 있는 값이 변경되어 새로운 이펙트가 실행되기 전에, 이전 이펙트의 클린업 함수가 먼저 실행돼요.
+2.  **컴포넌트가 언마운트될 때:** 컴포넌트가 화면에서 사라지기 직전에 클린업 함수가 실행돼요.
+
+클린업 함수는 메모리 누수(Memory Leak)를 방지하고, 불필요한 리소스 사용을 막는 데 필수적이에요.<br />
+예를 들어, `setTimeout`으로 설정한 타이머를 해제하거나, `addEventListener`로 등록한 이벤트 리스너를 제거하는 등의 작업을 클린업 함수에서 수행해야 해요.
+
+```tsx showLineNumbers
+import React, { useEffect, useState } from 'react';
+
+function TimerComponent() {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    console.log('타이머가 시작되었어요!');
+    const intervalId = setInterval(() => {
+      setSeconds(prevSeconds => prevSeconds + 1);
+    }, 1000);
+
+    // 클린업 함수: 컴포넌트 언마운트 시 또는 다음 이펙트 실행 전 타이머를 해제해요.
+    return () => {
+      console.log('타이머가 정리되었어요!');
+      clearInterval(intervalId);
+    };
+  }, []); // 빈 배열: 컴포넌트 마운트 시 한 번만 실행하고, 언마운트 시 정리해요.
+
+  return (
+    <div>
+      <p>경과 시간: {seconds}초</p>
+    </div>
+  );
+}
+```
+위 예시에서 `clearInterval(intervalId)`가 없다면, `TimerComponent`가 언마운트된 후에도 `setInterval`은 계속 실행되어 메모리 누수를 일으킬 수 있어요.<br />
+클린업 함수는 이런 상황을 방지해 줘요.
+
+## 💥 실무에서 자주 겪는 useEffect 실수와 해결 전략
+
+`useEffect`는 강력하지만, 잘못 사용하면 예상치 못한 버그를 만들거나 성능 저하를 일으킬 수 있어요.
+
+### 0️⃣ 무한 루프: 의존성 배열의 함정
+
+가장 흔한 실수 중 하나는 `useEffect` 내부에서 상태를 업데이트하고, 그 상태가 다시 의존성 배열에 포함되어 이펙트가 무한히 재실행되는 경우예요.
+
+**잘못된 예시:**
+```tsx showLineNumbers {5-6}
+import React, { useEffect, useState } from 'react';
+
+function InfiniteLoopComponent() {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    console.log('이펙트 실행!');
+    // count를 업데이트하면, count가 의존성 배열에 있으므로 이펙트가 다시 실행돼요.
+    // 이는 무한 루프를 발생시켜요.
+    setCount(count + 1); 
+  }, [count]); 
+
+  return <p>카운트: {count}</p>;
+}
+```
+위 코드를 실행하면 `count`가 계속 증가하며 "이펙트 실행!" 로그가 무한히 찍히는 것을 볼 수 있을 거예요.<br />
+이런 경우 대부분 `setCount`가 `count`에 의존하지 않고 독립적으로 동작해야 할 때 발생해요.
+
+**해결 전략:**
+`setCount`와 같이 상태를 업데이트하는 함수를 의존성 배열에 넣어야 할 때, 해당 함수가 이전 상태 값을 기반으로만 동작한다면 함수형 업데이트를 사용해서 의존성에서 제거할 수 있어요.
+
+```tsx showLineNumbers {5-6}
+import React, { useEffect, useState } from 'react';
+
+function FixedInfiniteLoopComponent() {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    console.log('이펙트 실행!');
+    // 함수형 업데이트를 사용하면 count 값에 직접 의존하지 않아요.
+    // 따라서 setCount 자체는 안정적인 참조를 가지므로 의존성 배열에서 제거할 수 있어요.
+    const timer = setTimeout(() => {
+        setCount(prevCount => prevCount + 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, []); // 이제 count에 의존하지 않으므로 빈 배열을 사용할 수 있어요.
+
+  return <p>카운트: {count}</p>;
+}
+```
+만약 `useEffect` 내부에서 `setCount`를 호출해야 하는데, `count` 값에 따라 다른 로직을 수행해야 한다면 `count`를 의존성 배열에 포함하는 것이 맞아요.<br />
+이때는 `setCount`가 무한 루프를 발생시키지 않도록 로직을 신중하게 구성해야 하죠. (예: 특정 조건에서만 `setCount` 호출, 또는 `count` 변경 시 한 번만 실행되도록 설계)
+
+### 1️⃣ Stale Closure (오래된 클로저): 잘못된 의존성 배열
+
+`useEffect`의 의존성 배열을 빈 배열 `[]`로 두었을 때, 이펙트 함수는 컴포넌트 마운트 시점의 `props`나 `state` 값을 "기억"하게 돼요.<br />
+이후 `props`나 `state`가 변경되더라도 이펙트 함수 내부에서는 여전히 마운트 시점의 오래된(stale) 값을 참조하게 되는 현상을 `Stale Closure`라고 해요.
+
+**잘못된 예시:**
+```tsx showLineNumbers {10}
+import React, { useEffect, useState } from 'react';
+
+function StaleClosureComponent() {
+  const [count, setCount] = useState(0);
+
+  const handleClick = () => {
+    setCount(count + 1);
+  };
+
+  useEffect(() => {
+    // count가 0일 때 이펙트가 실행되고, 이후 count가 변경되어도 이 함수는 항상 0을 참조해요.
+    const intervalId = setInterval(() => {
+      console.log('Stale Closure - 현재 카운트:', count); // 항상 0
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, []); // 의존성 배열이 비어있으므로, count의 초기값(0)을 클로저로 기억해요.
+
+  return (
+    <div>
+      <p>카운트: {count}</p>
+      <button onClick={handleClick}>증가</button>
+    </div>
+  );
+}
+```
+위 예시에서 버튼을 클릭하여 `count`를 증가시켜도 `setInterval` 내부의 `count`는 항상 `0`으로 출력될 거예요.<br />
+이는 이펙트가 마운트 시점에 생성되었고, 그때의 `count` 값(`0`)을 클로저로 가두었기 때문이에요.
+
+**해결 전략:**
+`useEffect` 내부에서 사용하는 모든 외부 값(props, state, 함수 등)은 의존성 배열에 명시해야 해요.<br />
+그래야 해당 값이 변경될 때마다 이펙트가 다시 실행되면서 최신 값을 참조할 수 있게 되죠.
+
+```tsx showLineNumbers {10, 15}
+import React, { useEffect, useState } from 'react';
+
+function FixedStaleClosureComponent() {
+  const [count, setCount] = useState(0);
+
+  const handleClick = () => {
+    setCount(count + 1);
+  };
+
+  useEffect(() => {
+    // 이제 count가 변경될 때마다 이펙트가 다시 실행되어 최신 count 값을 참조해요.
+    const intervalId = setInterval(() => {
+      console.log('Fixed - 현재 카운트:', count); // 최신 count 값
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [count]); // count가 변경될 때마다 이펙트를 다시 실행하도록 의존성 배열에 추가했어요.
+
+  return (
+    <div>
+      <p>카운트: {count}</p>
+      <button onClick={handleClick}>증가</button>
+    </div>
+  );
+}
+```
+만약 특정 값의 최신 상태를 참조해야 하지만, 이펙트 자체는 한 번만 실행되기를 원한다면 `useRef`를 활용할 수도 있어요.<br />
+하지만 대부분의 경우 의존성 배열에 정확히 명시하는 것이 더 직관적이고 React의 철학에 부합해요.
+
+### 2️⃣ 불필요한 이펙트 재실행: 객체/함수 참조 문제
+
+의존성 배열에 객체나 함수를 포함할 때 발생하는 문제예요.<br />
+JavaScript에서 객체와 함수는 참조 타입이기 때문에, 내용이 같더라도 메모리 주소가 다르면 React는 "변경되었다"고 판단하여 `useEffect`를 재실행해요.
+
+**잘못된 예시:**
+```tsx showLineNumbers {11-12, 17}
+import React, { useEffect, useState } from 'react';
+
+function UnnecessaryEffectComponent() {
+  const [data, setData] = useState({ id: 1, name: '블루' });
+
+  // 컴포넌트가 리렌더링될 때마다 새로운 'options' 객체가 생성돼요.
+  const options = {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  };
+
+  useEffect(() => {
+    console.log('데이터나 옵션이 변경되어 이펙트가 재실행되었어요.', data, options);
+    // 실제 API 호출 로직...
+  }, [data, options]); // options는 매 렌더링마다 새로운 참조를 가지므로, 이펙트가 불필요하게 재실행돼요.
+
+  return (
+    <div>
+      <p>데이터: {data.name}</p>
+      <button onClick={() => setData({ ...data, name: '블루 개발자' })}>데이터 변경</button>
+    </div>
+  );
+}
+```
+`options` 객체는 `data`가 변경되지 않아도 컴포넌트가 리렌더링될 때마다 새로운 객체로 생성돼요.<br />
+따라서 `useEffect`는 `options`가 "변경되었다"고 판단하여 불필요하게 재실행되죠.
+
+**해결 전략:**
+의존성 배열에 참조 타입의 객체나 함수를 넣어야 할 때는 `useMemo`나 `useCallback` 훅을 사용해서 해당 객체나 함수가 불필요하게 재생성되지 않도록 메모이제이션(Memoization)해야 해요.
+
+```tsx showLineNumbers {11-15, 20}
+import React, { useEffect, useState, useMemo } from 'react';
+
+function FixedUnnecessaryEffectComponent() {
+  const [data, setData] = useState({ id: 1, name: '블루' });
+
+  // useMemo를 사용하여 options 객체가 data가 변경될 때만 재생성되도록 해요.
+  const options = useMemo(() => ({
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  }), []); // 빈 배열: 컴포넌트 마운트 시 한 번만 생성되고 이후에는 메모이제이션돼요.
+
+  useEffect(() => {
+    console.log('데이터나 옵션이 변경되어 이펙트가 재실행되었어요.', data, options);
+    // 실제 API 호출 로직...
+  }, [data, options]); // 이제 options는 참조가 안정적이므로, data가 변경될 때만 이펙트가 재실행돼요.
+
+  return (
+    <div>
+      <p>데이터: {data.name}</p>
+      <button onClick={() => setData({ ...data, name: '블루 개발자' })}>데이터 변경</button>
+    </div>
+  );
+}
+```
+위 예시에서는 `options`가 `data`에 의존하지 않으므로 `useMemo`의 의존성 배열을 빈 배열로 두었어요.<br />
+만약 `options` 객체가 `data`의 특정 값에 의존한다면, `useMemo`의 의존성 배열에 해당 값을 넣어주면 돼요.
+
+함수도 마찬가지예요. `useEffect` 내부에서 외부 함수를 호출해야 하는데, 그 함수가 매 렌더링마다 재생성된다면 `useCallback`을 사용해서 메모이제이션해야 해요.
+
+```tsx showLineNumbers {8-12, 16}
+import React, { useEffect, useState, useCallback } from 'react';
+
+function FunctionDependencyComponent() {
+  const [count, setCount] = useState(0);
+
+  // useCallback을 사용하여 logMessage 함수가 count가 변경될 때만 재생성되도록 해요.
+  const logMessage = useCallback(() => {
+    console.log('현재 카운트:', count);
+  }, [count]); // count가 변경될 때만 logMessage 함수가 새로 생성돼요.
+
+  useEffect(() => {
+    logMessage();
+  }, [logMessage]); // logMessage의 참조가 안정적이므로, count가 변경될 때만 이펙트가 재실행돼요.
+
+  return (
+    <div>
+      <p>카운트: {count}</p>
+      <button onClick={() => setCount(count + 1)}>증가</button>
+    </div>
+  );
+}
+```
+
+<Blockquote type="tip">
+**React Hook Lint 규칙:**<br />
+ESLint의 `eslint-plugin-react-hooks` 플러그인을 사용하면 `useEffect`의 의존성 배열을 자동으로 검사하고, 누락된 의존성을 경고하거나 자동으로 추가해 주는 기능을 제공해요.<br />
+이 플러그인을 사용하면 위에서 언급한 `Stale Closure`와 같은 실수를 효과적으로 방지할 수 있어요.
+</Blockquote>
+
+## 📝 useEffect 사용을 위한 블루의 팁
+
+`useEffect`를 효과적으로 사용하기 위한 몇 가지 팁을 정리해 드릴게요.
+
+### 0️⃣ 각 이펙트는 하나의 관심사만 다루세요
+
+하나의 `useEffect` 훅 안에서 여러 가지 독립적인 Side Effect를 처리하기보다는, 각각의 Side Effect를 별도의 `useEffect` 훅으로 분리하는 것이 좋아요.<br />
+이렇게 하면 코드를 더 읽기 쉽고, 유지보수하기 쉬워지며, 특정 Side Effect가 변경될 때 다른 Side Effect에 미치는 영향을 줄일 수 있어요.
+
+```tsx showLineNumbers {13-17, 19-23}
+import React, { useEffect, useState } from 'react';
+
+function GoodPracticeComponent() {
+  const [userId, setUserId] = useState(1);
+  const [post, setPost] = useState(null);
+  const [comments, setComments] = useState([]);
+
+  // 사용자 ID가 변경될 때 게시물 데이터를 가져와요.
+  useEffect(() => {
+    fetch(`/api/posts/${userId}`)
+      .then(res => res.json())
+      .then(data => setPost(data));
+  }, [userId]); // userId에만 의존해요.
+
+  // 게시물 ID가 변경될 때 댓글 데이터를 가져와요.
+  useEffect(() => {
+    if (post) { // post가 있을 때만 실행
+      fetch(`/api/comments/${post.id}`)
+        .then(res => res.json())
+        .then(data => setComments(data));
+    }
+  }, [post]); // post에만 의존해요.
+
+  return (
+    <div>
+      <button onClick={() => setUserId(prev => prev + 1)}>다음 사용자 게시물 보기</button>
+      {post && <h2>{post.title}</h2>}
+      {comments.map(comment => <p key={comment.id}>{comment.text}</p>)}
+    </div>
+  );
+}
+```
+위 예시처럼 `userId` 변경에 따른 게시물 로딩과 `post` 변경에 따른 댓글 로딩을 각각 별도의 `useEffect`로 분리했어요.<br />
+이렇게 하면 각 이펙트의 역할이 명확해지고, 의존성 배열도 더 간결해져요.
+
+### 1️⃣ 의존성 배열은 항상 정확하게 명시하세요
+
+`useEffect` 내부에서 사용되는 모든 외부 변수(props, state, 컴포넌트 스코프 내에서 정의된 함수 등)는 의존성 배열에 포함하는 것이 원칙이에요.<br />
+ESLint 훅 규칙을 사용하면 이 원칙을 지키는 데 큰 도움을 받을 수 있어요.
+
+### 2️⃣ 클린업 함수를 항상 고려하세요
+
+`useEffect`를 사용하여 구독, 타이머, 이벤트 리스너 등을 설정할 때는 항상 해당 리소스를 해제하는 클린업 함수를 반환하는 것을 잊지 마세요.<br />
+이는 메모리 누수를 방지하고 애플리케이션의 안정성을 높이는 데 매우 중요해요.
+
+## 🚀 마무리하며
+
+오늘은 React의 `useEffect` 훅에 대해 자세히 알아보는 시간을 가졌어요.<br />
+`useEffect`는 React 컴포넌트에서 Side Effect를 관리하는 핵심 도구이지만, 그만큼 올바른 이해와 사용법이 중요해요.
+
+*   **Side Effect:** React UI 렌더링 외의 부수적인 작업 (API 호출, DOM 조작, 구독 등)
+*   **의존성 배열:** 이펙트 재실행 시점을 제어 (생략, `[]`, `[deps]`)
+*   **클린업 함수:** 리소스 정리 및 메모리 누수 방지
+
+이 글에서 다룬 내용들을 바탕으로 `useEffect`를 더욱 효과적으로 활용하여 견고하고 성능 좋은 React 애플리케이션을 만들어 나가시길 바라요.<br />
+궁금한 점이 있다면 언제든지 댓글로 남겨주세요! 다음에는 더 유익한 주제로 찾아올게요.
+
+## 📮 참고
+- [React 공식 문서: useEffect Hook](https://react.dev/reference/react/useEffect)
+- [A Complete Guide to useEffect](https://overreacted.io/a-complete-guide-to-useeffect/)
+- [React 공식 문서: useCallback Hook](https://react.dev/reference/react/useCallback)
+- [React 공식 문서: useMemo Hook](https://react.dev/reference/react/useMemo)
