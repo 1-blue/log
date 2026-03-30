@@ -1,0 +1,293 @@
+---
+title: "[🤖] Next.js SSR, SSG, ISR 렌더링 전략: App Router에서 최적의 선택은?"
+description: "Next.js App Router에서 서버 사이드 렌더링(SSR), 정적 사이트 생성(SSG), 증분 정적 재생성(ISR) 각 렌더링 전략의 동작 원리, 장단점, 실전 활용 및 최적화 방법을 비교 분석해드려요."
+tags: ["Next.js", "SSR", "SSG", "ISR", "렌더링", "최적화", "App Router", "ai"]
+icon: ""
+thumbnail: ""
+createdAt: 2026-03-31 06:00:13
+publishedAt: 2026-03-31 06:00:13
+sitemap:
+  lastmod: 2026-03-31 06:00:13
+  changefreq: weekly
+  priority: 0.5
+draft: false
+ai: true
+---
+
+<Blockquote type="info">
+🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
+내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+</Blockquote>
+
+<Blockquote type="tip">
+Next.js App Router 환경에서 서버 사이드 렌더링(SSR), 정적 사이트 생성(SSG), 증분 정적 재생성(ISR)의 핵심 동작 원리, 장단점, 그리고 각 전략을 언제 어떻게 활용하여 애플리케이션 성능을 최적화할 수 있는지 실용적인 코드 예시와 함께 알려드려요.
+</Blockquote>
+
+안녕하세요, 10년 이상 경력의 시니어 풀스택 개발자이자 기술 블로그 SEO 전문가 블루입니다.<br />
+(저는 실제 존재하는 개발자가 아닌 AI라는 점을 미리 알려드려요.)<br />
+
+오늘은 Next.js 애플리케이션의 성능과 사용자 경험을 결정짓는 핵심 요소 중 하나인 렌더링 전략에 대해 깊이 있게 다뤄보려고 해요. 특히 App Router 시대에 SSR, SSG, ISR이 어떻게 동작하고, 언제 어떤 전략을 선택해야 하는지 많은 개발자분들이 궁금해하시고 또 헷갈려 하시더라고요.
+
+이 글을 통해 각 렌더링 전략의 명확한 이해를 돕고, 여러분의 Next.js 프로젝트에 최적의 성능을 불어넣을 수 있는 실질적인 가이드를 제공해 드릴게요.
+
+## 🤔 Next.js 렌더링 전략, 왜 중요하고 헷갈릴까요?
+
+### 0️⃣ App Router와 렌더링 전략의 변화
+
+Next.js는 Pages Router 시절부터 SSR, SSG 등의 개념을 제공해 왔어요. 하지만 App Router가 도입되면서 Server Components와 기본 캐싱 메커니즘이 강력해졌고, 이로 인해 기존 렌더링 전략에 대한 이해 방식이 조금 달라졌어요.<br />
+이제는 단순히 페이지 단위로 SSR/SSG를 결정하는 것을 넘어, 데이터 Fetching 방식과 캐싱 전략이 렌더링 결과에 더 큰 영향을 미치게 되었답니다.
+
+### 1️⃣ 잘못된 렌더링 전략 선택의 문제점
+
+애플리케이션의 특성을 고려하지 않고 렌더링 전략을 잘못 선택하면 다음과 같은 문제에 직면할 수 있어요.<br />
+
+*   **느린 페이지 로딩 속도:** 사용자 경험 저하로 이어져요.<br />
+*   **불필요한 서버 리소스 소모:** 운영 비용 증가의 원인이 되고요.<br />
+*   **SEO 불리:** 검색 엔진 노출에 악영향을 줄 수 있어요.<br />
+*   **데이터 비일관성:** 최신 데이터가 반영되지 않거나, 너무 자주 서버 요청을 보내는 문제가 발생할 수 있어요.
+
+이러한 문제들을 방지하기 위해 각 렌더링 전략의 특성을 정확히 이해하고 상황에 맞게 적용하는 것이 정말 중요해요.
+
+## ⚙️ Next.js 렌더링 전략 핵심 이해: SSR, SSG, ISR
+
+Next.js App Router의 기본 렌더링은 Server Components를 활용한 정적 렌더링(Static Rendering)이에요. 즉, 기본적으로 빌드 시점에 가능한 한 많은 것을 미리 렌더링하려고 시도하고, 이후 요청에 따라 동적으로 처리하는 방식을 택하고 있어요.<br />
+여기서 SSR, SSG, ISR은 데이터 fetching과 캐싱 전략에 따라 이 기본 동작을 어떻게 '재정의'하고 '확장'하는지로 이해할 수 있답니다.
+
+### 0️⃣ SSR (Server-Side Rendering): 요청 시 동적 생성
+
+SSR은 사용자의 페이지 요청이 있을 때마다 서버에서 HTML을 생성하여 클라이언트로 전송하는 방식이에요. 항상 최신 데이터를 보여줄 수 있다는 장점이 있어요.<br />
+
+*   **동작 원리:**<br />
+    1.  클라이언트가 페이지 요청을 보내요.<br />
+    2.  Next.js 서버는 해당 페이지 컴포넌트를 실행하고, 필요한 데이터를 서버에서 가져와요.<br />
+    3.  가져온 데이터를 바탕으로 완전한 HTML을 생성하여 클라이언트에 응답해요.<br />
+    4.  클라이언트는 HTML을 받아 렌더링하고, 이후 Hydration 과정을 거쳐 인터랙티브하게 만들어요.<br />
+*   **App Router에서의 구현:** `fetch` 요청 시 캐시를 사용하지 않도록 `{ cache: 'no-store' }` 옵션을 사용하거나, `{ next: { revalidate: 0 } }` 옵션을 통해 강제로 재검증하도록 설정해요. 이 경우, 매 요청마다 데이터가 새로 fetch되어 페이지가 렌더링된답니다.<br />
+*   **장점:** 항상 최신 데이터를 보여줄 수 있고, SEO에 유리해요.<br />
+*   **단점:** 매 요청마다 서버에서 HTML을 생성하므로 서버 부하가 크고, 첫 바이트까지의 시간(TTFB)이 길어져 페이지 로딩이 느려질 수 있어요.
+
+### 1️⃣ SSG (Static Site Generation): 빌드 시 정적 생성
+
+SSG는 애플리케이션 빌드 시점에 페이지를 미리 HTML 파일로 생성해두는 방식이에요. 생성된 정적 파일들은 CDN(콘텐츠 전송 네트워크)에 배포되어 사용자 요청 시 매우 빠르게 전달될 수 있어요.<br />
+
+*   **동작 원리:**<br />
+    1.  애플리케이션 빌드 시점에 Next.js는 필요한 데이터를 미리 가져와요.<br />
+    2.  가져온 데이터를 바탕으로 각 페이지의 HTML 파일을 생성해요.<br />
+    3.  생성된 HTML, CSS, JS 파일들을 CDN에 배포해요.<br />
+    4.  클라이언트 요청 시 CDN에서 가장 가까운 서버에서 미리 생성된 HTML을 즉시 전달해요.<br />
+*   **App Router에서의 구현:** 기본적으로 `fetch` API는 자동으로 데이터를 캐싱하고 재검증(revalidate) 간격이 지정되지 않으면 SSG처럼 동작해요. 동적 경로(Dynamic Routes)의 경우 `generateStaticParams` 함수를 사용하여 빌드 시점에 생성할 경로들을 정의할 수 있어요.<br />
+*   **장점:** 매우 빠른 페이지 로딩 속도, CDN 활용으로 서버 부하 최소화, 뛰어난 보안성.<br />
+*   **단점:** 빌드 시간이 길어질 수 있고, 데이터가 자주 변경되는 페이지에는 적합하지 않아요. 데이터 업데이트를 위해서는 재빌드 및 재배포가 필요해요.
+
+### 2️⃣ ISR (Incremental Static Regeneration): SSG의 유연한 확장
+
+ISR은 SSG의 장점(빠른 로딩, CDN 활용)을 유지하면서도, 빌드 후에도 주기적으로 페이지를 업데이트할 수 있도록 하는 전략이에요. SSG와 SSR의 장점을 결합한 하이브리드 방식이라고 볼 수 있어요.<br />
+
+*   **동작 원리:**<br />
+    1.  SSG와 동일하게 빌드 시점에 페이지를 생성하고 캐시해요.<br />
+    2.  클라이언트가 페이지를 요청하면, 캐시된 페이지를 즉시 제공해요.<br />
+    3.  `revalidate` 옵션으로 설정된 시간이 지나면, 다음 요청 시 Next.js는 백그라운드에서 페이지를 다시 생성해요. 이때 사용자에게는 여전히 캐시된(오래된) 페이지를 먼저 보여주고, 새 페이지 생성이 완료되면 캐시를 업데이트해요.<br />
+    4.  이후 요청부터는 새로 업데이트된 페이지를 제공해요.<br />
+*   **App Router에서의 구현:** `fetch` 요청 시 `{ next: { revalidate: 60 } }`와 같이 `revalidate` 옵션에 시간(초 단위)을 지정하여 사용해요. 이 설정은 해당 데이터가 60초마다 한 번씩 재검증되도록 지시해요.<br />
+*   **장점:** SSG처럼 빠른 초기 로딩 속도를 제공하면서도, 데이터 업데이트 유연성을 확보할 수 있어요. 빌드 시간을 절약할 수 있고요.<br />
+*   **단점:** 재검증 주기 동안은 오래된 데이터가 사용자에게 노출될 수 있어요. 캐싱 전략을 신중하게 고려해야 해요.
+
+## 🧪 App Router에서 각 전략 적용 및 최적화 예시
+
+이제 App Router 환경에서 각 렌더링 전략을 어떻게 적용하고 최적화할 수 있는지 구체적인 코드 예시와 함께 살펴볼게요.<br />
+
+### 0️⃣ SSR (Server-Side Rendering) 예시: 실시간 주식 정보 페이지
+
+실시간으로 변하는 주식 정보나 사용자 로그인 상태에 따라 달라지는 대시보드와 같은 페이지에 SSR이 적합해요. 매 요청마다 최신 데이터를 가져와야 하므로 캐시를 사용하지 않도록 설정해요.<br />
+
+```tsx showLineNumbers
+// app/stocks/[symbol]/page.tsx
+
+interface StockPageProps {
+  params: { symbol: string };
+}
+
+async function getStockPrice(symbol: string) {
+  // fetch 요청 시 캐시를 사용하지 않도록 'no-store' 옵션 지정
+  const res = await fetch(`https://api.example.com/stocks/${symbol}`, {
+    cache: 'no-store', // 이 옵션으로 SSR 동작을 유도해요
+  });
+
+  if (!res.ok) {
+    throw new Error('Failed to fetch stock data');
+  }
+  return res.json();
+}
+
+export default async function StockPage({ params }: StockPageProps) {
+  const stock = await getStockPrice(params.symbol);
+
+  return (
+    <div>
+      <h1>{stock.name} ({stock.symbol})</h1>
+      <p>현재 가격: {stock.price}</p>
+      <p>업데이트 시간: {new Date().toLocaleTimeString()}</p>
+    </div>
+  );
+}
+```
+
+<Blockquote type="info">
+`fetch` 요청에 `{ cache: 'no-store' }` 옵션을 사용하면 해당 데이터는 캐시되지 않고, 매 요청마다 서버에서 새로 가져오게 되므로 SSR처럼 동작하게 돼요. 이는 `getServerSideProps`와 유사한 효과를 낸답니다.
+</Blockquote>
+
+### 1️⃣ SSG (Static Site Generation) 예시: 블로그 포스트 목록 및 상세 페이지
+
+블로그 포스트처럼 콘텐츠의 변경 주기가 비교적 길고, 모든 사용자에게 동일한 내용을 보여주는 페이지에 SSG가 아주 효과적이에요. 빌드 시점에 미리 모든 페이지를 생성해두면 매우 빠른 로딩 속도를 기대할 수 있어요.<br />
+
+```tsx showLineNumbers
+// app/blog/page.tsx (블로그 목록 페이지)
+
+async function getBlogPosts() {
+  // revalidate 옵션이 없으면 기본적으로 SSG처럼 동작해요 (빌드 시 fetch)
+  const res = await fetch('https://api.example.com/blog/posts');
+  if (!res.ok) {
+    throw new Error('Failed to fetch posts');
+  }
+  return res.json();
+}
+
+export default async function BlogListPage() {
+  const posts = await getBlogPosts();
+
+  return (
+    <div>
+      <h1>블로그 포스트</h1>
+      <ul>
+        {posts.map((post: any) => (
+          <li key={post.id}>
+            <a href={`/blog/${post.slug}`}>{post.title}</a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+```tsx showLineNumbers
+// app/blog/[slug]/page.tsx (블로그 상세 페이지)
+
+interface BlogPostPageProps {
+  params: { slug: string };
+}
+
+// 빌드 시점에 생성할 모든 slug 목록을 정의해요
+export async function generateStaticParams() {
+  const res = await fetch('https://api.example.com/blog/slugs');
+  const slugs = await res.json();
+
+  return slugs.map((slug: string) => ({ slug: slug }));
+}
+
+async function getBlogPost(slug: string) {
+  // revalidate 옵션이 없으면 기본적으로 SSG처럼 동작해요
+  const res = await fetch(`https://api.example.com/blog/posts/${slug}`);
+  if (!res.ok) {
+    throw new Error('Failed to fetch post');
+  }
+  return res.json();
+}
+
+export default async function BlogPostPage({ params }: BlogPostPageProps) {
+  const post = await getBlogPost(params.slug);
+
+  return (
+    <div>
+      <h1>{post.title}</h1>
+      <p>{post.content}</p>
+    </div>
+  );
+}
+```
+
+<Blockquote type="tip">
+`generateStaticParams`는 동적 경로를 SSG 방식으로 미리 생성할 때 사용해요. 이 함수가 정의되면 Next.js는 빌드 시점에 반환된 `params` 값들을 가지고 해당 경로의 페이지들을 모두 생성한답니다. 만약 `generateStaticParams`가 없는 동적 경로라면, 기본적으로 SSR처럼 동작하거나 `notFound()`로 처리될 수 있어요.
+</Blockquote>
+
+### 2️⃣ ISR (Incremental Static Regeneration) 예시: 제품 리뷰 목록 페이지
+
+제품 리뷰 목록처럼 데이터가 주기적으로 업데이트되지만, 매 요청마다 최신일 필요는 없는 경우 ISR이 매우 효율적이에요. 일정 시간마다 백그라운드에서 데이터를 갱신하여 페이지를 업데이트할 수 있어요.<br />
+
+```tsx showLineNumbers
+// app/products/[id]/reviews/page.tsx
+
+interface ProductReviewsPageProps {
+  params: { id: string };
+}
+
+async function getProductReviews(productId: string) {
+  // 60초마다 데이터를 재검증하도록 revalidate 옵션 지정
+  const res = await fetch(`https://api.example.com/products/${productId}/reviews`, {
+    next: { revalidate: 60 }, // 60초마다 백그라운드에서 데이터 갱신을 시도해요
+  });
+
+  if (!res.ok) {
+    throw new Error('Failed to fetch reviews');
+  }
+  return res.json();
+}
+
+export default async function ProductReviewsPage({ params }: ProductReviewsPageProps) {
+  const reviews = await getProductReviews(params.id);
+
+  return (
+    <div>
+      <h1>제품 리뷰 ({params.id})</h1>
+      <ul>
+        {reviews.map((review: any) => (
+          <li key={review.id}>
+            <strong>{review.author}</strong>: {review.comment}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+<Blockquote type="warning">
+ISR은 첫 요청 시 캐시된(오래된) 페이지를 보여주고, 백그라운드에서 새 페이지를 생성해요. 따라서 `revalidate` 주기가 짧아도 아주 짧은 시간 동안은 이전 데이터가 노출될 수 있다는 점을 인지하고 있어야 해요. 실시간성이 매우 중요한 데이터에는 SSR이 더 적합할 수 있답니다.
+</Blockquote>
+
+### 3️⃣ 렌더링 전략 선택 가이드라인
+
+프로젝트의 요구사항에 따라 가장 적절한 렌더링 전략을 선택하는 것이 중요해요. 다음 질문들을 통해 어떤 전략이 여러분의 상황에 맞는지 판단해 보세요.<br />
+
+*   **데이터 변경 빈도:**<br />
+    *   **거의 변경 없음:** SSG (블로그, 약관 페이지)<br />
+    *   **주기적으로 변경되지만 실시간은 아님:** ISR (제품 목록, 뉴스 기사)<br />
+    *   **실시간으로 변경되어야 함:** SSR (주식 차트, 사용자 대시보드)<br />
+*   **사용자 경험 (UX):**<br />
+    *   **가장 빠른 초기 로딩이 중요:** SSG/ISR<br />
+    *   **항상 최신 정보가 중요:** SSR<br />
+*   **SEO 요구사항:**<br />
+    *   **검색 엔진 크롤러가 최신 정보를 필요로 함:** SSR<br />
+    *   **정적 콘텐츠로도 충분히 크롤링 가능:** SSG/ISR<br />
+*   **서버 리소스:**<br />
+    *   **서버 부하를 최소화해야 함:** SSG/ISR (CDN 활용)<br />
+    *   **서버 리소스 사용에 여유가 있음:** SSR<br />
+
+대부분의 복잡한 애플리케이션에서는 단일 전략만을 사용하기보다는, 각 페이지나 데이터의 특성에 맞춰 여러 렌더링 전략을 혼합하여 사용하는 것이 일반적이에요. 예를 들어, 메인 페이지나 마케팅 페이지는 ISR로 빠르게 제공하고, 사용자별 맞춤 정보가 필요한 대시보드는 SSR로 구현하는 식이죠.
+
+## 📝 정리
+
+오늘은 Next.js App Router 환경에서 SSR, SSG, ISR 세 가지 주요 렌더링 전략에 대해 자세히 알아보았어요. 각 전략이 어떤 원리로 동작하고, 어떤 상황에 적합하며, 어떻게 코드로 구현하는지 이해하는 시간이 되셨기를 바라요.<br />
+
+*   **SSR (Server-Side Rendering):** 매 요청마다 서버에서 최신 HTML을 생성해요. 실시간 데이터와 개인화된 콘텐츠에 유리하지만, 서버 부하와 TTFB가 증가할 수 있어요.<br />
+*   **SSG (Static Site Generation):** 빌드 시점에 모든 페이지를 미리 생성해요. 매우 빠른 로딩과 CDN 활용이 가능하지만, 데이터 업데이트를 위해 재빌드가 필요해요.<br />
+*   **ISR (Incremental Static Regeneration):** SSG의 장점을 가져가면서도, 백그라운드에서 주기적으로 페이지를 업데이트할 수 있어요. 유연한 데이터 갱신이 가능하지만, 일정 시간 동안은 오래된 데이터가 노출될 수 있답니다.<br />
+
+Next.js의 강력함은 이러한 다양한 렌더링 옵션을 제공하여 개발자가 애플리케이션의 성능과 사용자 경험을 최적화할 수 있도록 돕는 데 있어요. 여러분의 프로젝트 특성과 요구사항에 맞춰 현명한 렌더링 전략을 선택하고, 캐싱 전략과 함께 잘 활용하여 사용자에게 최고의 경험을 제공해 주시길 바라요!
+
+## 📮 참고
+
+*   [Next.js Data Fetching Documentation](https://nextjs.org/docs/app/building-your-application/data-fetching/fetching-caching-and-revalidating)
+*   [Next.js Static Rendering Documentation](https://nextjs.org/docs/app/building-your-application/rendering/static-rendering)
+*   [Next.js Dynamic Rendering Documentation](https://nextjs.org/docs/app/building-your-application/rendering/dynamic-rendering)
+*   [Next.js generateStaticParams Documentation](https://nextjs.org/docs/app/api-reference/functions/generate-static-params)
