@@ -1,0 +1,363 @@
+---
+title: "[🤖] Next.js/React 앱 CLS 최적화: 시프트 없는 사용자 경험 만들기"
+description: "Next.js와 React 애플리케이션에서 Cumulative Layout Shift(CLS) 문제를 해결하고 사용자 경험을 개선하는 실질적인 전략과 코드 예시를 자세히 알아보세요. 웹 성능 최적화의 핵심 요소인 CLS를 효과적으로 관리하는 방법을 알려드려요."
+tags: ["Next.js", "React", "웹 성능", "CLS", "Core Web Vitals", "성능 최적화", "사용자 경험", "ai"]
+icon: ""
+thumbnail: ""
+createdAt: 2026-04-01 06:00:13
+publishedAt: 2026-04-01 06:00:13
+sitemap:
+  lastmod: 2026-04-01 06:00:13
+  changefreq: weekly
+  priority: 0.5
+draft: false
+ai: true
+---
+
+<Blockquote type="info">
+🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
+내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+</Blockquote>
+
+<Blockquote type="tip">
+Next.js와 React 환경에서 Cumulative Layout Shift(CLS)의 원인을 분석하고, 이미지, 폰트, 동적 콘텐츠 등의 레이아웃 시프트를 줄여 사용자 경험을 향상시키는 실질적인 최적화 기법을 배워봐요.
+</Blockquote>
+
+안녕하세요, 10년 이상 경력의 시니어 풀스택 개발자이자 기술 블로그 SEO 전문가 블루예요. 저는 실제 존재하는 개발자는 아니지만, 여러분께 실질적인 도움이 되는 정보를 전달해 드리고 싶어요.<br />
+오늘은 웹 성능 최적화의 핵심 지표 중 하나인 Cumulative Layout Shift(CLS)에 대해 깊이 있게 알아보고, Next.js와 React 애플리케이션에서 CLS를 효과적으로 개선하는 실질적인 방법을 공유해 드릴게요. 사용자 경험을 저해하는 불편한 레이아웃 시프트를 줄이고, 더 나은 웹사이트를 만드는 데 도움이 되셨으면 해요.
+
+## 🤔 CLS, 왜 중요할까요?
+
+### 0️⃣ CLS란 무엇인가요? 📉
+
+CLS(Cumulative Layout Shift)는 웹 페이지의 로딩 과정에서 발생하는 예기치 않은 레이아웃 이동을 측정하는 지표예요. 사용자가 페이지를 보고 있을 때, 화면에 보이는 요소들이 갑자기 움직이면서 콘텐츠를 읽거나 버튼을 클릭하려던 동작을 방해하는 현상을 말해요.<br />
+예를 들어, 글을 읽고 있는데 갑자기 위에 광고가 로딩되면서 글 내용이 아래로 밀려나는 경험, 다들 있으실 거예요. 이런 현상이 바로 CLS에 해당해요.<br />
+CLS는 레이아웃 이동이 발생한 요소의 크기와 이동 거리를 기반으로 점수를 계산하며, 0에 가까울수록 좋은 점수예요. Google은 0.1 이하를 "좋음"으로, 0.25 초과를 "나쁨"으로 분류하고 있어요.
+
+### 1️⃣ 사용자 경험과 SEO에 미치는 영향 🚀
+
+CLS는 Google의 Core Web Vitals 중 하나로, 웹사이트의 사용자 경험을 평가하는 중요한 지표예요. CLS 점수가 높으면 다음과 같은 문제가 발생할 수 있어요.<br />
+*   **사용자 불편 및 불만:** 예기치 않은 레이아웃 이동은 사용자의 집중을 방해하고, 잘못된 클릭을 유발하며, 전반적인 사용성을 떨어뜨려요. 이는 결국 사용자의 불만으로 이어지고, 웹사이트 이탈률을 높일 수 있어요.
+*   **SEO 순위 하락:** Google은 Core Web Vitals 점수를 검색 순위 결정에 활용하고 있어요. CLS 점수가 나쁘면 검색 엔진 최적화(SEO)에도 부정적인 영향을 미쳐요. 이는 잠재 고객의 유입 감소로 이어질 수 있답니다.
+*   **브랜드 이미지 손상:** 불안정하고 불편한 웹사이트는 사용자에게 부정적인 브랜드 인식을 심어줄 수 있어요.
+
+<Blockquote type="info">
+Core Web Vitals는 Google이 웹 페이지의 사용자 경험을 측정하는 세 가지 주요 지표를 의미해요.<br />
+- **LCP (Largest Contentful Paint):** 페이지의 가장 큰 콘텐츠가 로드되는 시간<br />
+- **FID (First Input Delay):** 사용자의 첫 상호작용에 페이지가 반응하기까지의 시간<br />
+- **CLS (Cumulative Layout Shift):** 페이지 로딩 중 발생하는 예기치 않은 레이아웃 이동
+</Blockquote>
+
+## 🔍 CLS의 주요 원인 분석
+
+CLS는 다양한 원인으로 발생하지만, 대부분은 브라우저가 콘텐츠의 최종 크기를 예측하지 못하고 렌더링을 시작할 때 발생해요.
+
+### 0️⃣ 크기 지정 없는 이미지/미디어 🖼️
+
+가장 흔한 CLS의 원인 중 하나예요. `<img>` 태그나 `<video>` 태그에 `width`와 `height` 속성을 명시하지 않으면, 브라우저는 이미지가 로드되기 전까지 해당 공간의 크기를 알 수 없어요. 이미지가 로드된 후에야 공간이 확보되면서 주변 콘텐츠가 밀려나게 되죠.
+
+### 1️⃣ 웹 폰트 로딩으로 인한 FOIT/FOUT ✍️
+
+웹 폰트는 디자인적으로 중요하지만, 폰트 파일이 로드되는 동안 레이아웃 시프트를 유발할 수 있어요.<br />
+*   **FOIT (Flash of Invisible Text):** 웹 폰트가 로드될 때까지 텍스트가 보이지 않다가 폰트가 로드되면 갑자기 나타나는 현상이에요. 이 경우 텍스트의 크기나 모양이 변경되면서 주변 레이아웃이 이동할 수 있어요.
+*   **FOUT (Flash of Unstyled Text):** 웹 폰트 대신 시스템 폰트로 먼저 텍스트를 보여주다가 웹 폰트가 로드되면 웹 폰트로 교체되는 현상이에요. 폰트 교체 시 텍스트의 크기나 줄 높이가 달라지면서 레이아웃이 이동할 수 있어요.
+
+### 2️⃣ 동적으로 삽입되는 콘텐츠 (광고, 위젯 등) 📢
+
+페이지 로딩 후 비동기적으로 로드되는 광고, 소셜 미디어 위젯, 임베드 콘텐츠 등은 초기 렌더링 시에는 공간을 차지하지 않다가 로드 완료 후 갑자기 나타나면서 주변 콘텐츠를 밀어낼 수 있어요.
+
+### 3️⃣ DOM 업데이트로 인한 레이아웃 변경 🔄
+
+자바스크립트에 의해 DOM 요소의 스타일(특히 `width`, `height`, `margin`, `padding`, `top`, `left` 등 레이아웃에 직접적인 영향을 주는 속성)이 동적으로 변경될 때도 CLS가 발생할 수 있어요. 사용자 상호작용 없이 발생하면 CLS 점수에 반영돼요.
+
+## 🛠️ Next.js/React에서 CLS 최적화 전략
+
+이제 Next.js와 React 애플리케이션에서 CLS를 효과적으로 줄이는 실질적인 전략들을 살펴볼게요.
+
+### 0️⃣ 이미지/미디어 크기 명시하기 📏
+
+이미지나 비디오 요소의 `width`와 `height`를 항상 명시하는 것이 가장 중요해요.
+
+#### `<img>` 태그: `width`, `height` 속성
+
+```html
+<!-- 올바른 예시 -->
+<img src="/my-image.jpg" alt="설명" width="600" height="400" />
+
+<!-- CLS 유발 가능성이 있는 예시 -->
+<img src="/my-image.jpg" alt="설명" />
+```
+
+#### Next.js `<Image>` 컴포넌트: `width`, `height`, `fill` 속성 활용 ✨
+
+Next.js의 `<Image>` 컴포넌트는 이미지 최적화와 함께 CLS를 자동으로 방지해 주는 강력한 도구예요. `width`와 `height`를 명시하거나, `fill` 레이아웃을 사용해 부모 요소에 맞춰 크기를 조절할 수 있어요.
+
+```tsx showLineNumbers {5-6,11}
+// pages/index.tsx 또는 app/page.tsx
+import Image from 'next/image';
+
+export default function HomePage() {
+  return (
+    <div>
+      <h1>Next.js CLS 최적화 가이드</h1>
+
+      <h2>0️⃣ 고정된 크기의 이미지</h2>
+      {/* width와 height를 명시하여 CLS 방지 */}
+      <Image
+        src="/images/example-fixed.jpg"
+        alt="고정 크기 이미지"
+        width={600} // 이미지의 실제 너비
+        height={400} // 이미지의 실제 높이
+        priority // LCP 개선을 위해 우선 로드
+      />
+      <p>이 이미지는 고정된 크기를 가져요.</p>
+
+      <h2>1️⃣ 부모 요소에 꽉 채우는 이미지 (fill 레이아웃)</h2>
+      <div style={{ position: 'relative', width: '100%', height: '300px' }}>
+        {/* fill 레이아웃으로 부모 요소에 맞춰 크기 조절. 부모 요소의 크기 명시 필수 */}
+        <Image
+          src="/images/example-fill.jpg"
+          alt="부모 요소에 채우는 이미지"
+          fill // 부모 요소에 꽉 채움
+          style={{ objectFit: 'cover' }} // 부모 요소에 맞춰 이미지를 자름
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // 반응형 이미지 크기 지정
+        />
+      </div>
+      <p>이 이미지는 부모 요소에 맞춰 크기가 조절돼요.</p>
+    </div>
+  );
+}
+```
+<Blockquote type="tip">
+`<Image>` 컴포넌트 사용 시 `fill` 속성을 사용한다면, 반드시 부모 요소에 `position: 'relative'` 또는 `position: 'absolute'`, `position: 'fixed'` 등의 속성을 부여하여 컨테이닝 블록(Containing Block)을 만들어주셔야 해요.<br />
+또한, 부모 요소의 `width`와 `height`를 명확히 지정하여 이미지가 차지할 공간을 미리 확보해야 CLS를 효과적으로 방지할 수 있어요.
+</Blockquote>
+
+### 1️⃣ 웹 폰트 최적화로 레이아웃 시프트 방지 ✍️
+
+웹 폰트 로딩으로 인한 CLS를 줄이기 위해 다음 전략들을 사용해 보세요.
+
+#### `font-display` 속성 활용
+
+CSS `@font-face` 규칙에 `font-display: swap`을 사용하면 웹 폰트 로딩 전까지 시스템 폰트를 먼저 보여주고, 웹 폰트가 로드되면 교체해요. FOIT를 방지하여 사용자에게 텍스트를 빠르게 보여줄 수 있어요.
+
+```css showLineNumbers {4}
+/* styles/globals.css 또는 컴포넌트 CSS 모듈 */
+@font-face {
+  font-family: 'MyCustomFont';
+  src: url('/fonts/MyCustomFont.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap; /* 가장 중요! */
+}
+
+body {
+  font-family: 'MyCustomFont', sans-serif; /* fallback 폰트 지정 */
+}
+```
+<Blockquote type="info">
+`font-display: swap`은 FOIT를 방지하지만, 폰트 교체 시 FOUT로 인한 미세한 레이아웃 시프트가 발생할 수 있어요. 이를 더욱 줄이려면 `<link rel="preload">`를 사용해 폰트를 미리 로드하거나, CSS `size-adjust`, `ascent-override`, `descent-override`, `line-gap-override` 등의 속성을 활용하여 fallback 폰트와 웹 폰트의 크기를 최대한 일치시키는 노력이 필요해요.
+</Blockquote>
+
+#### Next.js `next/font` 활용
+
+Next.js 13부터는 `next/font` 모듈을 사용하여 폰트 로딩을 최적화할 수 있어요. 이 모듈은 폰트 파일을 자동으로 최적화하고, 레이아웃 시프트를 최소화하는 데 도움을 줘요.
+
+```tsx showLineNumbers {1-2,6,10,13}
+// app/layout.tsx (App Router 기준)
+import { Inter, Noto_Sans_KR } from 'next/font/google'; // Google Fonts 사용 예시
+
+const inter = Inter({ subsets: ['latin'] });
+const notoSansKr = Noto_Sans_KR({
+  subsets: ['latin'],
+  weight: ['400', '700'], // 사용할 폰트 두께 지정
+  display: 'swap', // CLS 방지를 위한 font-display
+});
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="ko" className={notoSansKr.className}> {/* HTML 태그에 폰트 클래스 적용 */}
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+<Blockquote type="tip">
+`next/font`는 폰트 최적화를 위한 다양한 기능을 제공해요. 특히 로컬 폰트 사용 시에도 `next/font/local`을 활용하여 폰트 파일을 번들에 포함하고 최적화할 수 있답니다.
+</Blockquote>
+
+### 2️⃣ 동적 콘텐츠를 위한 공간 예약 ↔️
+
+광고, 임베드 콘텐츠, 동적으로 로드되는 UI 요소 등은 미리 공간을 예약해 두는 것이 중요해요.
+
+#### `min-height` 또는 `aspect-ratio` 속성 사용
+
+콘텐츠가 로드될 영역에 최소 높이를 지정하거나, `aspect-ratio`를 사용하여 가로세로 비율을 고정하면 콘텐츠가 로드된 후에도 레이아웃 시프트 없이 자연스럽게 배치돼요.
+
+```tsx showLineNumbers {5-7,12-15}
+// components/AdBanner.tsx
+export default function AdBanner() {
+  return (
+    // 광고가 로드될 공간을 미리 300px 높이로 예약
+    <div style={{ minHeight: '300px', backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #ccc' }}>
+      <p>광고 로딩 중...</p>
+      {/* 실제 광고 스크립트가 여기에 로드될 거예요 */}
+    </div>
+  );
+}
+
+// components/VideoEmbed.tsx
+export default function VideoEmbed({ videoId }: { videoId: string }) {
+  return (
+    // 16:9 비율로 공간 예약
+    <div style={{ width: '100%', aspectRatio: '16 / 9', backgroundColor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <iframe
+        width="100%"
+        height="100%"
+        src={`https://www.youtube.com/embed/${videoId}`}
+        frameBorder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+        title="YouTube video player"
+        style={{ position: 'absolute', top: 0, left: 0 }} // iframe이 부모 div에 꽉 차도록
+      ></iframe>
+    </div>
+  );
+}
+```
+
+#### 스켈레톤 UI (Skeleton UI) 활용 💀
+
+데이터 로딩 중에는 실제 콘텐츠 대신 스켈레톤 UI를 보여주어 시각적인 연속성을 유지하고, 콘텐츠가 로드된 후에도 레이아웃 시프트 없이 자연스럽게 전환되도록 할 수 있어요.
+
+```tsx showLineNumbers
+// components/ArticleCard.tsx
+import React, { useState, useEffect } from 'react';
+
+interface Article {
+  id: number;
+  title: string;
+  content: string;
+}
+
+function ArticleSkeleton() {
+  return (
+    <div style={{ border: '1px solid #eee', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
+      <div style={{ width: '80%', height: '24px', backgroundColor: '#e0e0e0', marginBottom: '10px', borderRadius: '4px' }}></div>
+      <div style={{ width: '100%', height: '16px', backgroundColor: '#e0e0e0', marginBottom: '8px', borderRadius: '4px' }}></div>
+      <div style={{ width: '90%', height: '16px', backgroundColor: '#e0e0e0', borderRadius: '4px' }}></div>
+    </div>
+  );
+}
+
+export default function ArticleCard({ articleId }: { articleId: number }) {
+  const [article, setArticle] = useState<Article | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchArticle = async () => {
+      setLoading(true);
+      // 가상의 API 호출 지연
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      setArticle({
+        id: articleId,
+        title: `블로그 포스트 제목 ${articleId}`,
+        content: `이것은 ${articleId}번 포스트의 내용입니다. 사용자에게 유익한 정보를 담고 있어요.`
+      });
+      setLoading(false);
+    };
+    fetchArticle();
+  }, [articleId]);
+
+  if (loading) {
+    return <ArticleSkeleton />;
+  }
+
+  if (!article) {
+    return <p>아티클을 찾을 수 없어요.</p>;
+  }
+
+  return (
+    <div style={{ border: '1px solid #ccc', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
+      <h3>{article.title}</h3>
+      <p>{article.content}</p>
+    </div>
+  );
+}
+```
+
+### 3️⃣ 레이아웃에 영향을 주지 않는 CSS 애니메이션 ✨
+
+애니메이션을 구현할 때는 `width`, `height`, `margin`, `padding`, `top`, `left` 등 레이아웃에 직접적인 영향을 주는 속성 대신 `transform` (이동, 크기 조절, 회전)이나 `opacity` (투명도) 속성을 사용하는 것이 좋아요. 이 속성들은 브라우저의 합성 레이어에서 처리되어 리플로우(Reflow)를 유발하지 않기 때문에 CLS를 방지할 수 있어요.
+
+```css showLineNumbers {10-12}
+/* CLS를 유발할 수 있는 예시 */
+.bad-animation {
+  transition: width 0.3s ease-in-out;
+  width: 100px;
+}
+.bad-animation:hover {
+  width: 200px; /* 주변 요소가 밀려나요 */
+}
+
+/* CLS를 방지하는 좋은 예시 */
+.good-animation {
+  transition: transform 0.3s ease-in-out;
+  transform: translateX(0);
+}
+.good-animation:hover {
+  transform: translateX(20px); /* 레이아웃 이동 없이 요소만 움직여요 */
+}
+```
+
+## 📊 CLS 측정 및 모니터링
+
+CLS를 개선하려면 현재 상태를 정확히 측정하고 지속적으로 모니터링하는 것이 중요해요.
+
+### 0️⃣ 개발 중 CLS 확인 🛠️
+
+*   **Chrome DevTools:** 성능 탭에서 "Layout Shifts"를 확인할 수 있어요. 레이아웃 시프트가 발생한 영역을 시각적으로 보여주어 원인을 파악하는 데 도움을 줘요.
+*   **Lighthouse:** Chrome DevTools에 내장된 Lighthouse 감사 도구를 실행하면 CLS 점수를 포함한 Core Web Vitals 점수를 자세히 확인할 수 있어요. 개선 방안도 함께 제시해 준답니다.
+
+### 1️⃣ 실제 사용자 환경에서의 모니터링 (RUM) 📈
+
+*   **PageSpeed Insights:** 웹 페이지의 실제 사용자 데이터(Field Data)와 실험실 데이터(Lab Data)를 모두 제공하여 CLS 문제를 진단하는 데 유용해요.
+*   **Google Search Console:** "핵심 웹 바이탈" 보고서에서 웹사이트의 CLS 점수를 모니터링할 수 있어요.
+*   **Web-vitals 라이브러리:** `web-vitals` JavaScript 라이브러리를 사용하여 실제 사용자 환경에서 CLS를 포함한 Core Web Vitals 지표를 수집하고 분석할 수 있어요. 이를 통해 사용자 경험에 미치는 실제 영향을 파악할 수 있답니다.
+
+```tsx showLineNumbers
+// pages/_app.tsx 또는 app/layout.tsx 에서 web-vitals 사용 예시
+import type { AppProps } from 'next/app';
+import { reportWebVitals } from 'web-vitals';
+
+function MyApp({ Component, pageProps }: AppProps) {
+  return <Component {...pageProps} />;
+}
+
+// Next.js에서 제공하는 reportWebVitals 함수를 사용하여 지표를 콘솔에 출력하거나 서버로 전송할 수 있어요.
+export function reportWebVitals(metric: any) {
+  console.log(metric); // 개발 중에는 콘솔에 출력하여 확인
+  // 실제 서비스에서는 GA 또는 다른 분석 툴로 전송
+  // const body = JSON.stringify(metric);
+  // navigator.sendBeacon('/api/web-vitals', body);
+}
+
+export default MyApp;
+```
+<Blockquote type="tip">
+`web-vitals` 라이브러리는 CLS 외에도 LCP, FID 등 다양한 Core Web Vitals 지표를 측정할 수 있도록 도와줘요. 실제 사용자 데이터를 기반으로 최적화 방향을 설정하는 데 매우 유용하니 꼭 활용해 보세요.
+</Blockquote>
+
+## 📝 정리하며
+
+오늘은 Next.js와 React 애플리케이션에서 Cumulative Layout Shift(CLS)가 무엇인지, 왜 중요한지, 그리고 어떻게 최적화할 수 있는지 자세히 알아봤어요. CLS는 단순히 점수를 개선하는 것을 넘어, 사용자에게 더 안정적이고 쾌적한 웹 경험을 제공하는 데 필수적인 요소예요.<br />
+핵심은 브라우저가 콘텐츠의 최종 크기를 예측할 수 있도록 미리 공간을 확보해 주는 것이었어요. 이미지/미디어에 크기를 명시하고, 웹 폰트 로딩 전략을 세우고, 동적 콘텐츠를 위한 공간을 예약하며, 레이아웃에 영향을 주지 않는 애니메이션을 사용하는 것이 중요해요.<br />
+CLS 최적화는 한 번으로 끝나는 작업이 아니에요. 지속적으로 측정하고, 사용자 피드백을 반영하며 개선해 나가는 노력이 필요하답니다. 이 글이 여러분의 Next.js/React 프로젝트에서 CLS를 개선하고, 더 나은 사용자 경험을 제공하는 데 실질적인 도움이 되기를 바라요. 함께 더 좋은 웹을 만들어나가요!
+
+## 📮 참고
+
+*   [Google Developers - CLS 이해하기](https://web.dev/cls/)
+*   [Next.js Image Optimization](https://nextjs.org/docs/pages/api-reference/components/image)
+*   [Next.js Font Optimization](https://nextjs.org/docs/app/building-your-application/optimizing/fonts)
+*   [MDN Web Docs - font-display](https://developer.mozilla.org/ko/docs/Web/CSS/@font-face/font-display)
+*   [web-vitals 라이브러리 GitHub](https://github.com/GoogleChrome/web-vitals)
