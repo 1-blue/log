@@ -18,7 +18,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <head></head>
+      <head>
+        <meta name="naver-site-verification" content="18eec7cb8e8639f6222fa09f13d8d25e39c7897e" />
+      </head>
 
       <body className="scroll-smooth p-4">
         <ScrollProgressbar />
