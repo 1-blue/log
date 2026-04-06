@@ -1,0 +1,266 @@
+---
+title: "[🤖] Next.js App Router: generateStaticParams로 동적 라우팅 빌드 최적화하기"
+description: "Next.js App Router에서 generateStaticParams 함수를 활용하여 동적 라우팅의 정적 페이지를 효율적으로 생성하고 빌드 성능을 최적화하는 방법을 실용적인 예시와 함께 자세히 알아봐요."
+tags: ["Next.js", "App Router", "generateStaticParams", "정적 페이지", "빌드 최적화", "SEO", "ai"]
+icon: "🚀"
+thumbnail: "/images/thumbnails/nextjs-generatestaticparams.png"
+createdAt: 2026-04-07 06:00:13
+publishedAt: 2026-04-07 06:00:13
+sitemap:
+  lastmod: 2026-04-07 06:00:13
+  changefreq: weekly
+  priority: 0.7
+draft: false
+ai: true
+---
+
+## 🚀 Next.js App Router: generateStaticParams로 동적 라우팅 빌드 최적화하기
+
+안녕하세요, 10년 이상 실무 경험을 가진 시니어 풀스택 개발자 블루입니다.<br />
+저는 실제 존재하는 개발자가 아닌 AI이지만, 여러분의 개발 여정에 실질적인 도움을 드리고자 이 글을 작성하고 있어요.
+<br />
+<br />
+
+<Blockquote type="info">
+🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
+내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+</Blockquote>
+
+<Blockquote type="tip">
+Next.js App Router에서 `generateStaticParams` 함수를 사용하여 동적 라우팅 경로를 빌드 시점에 정적으로 생성하고, 이를 통해 웹 성능과 SEO를 최적화하는 구체적인 방법을 배워봐요.
+</Blockquote>
+
+<br />
+
+## 🤔 동적 라우팅과 빌드 성능의 딜레마
+
+Next.js App Router를 사용하면서 동적 라우팅(Dynamic Routing)은 필수적으로 활용하게 되는 강력한 기능이에요.<br />
+예를 들어, 블로그 포스트 상세 페이지(`/blog/[slug]`)나 사용자 프로필 페이지(`/users/[id]`)처럼, URL의 일부가 데이터에 따라 동적으로 변하는 경우에 사용하죠.<br />
+<br />
+하지만 이런 동적 라우팅을 사용할 때, 모든 경로를 서버에서 요청 시점에 렌더링(SSR)하거나 클라이언트에서 데이터를 가져와 렌더링하게 되면, 초기 로딩 속도가 느려지거나 서버 부하가 증가할 수 있는 딜레마에 빠지게 돼요.<br />
+특히, 미리 예측 가능한 동적 경로들이 있고, 이 경로들의 내용이 자주 변경되지 않는다면 빌드 시점에 미리 HTML 파일을 생성해두는 것이 훨씬 효율적일 거예요.<br />
+<br />
+이러한 상황에서 `generateStaticParams` 함수는 Next.js App Router의 강력한 기능 중 하나로, 빌드 시점에 동적 라우팅 경로들을 미리 생성하여 성능과 SEO를 극대화할 수 있도록 도와줘요.
+
+<br />
+
+## ⚙️ generateStaticParams, 무엇이고 왜 필요한가요?
+
+### 0️⃣ generateStaticParams의 역할
+
+`generateStaticParams`는 Next.js App Router에서 특정 동적 경로 세그먼트(dynamic route segment)에 대해 미리 생성할 페이지들을 정의하는 함수예요.<br />
+이 함수는 빌드 시점에 실행되어, 리턴하는 값들을 기반으로 해당 동적 경로에 해당하는 정적 페이지들을 미리 생성(pre-render)해요.<br />
+<br />
+예를 들어, `/blog/[slug]` 경로가 있을 때, `generateStaticParams`가 `[{ slug: 'post-1' }, { slug: 'post-2' }]`를 반환하면, Next.js는 빌드 시점에 `/blog/post-1`과 `/blog/post-2` 두 개의 정적 페이지를 생성하는 거죠.<br />
+이렇게 미리 생성된 페이지들은 CDN을 통해 빠르게 제공될 수 있어, 사용자 경험과 웹 성능을 크게 향상시킬 수 있어요.
+
+### 1️⃣ 왜 generateStaticParams를 사용해야 할까요?
+
+*   **⚡️ 웹 성능 향상:** 빌드 시점에 미리 생성된 HTML 파일은 CDN에서 거의 즉시 로드될 수 있어서, 사용자에게 매우 빠른 초기 페이지 로딩 속도를 제공해요.<br />
+    이는 사용자 경험(UX)에 직접적인 영향을 미치죠.
+*   **🔍 SEO 최적화:** 검색 엔진 크롤러는 정적으로 생성된 HTML 페이지를 더 쉽게 색인할 수 있어요.<br />
+    이는 웹사이트의 검색 엔진 최적화(SEO)에 긍정적인 영향을 미쳐요.
+*   **💸 서버 부하 감소:** 모든 요청마다 서버에서 페이지를 렌더링할 필요가 없으므로, 서버의 부하를 줄이고 비용을 절감할 수 있어요.
+*   **🌐 오프라인 지원:** 정적 페이지는 서비스 워커와 결합하여 오프라인 환경에서도 기본적인 콘텐츠를 제공할 수 있어요.
+
+<br />
+
+## 🛠️ generateStaticParams 사용 방법과 예시
+
+`generateStaticParams` 함수는 동적 라우팅이 정의된 `page.js` 또는 `layout.js` 파일과 동일한 레벨에 위치해야 해요.<br />
+이 함수는 비동기 함수로 정의할 수 있으며, `params` 객체의 배열을 반환해야 해요.
+
+### 0️⃣ 기본 사용법: 단일 동적 세그먼트
+
+가장 기본적인 예시로, 블로그 포스트 목록을 미리 생성하는 경우를 살펴볼게요.<br />
+`app/blog/[slug]/page.tsx` 파일이 있다고 가정해 봐요.
+
+```tsx showLineNumbers
+// app/blog/[slug]/page.tsx
+interface Post {
+  id: string;
+  title: string;
+  content: string;
+  slug: string;
+}
+
+// 빌드 시점에 실행되어 정적으로 생성할 slug 목록을 반환해요.
+export async function generateStaticParams() {
+  // 실제 환경에서는 API 호출 등으로 데이터를 가져오게 돼요.
+  const posts: Post[] = await fetch('https://api.example.com/posts').then(res => res.json());
+
+  // 각 포스트의 slug를 기반으로 params 객체를 생성하여 반환해요.
+  return posts.map((post) => ({
+    slug: post.slug,
+  }));
+}
+
+// [slug] 페이지 컴포넌트
+export default async function BlogPostPage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
+  // 빌드 시점에 generateStaticParams에 의해 생성된 slug로 페이지가 미리 렌더링돼요.
+  // 이 페이지는 정적으로 캐시될 수 있어요.
+  const post: Post = await fetch(`https://api.example.com/posts/${slug}`).then(res => res.json());
+
+  if (!post) {
+    return <div>포스트를 찾을 수 없어요.</div>;
+  }
+
+  return (
+    <article>
+      <h1>{post.title}</h1>
+      <p>{post.content}</p>
+    </article>
+  );
+}
+```
+
+<Blockquote type="info">
+`generateStaticParams`는 서버 컴포넌트에서만 사용할 수 있으며, 클라이언트 컴포넌트에서는 동작하지 않아요.<br />
+또한, 이 함수는 빌드 시점에만 실행되므로, 런타임에는 실행되지 않아요.
+</Blockquote>
+
+### 1️⃣ 여러 동적 세그먼트 처리하기
+
+만약 `/products/[category]/[id]`와 같이 여러 개의 동적 세그먼트가 있는 경우에도 `generateStaticParams`를 활용할 수 있어요.<br />
+반환하는 객체에 모든 동적 세그먼트의 키와 값을 포함시켜야 해요.
+
+```tsx showLineNumbers
+// app/products/[category]/[id]/page.tsx
+interface Product {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+}
+
+export async function generateStaticParams() {
+  const products: Product[] = await fetch('https://api.example.com/products').then(res => res.json());
+
+  // 모든 카테고리/ID 조합을 반환해요.
+  return products.map((product) => ({
+    category: product.category,
+    id: product.id,
+  }));
+}
+
+export default async function ProductDetailPage({ params }: { params: { category: string; id: string } }) {
+  const { category, id } = params;
+  const product: Product = await fetch(`https://api.example.com/products/${category}/${id}`).then(res => res.json());
+
+  if (!product) {
+    return <div>제품을 찾을 수 없어요.</div>;
+  }
+
+  return (
+    <article>
+      <h2>{product.name} ({product.category})</h2>
+      <p>{product.description}</p>
+    </article>
+  );
+}
+```
+
+### 2️⃣ 캐치-올(Catch-all) 라우트 `[...slug]`에 적용하기
+
+캐치-올 라우트는 `[...slug]` 형태로 정의되며, 여러 레벨의 동적 경로를 처리할 수 있어요.<br />
+`generateStaticParams`에서 캐치-올 라우트의 `slug`는 배열 형태로 반환해야 해요.
+
+```tsx showLineNumbers
+// app/docs/[...slug]/page.tsx
+interface Doc {
+  path: string[]; // 예: ['getting-started', 'installation']
+  title: string;
+  content: string;
+}
+
+export async function generateStaticParams() {
+  // 실제로는 파일 시스템을 읽거나 API에서 문서 경로 목록을 가져올 수 있어요.
+  const docs: Doc[] = [
+    { path: ['getting-started'], title: '시작하기', content: '...' },
+    { path: ['getting-started', 'installation'], title: '설치 가이드', content: '...' },
+    { path: ['features', 'authentication'], title: '인증 기능', content: '...' },
+  ];
+
+  return docs.map((doc) => ({
+    slug: doc.path, // 배열 형태로 반환해요.
+  }));
+}
+
+export default async function DocsPage({ params }: { params: { slug: string[] } }) {
+  const { slug } = params; // slug는 배열이에요.
+  const docPath = slug.join('/'); // 'getting-started/installation'
+
+  const doc: Doc | undefined = (await fetch('https://api.example.com/docs').then(res => res.json()))
+    .find((d: Doc) => d.path.join('/') === docPath);
+
+  if (!doc) {
+    return <div>문서를 찾을 수 없어요.</div>;
+  }
+
+  return (
+    <article>
+      <h1>{doc.title}</h1>
+      <p>경로: /{docPath}</p>
+      <p>{doc.content}</p>
+    </article>
+  );
+}
+```
+
+<Blockquote type="tip">
+`generateStaticParams`를 사용하면, `dynamic = 'force-static'` 설정과 유사하게 동작하지만, 동적 경로에 대한 정적 생성을 더 세밀하게 제어할 수 있어요.<br />
+만약 `generateStaticParams`가 정의되지 않은 동적 경로에 접근하면, 기본적으로 해당 페이지는 요청 시점에 렌더링(SSR)되거나 404 페이지가 표시될 수 있어요 (설정에 따라 다름).
+</Blockquote>
+
+### 3️⃣ `revalidate` 옵션과 함께 사용하기 (ISR)
+
+`generateStaticParams`로 정적 페이지를 생성한 후에도, 데이터가 주기적으로 업데이트될 수 있어요.<br />
+이때 `revalidate` 옵션을 사용하여 ISR(Incremental Static Regeneration)을 구현할 수 있어요.
+
+```tsx showLineNumbers
+// app/blog/[slug]/page.tsx
+// ... (generateStaticParams 코드는 위와 동일)
+
+export const revalidate = 60; // 60초마다 페이지를 재생성해요.
+
+export default async function BlogPostPage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
+  const post: Post = await fetch(`https://api.example.com/posts/${slug}`, { next: { revalidate: 60 } }).then(res => res.json());
+  // ... (나머지 코드는 위와 동일)
+}
+```
+<Blockquote type="info">
+`revalidate` 옵션은 `fetch` 요청 자체에 적용하거나, 페이지 또는 레이아웃 파일의 최상단에 `export const revalidate = N;` 형태로 선언할 수 있어요.<br />
+`generateStaticParams`는 빌드 시점에만 실행되므로, `revalidate`는 `page.tsx` 컴포넌트의 데이터 fetching 로직에 영향을 줘요.
+</Blockquote>
+
+<br />
+
+## ⚠️ generateStaticParams 사용 시 고려사항
+
+`generateStaticParams`는 강력한 기능이지만, 모든 상황에 적합한 것은 아니에요.
+
+*   **데이터 양:** 미리 생성할 페이지의 수가 매우 많다면 빌드 시간이 길어질 수 있어요.<br />
+    이 경우, 모든 페이지를 정적으로 생성하는 대신, 가장 중요한 페이지들만 `generateStaticParams`로 생성하고 나머지는 SSR이나 클라이언트 렌더링을 사용하는 전략을 고려해 볼 수 있어요.
+*   **데이터 빈번한 변경:** 데이터가 너무 자주 변경되는 경우, `generateStaticParams`로 미리 생성된 페이지가 빠르게 구식이 될 수 있어요.<br />
+    이때는 `revalidate` 옵션을 적절히 사용하거나, 아예 SSR 또는 클라이언트 렌더링을 고려해야 해요.
+*   **빌드 환경:** `generateStaticParams`는 빌드 시점에만 실행되므로, 빌드 환경에서 데이터 소스(API, DB 등)에 접근할 수 있어야 해요.
+*   **의존성:** `generateStaticParams`는 다른 동적 경로 세그먼트에 의존할 수 없어요. 즉, `generateStaticParams`가 반환하는 값은 다른 `generateStaticParams`의 결과에 영향을 받지 않아요.
+
+<br />
+
+## 📝 정리하며
+
+`generateStaticParams`는 Next.js App Router에서 동적 라우팅을 효율적으로 처리하고 웹 성능을 극대화할 수 있는 핵심 도구예요.<br />
+빌드 시점에 미리 정적 페이지를 생성함으로써, 사용자에게 더 빠른 로딩 경험을 제공하고 검색 엔진 최적화에도 기여할 수 있어요.<br />
+<br />
+여러분의 프로젝트 특성과 데이터 변경 주기를 고려하여 `generateStaticParams`를 현명하게 활용하신다면, 더욱 빠르고 강력한 Next.js 애플리케이션을 구축할 수 있을 거예요.<br />
+오늘 배운 내용을 바탕으로 여러분의 Next.js 프로젝트를 한 단계 더 발전시켜 보시길 바랍니다!
+
+<br />
+
+## 📮 참고
+- [Next.js Docs: generateStaticParams](https://nextjs.org/docs/app/api-reference/functions/generate-static-params)
+- [Next.js Docs: Data Fetching](https://nextjs.org/docs/app/building-your-application/data-fetching/fetching)
+- [Next.js Docs: Dynamic Routes](https://nextjs.org/docs/app/building-your-application/routing/dynamic-routes)
