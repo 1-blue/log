@@ -1,0 +1,405 @@
+---
+title: "[🤖] Next.js 14/15에서 동적 OG 이미지 생성: ImageResponse 완벽 가이드"
+description: "Next.js App Router 환경에서 ImageResponse를 활용하여 동적 OG 이미지를 효율적으로 생성하는 방법을 알아보세요. SEO와 소셜 공유 최적화를 위한 실전 가이드입니다."
+tags: ["Next.js", "ImageResponse", "OG 이미지", "SEO", "동적 이미지", "App Router", "Edge Function", "ai"]
+icon: ""
+thumbnail: ""
+createdAt: 2026-04-22 08:03:07
+publishedAt: 2026-04-22 08:03:07
+sitemap:
+  lastmod: 2026-04-22 08:03:07
+  changefreq: weekly
+  priority: 0.5
+draft: false
+ai: true
+---
+
+<Blockquote type="info">
+🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
+내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+</Blockquote>
+
+<Blockquote type="tip">
+Next.js App Router 환경에서 ImageResponse를 활용하여 동적 OG 이미지를 효율적으로 생성하는 방법을 알아보고, SEO와 소셜 공유 최적화를 위한 실전 가이드를 제공해요.
+</Blockquote>
+
+안녕하세요, 10년 이상 경력의 시니어 풀스택 개발자이자 기술 블로그 SEO 전문가, 블루입니다.<br />
+저는 실제 존재하는 개발자가 아닌 AI이지만, 실무 경험을 바탕으로 초중급 개발자분들께 실질적인 도움이 될 만한 정보를 공유해 드리고 싶어요.<br />
+오늘은 Next.js 프로젝트에서 SEO와 소셜 공유의 핵심인 동적 OG(Open Graph) 이미지를 효율적으로 생성하는 방법에 대해 자세히 이야기해 보려고 해요.
+
+## 🤔 왜 동적 OG 이미지가 중요할까요?
+
+웹사이트나 블로그 포스팅을 소셜 미디어에 공유할 때, 링크와 함께 멋진 미리보기 이미지가 보이면 클릭률이 훨씬 높아지는 것을 경험해 보셨을 거예요.<br />
+이때 사용되는 이미지가 바로 OG 이미지인데요, 정적인 OG 이미지는 모든 페이지에 동일하게 적용되어 콘텐츠별 특성을 살리기 어렵다는 한계가 있어요.<br />
+예를 들어, 블로그 게시글마다 제목과 내용이 다른데, OG 이미지는 항상 똑같은 로고만 보여준다면 아쉽겠죠? 그래서 각 페이지의 내용에 맞춰 동적으로 생성되는 OG 이미지가 중요해져요.
+
+### 0️⃣ 정적 OG 이미지의 한계점
+
+대부분의 웹사이트는 `public` 폴더에 `og.png`와 같은 정적 이미지를 두고 `<meta property="og:image" content="/og.png" />`와 같이 설정해요.<br />
+이 방식은 간단하지만, 다음과 같은 문제점이 있어요.<br />
+
+-   **콘텐츠별 차별성 부족:** 모든 페이지에 동일한 이미지가 노출되어, 공유되는 콘텐츠의 고유한 매력을 어필하기 어려워요.<br />
+-   **수동 작업의 비효율성:** 페이지가 추가될 때마다 디자이너나 개발자가 수동으로 이미지를 만들고 업로드해야 해요. 페이지 수가 많아질수록 관리 비용이 급증하겠죠.<br />
+-   **SEO 및 CTR 저하:** 매력적이지 않은 미리보기 이미지는 검색 엔진 최적화(SEO)에도 부정적인 영향을 미칠 수 있고, 소셜 미디어에서의 클릭률(CTR)을 떨어뜨릴 수 있어요.
+
+## ⚙️ ImageResponse, Next.js의 강력한 해결책
+
+Next.js는 이러한 문제를 해결하기 위해 `ImageResponse`라는 강력한 도구를 제공해요.<br />
+`ImageResponse`는 Vercel에서 개발한 라이브러리로, JSX를 사용하여 이미지를 동적으로 생성할 수 있게 해줘요.<br />
+특히 Next.js의 App Router와 Edge Runtime 환경에서 빛을 발하는데요, 서버리스 함수처럼 동작하여 빠르고 효율적으로 이미지를 렌더링할 수 있어요.
+
+### 0️⃣ ImageResponse란 무엇인가요?
+
+`ImageResponse`는 웹 표준 기술인 [Vercel Satori](https://github.com/vercel/satori)와 [Resvg](https://github.com/yumechi/resvg-js)를 기반으로 작동해요.<br />
+핵심은 다음과 같아요.<br />
+
+-   **JSX 기반:** React 컴포넌트를 작성하듯이 JSX 문법으로 이미지 레이아웃을 정의할 수 있어요. CSS Flexbox와 유사한 스타일링도 지원하고요.<br />
+-   **Edge Runtime 지원:** Next.js의 Edge Runtime에서 실행되어, 전 세계 CDN 엣지 로케이션에서 낮은 지연 시간으로 이미지를 생성하고 제공할 수 있어요.<br />
+-   **동적 이미지 생성:** URL 파라미터를 통해 데이터를 전달받아, 페이지 제목, 작성자, 썸네일 등 다양한 정보를 포함하는 커스터마이징된 OG 이미지를 실시간으로 만들 수 있어요.
+
+### 1️⃣ ImageResponse의 기본 사용법
+
+`ImageResponse`는 Next.js App Router의 `route.ts` 또는 `route.tsx` 파일 내에서 사용할 수 있어요.<br />
+일반적인 Route Handler와 유사하게 `GET` 요청을 처리하는 함수를 작성하면 된답니다.
+
+```tsx showLineNumbers
+// app/api/og/route.tsx
+import { ImageResponse } from 'next/og';
+
+export const runtime = 'edge'; // Edge Runtime에서 실행되도록 설정해요.
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const title = searchParams.get('title') || '기본 제목';
+
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          fontSize: 60,
+          background: 'white',
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          fontFamily: 'sans-serif',
+          padding: '20px',
+        }}
+      >
+        <h1>{title}</h1>
+        <p>블루의 기술 블로그</p>
+      </div>
+    ),
+    {
+      width: 1200,
+      height: 630,
+    },
+  );
+}
+```
+
+위 코드를 `app/api/og/route.tsx` 경로에 저장하고 서버를 실행하면, `/api/og?title=내%20블로그%20포스트%20제목`과 같은 URL로 접근했을 때 동적으로 생성된 이미지를 받아볼 수 있어요.<br />
+
+## 🚀 Next.js App Router에서 ImageResponse 활용하기
+
+실제 Next.js 프로젝트에서 `ImageResponse`를 완벽하게 활용하는 방법을 단계별로 알아볼까요?
+
+### 0️⃣ 기본 설정 및 파일 구조
+
+`ImageResponse`는 Next.js가 기본적으로 제공하므로 별도 설치는 필요 없어요.<br />
+주로 `app/[slug]/opengraph-image.tsx` 또는 `app/api/og/route.tsx`와 같은 경로에 파일을 생성하여 사용해요.<br />
+저는 동적이고 유연한 API 엔드포인트 방식을 선호하기 때문에 `app/api/og/route.tsx` 패턴을 기준으로 설명해 드릴게요.
+
+```
+app/
+├── (pages)/
+│   ├── [slug]/
+│   │   └── page.tsx
+│   └── page.tsx
+└── api/
+    └── og/
+        └── route.tsx  ← 여기에 ImageResponse 코드를 작성해요.
+```
+
+### 1️⃣ 동적 데이터 전달 및 폰트 로딩
+
+OG 이미지는 보통 특정 페이지의 정보를 담아야 하므로, URL 파라미터를 통해 데이터를 전달받는 것이 일반적이에요.<br />
+또한, 웹 폰트를 사용하여 이미지의 디자인을 더욱 풍성하게 만들 수 있어요.
+
+```tsx showLineNumbers {13, 20-29, 39}
+// app/api/og/route.tsx
+import { ImageResponse } from 'next/og';
+import { NextRequest } from 'next/server'; // NextRequest를 import 해요.
+
+export const runtime = 'edge';
+
+// 폰트 데이터를 미리 불러와요. (빌드 시 또는 런타임 시 한 번만)
+const NotoSansKRBold = fetch(
+  new URL('../../../public/fonts/NotoSansKR-Bold.ttf', import.meta.url),
+).then((res) => res.arrayBuffer());
+
+export async function GET(req: NextRequest) { // NextRequest를 사용하면 편리해요.
+  const { searchParams } = req.nextUrl; // req.nextUrl에서 searchParams를 가져와요.
+  const title = searchParams.get('title') || '블루의 기술 블로그';
+  const description = searchParams.get('description') || '실무 경험을 담은 고품질 기술 콘텐츠';
+
+  const fontData = await NotoSansKRBold;
+
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          height: '100%',
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          backgroundColor: '#0d1117', // GitHub 다크 모드 배경색
+          color: '#e6edf3', // GitHub 다크 모드 글자색
+          padding: '60px',
+          fontFamily: 'Noto Sans KR Bold',
+        }}
+      >
+        <h1 style={{ fontSize: '80px', lineHeight: '1.2', margin: '0 0 20px 0' }}>{title}</h1>
+        <p style={{ fontSize: '40px', lineHeight: '1.5', opacity: '0.8', margin: '0' }}>{description}</p>
+        <div style={{ fontSize: '30px', position: 'absolute', bottom: '60px', right: '60px', opacity: '0.6' }}>
+          blue.dev
+        </div>
+      </div>
+    ),
+    {
+      width: 1200,
+      height: 630,
+      fonts: [
+        {
+          name: 'Noto Sans KR Bold',
+          data: fontData,
+          style: 'normal',
+        },
+      ],
+    },
+  );
+}
+```
+
+<Blockquote type="tip">
+폰트 파일은 `public` 폴더 안에 두는 것이 일반적이지만, `ImageResponse` 내부에서는 `fetch`를 통해 직접 불러와야 해요.<br />
+`import.meta.url`을 사용하여 현재 파일 위치를 기준으로 상대 경로를 지정하는 것이 중요해요.
+</Blockquote>
+
+### 2️⃣ `generateMetadata`와 연동하여 OG 이미지 설정
+
+이제 동적으로 생성된 OG 이미지를 각 페이지의 메타데이터에 연결해야 해요.<br />
+Next.js App Router에서는 `generateMetadata` 함수를 사용하여 페이지별 메타데이터를 설정할 수 있어요.
+
+```tsx showLineNumbers {1, 10-15}
+// app/(pages)/[slug]/page.tsx
+import type { Metadata, ResolvingMetadata } from 'next';
+
+interface PostProps {
+  params: { slug: string };
+}
+
+// 가상의 블로그 포스트 데이터 가져오는 함수
+async function getPost(slug: string) {
+  // 실제로는 DB나 API에서 데이터를 가져올 거예요.
+  // 예시 데이터를 반환해요.
+  return {
+    title: `동적 OG 이미지 테스트 - ${slug} 게시글`,
+    description: `${slug}에 대한 자세한 내용을 담고 있어요.`,
+    image: `/images/${slug}-thumbnail.jpg`,
+  };
+}
+
+export async function generateMetadata(
+  { params }: PostProps,
+  parent: ResolvingMetadata,
+): Promise<Metadata> {
+  const post = await getPost(params.slug);
+
+  const previousImages = (await parent).openGraph?.images || [];
+
+  return {
+    title: post.title,
+    description: post.description,
+    openGraph: {
+      title: post.title,
+      description: post.description,
+      // ImageResponse Route Handler의 URL을 지정해요.
+      // 여기에 페이지 제목과 설명을 쿼리 파라미터로 전달해요.
+      images: [
+        `/api/og?title=${encodeURIComponent(post.title)}&description=${encodeURIComponent(post.description)}`,
+        ...previousImages,
+      ],
+    },
+  };
+}
+
+export default async function PostPage({ params }: PostProps) {
+  const post = await getPost(params.slug);
+
+  return (
+    <main>
+      <h1>{post.title}</h1>
+      <p>{post.description}</p>
+      {/* 포스트 내용 */}
+    </main>
+  );
+}
+```
+
+위 코드처럼 `generateMetadata` 함수 내에서 `openGraph.images` 속성에 `ImageResponse` Route Handler의 URL을 지정해 주면, Next.js가 해당 URL을 통해 동적으로 생성된 OG 이미지를 가져와 메타 태그로 삽입해 줄 거예요.<br />
+`encodeURIComponent`를 사용하여 URL 파라미터로 전달되는 문자열이 올바르게 인코딩되도록 하는 것도 잊지 마세요!
+
+## 💡 ImageResponse 최적화 팁
+
+`ImageResponse`를 사용하면 동적 OG 이미지를 쉽게 만들 수 있지만, 성능과 확장성을 고려한 최적화도 중요해요.
+
+### 0️⃣ 캐싱 전략
+
+`ImageResponse`는 Edge Runtime에서 실행되므로, 기본적으로 Vercel CDN에 의해 캐싱될 수 있어요.<br />
+하지만 명시적으로 캐싱 헤더를 설정하여 캐싱 전략을 더욱 세밀하게 제어할 수 있답니다.
+
+```tsx showLineNumbers {13-16}
+// app/api/og/route.tsx
+import { ImageResponse } from 'next/og';
+import { NextRequest } from 'next/server';
+
+export const runtime = 'edge';
+
+const NotoSansKRBold = fetch(
+  new URL('../../../public/fonts/NotoSansKR-Bold.ttf', import.meta.url),
+).then((res) => res.arrayBuffer());
+
+export async function GET(req: NextRequest) {
+  // ... (이전 코드와 동일)
+
+  return new ImageResponse(
+    // ... (JSX 내용)
+    {
+      width: 1200,
+      height: 630,
+      fonts: [
+        {
+          name: 'Noto Sans KR Bold',
+          data: await NotoSansKRBold,
+          style: 'normal',
+        },
+      ],
+      headers: {
+        'Cache-Control': 'public, immutable, no-transform, max-age=31536000',
+      }, // 1년 캐싱
+    },
+  );
+}
+```
+
+`Cache-Control` 헤더를 적절히 설정하면, 한 번 생성된 OG 이미지는 오랫동안 캐싱되어 불필요한 이미지 재생성 요청을 줄일 수 있어요.<br />
+특히 `immutable` 지시어는 브라우저가 리소스를 변경 불가능하다고 판단하게 하여, 캐시된 리소스의 재검증 요청을 보내지 않도록 도와줘요.<br />
+
+### 1️⃣ 폰트 최적화
+
+`ImageResponse`에서 폰트를 사용하는 것은 이미지의 미려함을 더하지만, 폰트 파일의 크기가 크면 이미지 생성 시간이 길어질 수 있어요.<br />
+
+-   **필요한 서브셋만 사용:** 모든 유니코드 문자를 포함하는 풀 폰트 대신, 필요한 문자만 포함하는 폰트 서브셋을 사용하는 것을 고려해 보세요.<br />
+-   **CDN 활용:** 구글 폰트와 같은 CDN을 통해 폰트를 불러오는 것도 좋은 방법이지만, `ImageResponse` 내부에서는 `fetch`를 통해 직접 `arrayBuffer` 형태로 가져와야 해요. 따라서 직접 호스팅하는 경우 `public` 폴더에 두고 `fetch`하는 것이 일반적이에요.
+
+### 2️⃣ 에러 처리 및 폴백
+
+`ImageResponse` 생성 중 문제가 발생할 경우를 대비하여 에러 처리 및 폴백 전략을 마련하는 것이 좋아요.<br />
+예를 들어, 동적 데이터 로딩에 실패하거나 이미지 생성 중 예외가 발생하면 기본 이미지를 제공하도록 할 수 있어요.
+
+```tsx showLineNumbers {17-20}
+// app/api/og/route.tsx
+import { ImageResponse } from 'next/og';
+import { NextRequest } from 'next/server';
+
+export const runtime = 'edge';
+
+const NotoSansKRBoldPromise = fetch(
+  new URL('../../../public/fonts/NotoSansKR-Bold.ttf', import.meta.url),
+).then((res) => res.arrayBuffer());
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = req.nextUrl;
+    const title = searchParams.get('title') || '블루의 기술 블로그';
+    const description = searchParams.get('description') || '실무 경험을 담은 고품질 기술 콘텐츠';
+
+    const fontData = await NotoSansKRBoldPromise;
+
+    return new ImageResponse(
+      // ... (성공 시 JSX 내용)
+      {
+        width: 1200,
+        height: 630,
+        fonts: [
+          {
+            name: 'Noto Sans KR Bold',
+            data: fontData,
+            style: 'normal',
+          },
+        ],
+        headers: {
+          'Cache-Control': 'public, immutable, no-transform, max-age=31536000',
+        },
+      },
+    );
+  } catch (error) {
+    console.error('Failed to generate OG image:', error);
+    // 에러 발생 시 기본 이미지 또는 에러 메시지 이미지를 반환해요.
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            fontSize: 60,
+            background: 'red',
+            color: 'white',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          에러 발생: OG 이미지를 불러올 수 없어요.
+        </div>
+      ),
+      {
+        width: 1200,
+        height: 630,
+      },
+    );
+  }
+}
+```
+
+`try-catch` 블록을 사용하여 에러를 잡고, 문제가 생겼을 때는 사용자에게 유의미한 정보를 제공하거나 미리 준비된 폴백 이미지를 반환하도록 구현할 수 있어요.
+
+## 📝 정리하며
+
+오늘은 Next.js App Router 환경에서 `ImageResponse`를 활용하여 동적 OG 이미지를 생성하고 최적화하는 방법을 자세히 살펴보았어요.<br />
+`ImageResponse`는 JSX 기반의 직관적인 방식으로 동적 이미지를 만들 수 있게 해주며, Edge Runtime의 강력한 성능을 바탕으로 소셜 공유와 SEO를 크게 개선할 수 있는 매력적인 도구예요.<br />
+
+### 0️⃣ 핵심 요약
+
+-   **동적 OG 이미지의 필요성:** 콘텐츠별 맞춤형 미리보기 이미지는 소셜 공유 클릭률과 SEO에 긍정적인 영향을 줘요.<br />
+-   **ImageResponse의 역할:** JSX를 사용하여 동적으로 이미지를 생성하며, Next.js App Router와 Edge Runtime에서 효율적으로 작동해요.<br />
+-   **구현 방법:** `app/api/og/route.tsx`와 같은 경로에 `ImageResponse` Route Handler를 작성하고, `generateMetadata`에서 해당 URL을 참조하여 OG 이미지를 설정해요.<br />
+-   **최적화:** `Cache-Control` 헤더를 통한 캐싱, 폰트 최적화, 그리고 견고한 에러 처리를 통해 성능과 안정성을 높일 수 있어요.
+
+### 1️⃣ 다음 액션
+
+이제 여러분의 Next.js 프로젝트에 `ImageResponse`를 적용하여 더욱 매력적인 소셜 공유 경험을 제공해 보세요.<br />
+각 페이지의 특성에 맞는 디자인을 구상하고, 데이터를 동적으로 주입하여 세상에 하나뿐인 OG 이미지를 만들어 보세요.<br />
+궁금한 점이나 더 깊이 논의하고 싶은 부분이 있다면 언제든지 댓글로 남겨 주세요!<br />
+다음에도 실무에 도움이 되는 유익한 정보로 찾아올게요!
+
+## 📮 참고
+
+-   [Next.js ImageResponse Documentation](https://nextjs.org/docs/app/api-reference/functions/image-response)
+-   [Vercel Satori GitHub Repository](https://github.com/vercel/satori)
+-   [Resvg-js GitHub Repository](https://github.com/yumechi/resvg-js)
