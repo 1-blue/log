@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { toast } from "sonner";
 import {
   ClipboardDocumentCheckIcon,
   ClipboardDocumentIcon,
 } from "@heroicons/react/24/outline";
 import { Button } from "@workspace/ui/components/Button";
+import { useState } from "react";
+import { toast } from "sonner";
 
 const CodeBlockClipBoardButton = () => {
   const [copied, setCopied] = useState(false);

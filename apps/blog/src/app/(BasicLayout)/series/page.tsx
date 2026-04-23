@@ -1,10 +1,9 @@
-import { Suspense } from "react";
 import type { Metadata, NextPage } from "next";
-
-import { getAllPosts } from "#/libs/post";
-import { getSharedMetadata } from "#/libs";
+import { Suspense } from "react";
 
 import SeriesAccordions from "#/app/(BasicLayout)/series/_components/SeriesAccordions";
+import { getSharedMetadata } from "#/libs";
+import { getAllPosts } from "#/libs/post";
 
 const allPosts = getAllPosts();
 

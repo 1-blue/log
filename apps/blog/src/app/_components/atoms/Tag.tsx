@@ -1,6 +1,6 @@
-import Link, { type LinkProps } from "next/link";
 import { TagIcon } from "@heroicons/react/24/solid";
 import { cn } from "@workspace/ui/lib/utils";
+import Link, { type LinkProps } from "next/link";
 
 interface Props extends Partial<LinkProps> {
   tag: string;

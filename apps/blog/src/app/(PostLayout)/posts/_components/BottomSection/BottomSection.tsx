@@ -1,12 +1,11 @@
+import { ME } from "@workspace/constants";
 import Image from "next/image";
 
-import { ME } from "@workspace/constants";
-import type { IPostWithETC } from "#/types";
-import CopyLinkButton from "#/app/(PostLayout)/posts/_components/CopyLinkButton";
-import ScrollTopButton from "#/app/(PostLayout)/posts/_components/ScrollTopButton";
-
 import Tag from "#/app/_components/atoms/Tag";
+import CopyLinkButton from "#/app/(PostLayout)/posts/_components/CopyLinkButton";
 import HomeLinkButton from "#/app/(PostLayout)/posts/_components/HomeLinkButton";
+import ScrollTopButton from "#/app/(PostLayout)/posts/_components/ScrollTopButton";
+import type { IPostWithETC } from "#/types";
 
 interface Props extends IPostWithETC {}
 

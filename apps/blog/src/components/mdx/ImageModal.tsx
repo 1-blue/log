@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
-import Image, { type ImageProps } from "next/image";
 import { motion } from "motion/react";
+import Image, { type ImageProps } from "next/image";
+import { useEffect } from "react";
 
 interface Props extends Pick<ImageProps, "src" | "alt"> {
   layoutId: string;

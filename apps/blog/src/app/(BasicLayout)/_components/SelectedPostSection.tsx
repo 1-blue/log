@@ -1,11 +1,9 @@
 "use client";
 
+import PostSection from "#/app/(BasicLayout)/_components/sections/PostSection";
 import { toKoreaDate } from "#/libs/dayjs";
-
 import { useCalendarStore } from "#/stores";
 import type { IPostWithETC } from "#/types";
-
-import PostSection from "#/app/(BasicLayout)/_components/sections/PostSection";
 
 interface Props {
   posts: IPostWithETC[];

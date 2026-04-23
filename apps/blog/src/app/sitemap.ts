@@ -1,8 +1,8 @@
 import type { MetadataRoute } from "next";
 
-import { getAllPosts } from "#/libs/post";
-import { toSitemapLastModified } from "#/libs/dayjs";
 import { ROUTES } from "#/constants";
+import { toSitemapLastModified } from "#/libs/dayjs";
+import { getAllPosts } from "#/libs/post";
 import type { IRoute } from "#/types";
 
 const allPosts = getAllPosts();
@@ -22,7 +22,7 @@ const generateSitemap = (routes: IRoute[]): MetadataRoute.Sitemap => {
 const sitemap = (): MetadataRoute.Sitemap => {
   return [
     ...generateSitemap(
-      ROUTES.filter((route): route is Required<IRoute> => !!route.sitemap)
+      ROUTES.filter((route): route is Required<IRoute> => !!route.sitemap),
     ),
     ...allPosts.map((postMetadata) => ({
       url: `${process.env.NEXT_PUBLIC_CLIENT_URL}${postMetadata.path}`,

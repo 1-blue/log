@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 
-import type { IPostWithETC } from "#/types";
-
 import GridView from "#/app/_components/organisms/GridView";
 import ListView from "#/app/_components/organisms/ListView";
+import type { IPostWithETC } from "#/types";
 
 type PostSectionLayout = "grid" | "list";
 

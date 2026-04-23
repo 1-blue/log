@@ -1,7 +1,14 @@
 ---
 title: "Next로 동적 썸네일 만들기"
 description: "Next.js App Router로 동적 썸네일 만드는 간단한 방법"
-tags: ["Next.js ImageResponse", "thumbnail", "썸네일", "동적 썸네일", "동적 썸네일 만들기"]
+tags:
+  [
+    "Next.js ImageResponse",
+    "thumbnail",
+    "썸네일",
+    "동적 썸네일",
+    "동적 썸네일 만들기",
+  ]
 createdAt: 2025-02-03 18:04:00
 publishedAt: 2025-02-03 18:04:00
 sitemap:
@@ -22,6 +29,7 @@ draft: false
 아래에서 간단하게 설명할게요<br />
 
 ## Next.js Route Handler
+
 <LinkPreviewCard href="https://nextjs.org/docs/app/building-your-application/routing/route-handlers" />
 
 `route.ts` 파일을 만들고 `GET()`이라는 정해진 이름의 함수를 만들면 `api`로 동작해요<br />
@@ -36,9 +44,12 @@ export async function GET(req: Request) {
 ```
 
 ## Next.js ImageResponse
+
 <LinkPreviewCard href="https://nextjs.org/docs/app/api-reference/functions/image-response" />
-`Next.js ImageResponse`는 `Next.js`에서 제공하는 이미지 처리 기능이에요<br />
-`ImageResponse`를 사용하면 동적으로 이미지를 생성할 수 있어요<br />
+`Next.js ImageResponse`는 `Next.js`에서 제공하는 이미지 처리 기능이에요
+<br />
+`ImageResponse`를 사용하면 동적으로 이미지를 생성할 수 있어요
+<br />
 
 아래처럼 코드를 작성해서 접근해보면 `1920 X 1080` 크기의 이미지를 확인할 수 있어요<br />
 
@@ -87,6 +98,7 @@ export const GET = async (req: NextRequest) => {
 ```
 
 ## 결과물
+
 > 상세한 코드는 [GitHub](https://github.com/1-blue/log/blob/master/apps/blog/src/app/api/thumbnail/route.tsx)을 참고해주세요.
 
 <Blockquote type="tip">
@@ -95,7 +107,8 @@ export const GET = async (req: NextRequest) => {
 ( 저는 [눈누](https://noonnu.cc/index)를 통해서 폰트를 구했어요 )
 
 2. `req.nextUrl.searchParams`를 이용해서 `query-string`을 받을 수 있어요<br />
-해당 데이터를 이용해서 동적인 이미지를 만들 수 있어요<br />
+   해당 데이터를 이용해서 동적인 이미지를 만들 수 있어요<br />
+
 </Blockquote>
 
 아래와 같이 접근하면 썸네일을 확인할 수 있어요. ( `title`과 `description`을 변경하면 동적으로 변경돼요 )<br />

@@ -1,6 +1,5 @@
-import type { IPostWithETC } from "#/types";
-
 import PostList from "#/app/_components/molecules/PostList";
+import type { IPostWithETC } from "#/types";
 
 interface Props {
   posts: Omit<IPostWithETC, "content">[];

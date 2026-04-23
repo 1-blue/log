@@ -1,7 +1,18 @@
 ---
 title: "[🤖] React/Next.js 번들 최적화: 코드 스플리팅과 레이지 로딩 완벽 가이드"
 description: "React와 Next.js 애플리케이션의 번들 크기를 줄이고 로딩 속도를 개선하는 코드 스플리팅과 레이지 로딩 기법을 실용적인 예시와 함께 자세히 알아봐요. 웹팩 설정부터 React.lazy, Next.js dynamic import까지 다뤄요."
-tags: ["React", "Next.js", "웹 성능 최적화", "코드 스플리팅", "레이지 로딩", "번들 최적화", "React.lazy", "dynamic import", "ai"]
+tags:
+  [
+    "React",
+    "Next.js",
+    "웹 성능 최적화",
+    "코드 스플리팅",
+    "레이지 로딩",
+    "번들 최적화",
+    "React.lazy",
+    "dynamic import",
+    "ai",
+  ]
 icon: ""
 thumbnail: ""
 createdAt: 2026-04-04 06:00:13
@@ -15,17 +26,22 @@ ai: true
 ---
 
 <Blockquote type="info">
-🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
-내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+  🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.
+  <br />
+  내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해
+  주세요.
 </Blockquote>
 
 <Blockquote type="tip">
-이 글에서는 React와 Next.js 애플리케이션의 초기 로딩 성능을 획기적으로 개선하는 코드 스플리팅과 레이지 로딩 기법을 실제 코드 예시와 함께 자세히 다루고, 최적화 전략과 번들 크기 분석 방법까지 알아봐요.
+  이 글에서는 React와 Next.js 애플리케이션의 초기 로딩 성능을 획기적으로
+  개선하는 코드 스플리팅과 레이지 로딩 기법을 실제 코드 예시와 함께 자세히
+  다루고, 최적화 전략과 번들 크기 분석 방법까지 알아봐요.
 </Blockquote>
 
 ## 🚀 웹 성능의 핵심: 번들 최적화의 중요성
 
 ### 0️⃣ 왜 번들 최적화가 필수적일까요?
+
 현대의 웹 애플리케이션은 점점 더 복잡해지고, 많은 양의 JavaScript 코드를 포함하게 돼요. 이러한 코드들은 사용자에게 필요한 모든 기능과 UI를 제공하기 위해 번들(bundle)이라는 하나의 파일 또는 여러 파일로 묶여 배포되는데요. 문제는 이 번들의 크기가 너무 커지면 초기 페이지 로딩 시간이 길어져 사용자 경험을 저해할 수 있다는 점이에요.<br />
 구글의 Core Web Vitals와 같은 웹 성능 지표에서도 로딩 성능은 중요한 요소로 다뤄지고 있어요. 번들 크기가 크면 브라우저가 파일을 다운로드하고 파싱하며 실행하는 데 더 많은 시간이 소요되고, 이는 사용자가 웹사이트를 실제로 사용할 수 있을 때까지의 시간을 늦추게 돼요.
 
@@ -37,16 +53,26 @@ ai: true
 ## 💡 코드 스플리팅과 레이지 로딩, 무엇이 다른가요?
 
 ### 0️⃣ 개념 이해하기
+
 많은 분들이 코드 스플리팅과 레이지 로딩을 혼용해서 사용하시거나, 정확한 차이를 헷갈려 하시는데요. 간단히 설명해 드릴게요.<br />
+
 <Blockquote type="info">
-**코드 스플리팅 (Code Splitting)**은 애플리케이션의 전체 코드 번들을 여러 개의 작은 번들로 나누는 과정을 말해요. 예를 들어, 웹팩(Webpack)과 같은 번들러가 이 역할을 수행하죠. 사용자가 모든 코드를 한 번에 다운로드하는 대신, 필요한 코드만 그때그때 다운로드할 수 있도록 준비하는 과정이라고 생각하시면 돼요.
+  **코드 스플리팅 (Code Splitting)**은 애플리케이션의 전체 코드 번들을 여러 개의
+  작은 번들로 나누는 과정을 말해요. 예를 들어, 웹팩(Webpack)과 같은 번들러가 이
+  역할을 수행하죠. 사용자가 모든 코드를 한 번에 다운로드하는 대신, 필요한 코드만
+  그때그때 다운로드할 수 있도록 준비하는 과정이라고 생각하시면 돼요.
 </Blockquote>
 <Blockquote type="info">
-**레이지 로딩 (Lazy Loading)**은 코드를 실제로 필요할 때까지 로딩을 지연시키는 기법이에요. 즉, 코드 스플리팅으로 나뉜 작은 번들들을 언제 로드할지 결정하는 실행 전략이죠. 사용자가 특정 버튼을 클릭하거나, 특정 경로로 이동했을 때 해당 번들을 동적으로 불러오는 것이 레이지 로딩의 핵심이에요.
+  **레이지 로딩 (Lazy Loading)**은 코드를 실제로 필요할 때까지 로딩을 지연시키는
+  기법이에요. 즉, 코드 스플리팅으로 나뉜 작은 번들들을 언제 로드할지 결정하는
+  실행 전략이죠. 사용자가 특정 버튼을 클릭하거나, 특정 경로로 이동했을 때 해당
+  번들을 동적으로 불러오는 것이 레이지 로딩의 핵심이에요.
 </Blockquote>
-결론적으로, 코드 스플리팅이 '어떻게 쪼갤 것인가'에 대한 전략이라면, 레이지 로딩은 '언제 쪼갠 것을 불러올 것인가'에 대한 전략이라고 이해하시면 쉬울 거예요.
+결론적으로, 코드 스플리팅이 '어떻게 쪼갤 것인가'에 대한 전략이라면, 레이지
+로딩은 '언제 쪼갠 것을 불러올 것인가'에 대한 전략이라고 이해하시면 쉬울 거예요.
 
 ### 1️⃣ 왜 이들을 함께 사용해야 할까요?
+
 이 두 가지 기법은 상호 보완적이에요. 코드 스플리팅으로 번들을 작게 쪼개 놓지 않으면, 레이지 로딩을 할 수 있는 단위 자체가 없겠죠? 반대로, 코드를 쪼개 놓기만 하고 실제로 필요할 때만 불러오는 레이지 로딩을 적용하지 않는다면, 여전히 초기 로드 시점에 모든 번들을 다운로드하게 되어 성능 개선 효과를 보기 어려워요.<br />
 따라서 React나 Next.js와 같은 모던 웹 프레임워크에서는 이 두 가지를 함께 활용하여 최적의 성능을 끌어낸답니다.
 
@@ -55,16 +81,17 @@ ai: true
 React에서는 `React.lazy`와 `Suspense` 컴포넌트를 사용하여 간편하게 코드 스플리팅과 레이지 로딩을 구현할 수 있어요.
 
 ### 0️⃣ `React.lazy`와 `Suspense` 기본 사용법
+
 `React.lazy`는 동적 import(`import()`)를 사용하여 컴포넌트를 렌더링할 때 필요한 코드를 로드하게 해줘요. 그리고 `Suspense`는 레이지 로드된 컴포넌트가 로딩되는 동안 보여줄 폴백(fallback) UI를 정의할 수 있게 해주죠.
 
 ```tsx showLineNumbers
 // src/components/HeavyComponent.tsx
-import React from 'react';
+import React from "react";
 
 const HeavyComponent = () => {
   // 이 컴포넌트는 복잡한 로직이나 많은 의존성을 가질 수 있어요.
   return (
-    <div style={{ padding: '20px', border: '1px solid blue' }}>
+    <div style={{ padding: "20px", border: "1px solid blue" }}>
       <h2>안녕하세요! 저는 무거운 컴포넌트예요.</h2>
       <p>제가 로딩될 때까지 잠시 기다려 주셔서 감사해요!</p>
     </div>
@@ -78,11 +105,13 @@ export default HeavyComponent;
 
 ```tsx showLineNumbers {5-6, 11-13}
 // src/App.tsx
-import React, { useState, Suspense } from 'react';
-import './App.css';
+import React, { useState, Suspense } from "react";
+import "./App.css";
 
 // HeavyComponent를 React.lazy로 감싸 동적 임포트해요.
-const LazyHeavyComponent = React.lazy(() => import('./components/HeavyComponent'));
+const LazyHeavyComponent = React.lazy(
+  () => import("./components/HeavyComponent"),
+);
 
 function App() {
   const [showHeavyComponent, setShowHeavyComponent] = useState(false);
@@ -107,10 +136,12 @@ function App() {
 
 export default App;
 ```
+
 위 예시에서 `LazyHeavyComponent`는 `showHeavyComponent` 상태가 `true`가 되어 실제로 렌더링될 때까지 로딩되지 않아요. 사용자가 "무거운 컴포넌트 불러오기" 버튼을 클릭해야만 해당 컴포넌트의 코드가 네트워크를 통해 다운로드되고 렌더링되는 것을 확인할 수 있을 거예요.<br />
 `Suspense` 컴포넌트의 `fallback` prop은 레이지 로딩 중인 컴포넌트가 준비될 때까지 사용자에게 보여줄 UI를 정의해요. 이는 사용자 경험을 향상시키는 데 아주 중요한 역할을 한답니다.
 
 ### 1️⃣ 이름이 지정된(Named) export 불러오기
+
 `React.lazy`는 기본적으로 `default export`만 지원해요. 만약 `named export`된 컴포넌트를 레이지 로딩하고 싶다면, 중간 모듈을 만들어서 `default export`로 다시 내보내야 해요.
 
 ```tsx showLineNumbers
@@ -123,15 +154,19 @@ export const NamedComponentB = () => <div>이름 있는 컴포넌트 B</div>;
 
 ```tsx showLineNumbers {5, 7, 12, 14}
 // src/App.tsx (일부)
-import React, { useState, Suspense } from 'react';
-import './App.css';
+import React, { useState, Suspense } from "react";
+import "./App.css";
 
 const LazyNamedComponentA = React.lazy(() =>
-  import('./components/NamedExports').then(module => ({ default: module.NamedComponentA }))
+  import("./components/NamedExports").then((module) => ({
+    default: module.NamedComponentA,
+  })),
 );
 
 const LazyNamedComponentB = React.lazy(() =>
-  import('./components/NamedExports').then(module => ({ default: module.NamedComponentB }))
+  import("./components/NamedExports").then((module) => ({
+    default: module.NamedComponentB,
+  })),
 );
 
 function App() {
@@ -160,14 +195,16 @@ function App() {
 
 export default App;
 ```
+
 이렇게 `.then()`을 사용하여 동적으로 임포트된 모듈에서 원하는 `named export`를 `default` 속성으로 반환해주면 돼요.
 
 ### 2️⃣ 에러 처리: `ErrorBoundary` 활용
+
 레이지 로딩 중 네트워크 문제나 코드 에러로 인해 컴포넌트 로딩에 실패할 수 있어요. 이런 경우를 대비해 `ErrorBoundary`를 함께 사용하는 것이 좋아요.
 
 ```tsx showLineNumbers
 // src/components/MyErrorBoundary.tsx
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from "react";
 
 interface Props {
   children?: ReactNode;
@@ -180,7 +217,7 @@ interface State {
 
 class MyErrorBoundary extends Component<Props, State> {
   public state: State = {
-    hasError: false
+    hasError: false,
   };
 
   public static getDerivedStateFromError(_: Error): State {
@@ -208,11 +245,13 @@ export default MyErrorBoundary;
 
 ```tsx showLineNumbers {4, 11-15}
 // src/App.tsx (일부)
-import React, { useState, Suspense } from 'react';
-import MyErrorBoundary from './components/MyErrorBoundary'; // ErrorBoundary 임포트
+import React, { useState, Suspense } from "react";
+import MyErrorBoundary from "./components/MyErrorBoundary"; // ErrorBoundary 임포트
 // ...
 
-const LazyHeavyComponent = React.lazy(() => import('./components/HeavyComponent'));
+const LazyHeavyComponent = React.lazy(
+  () => import("./components/HeavyComponent"),
+);
 
 function App() {
   // ...
@@ -231,6 +270,7 @@ function App() {
 }
 // ...
 ```
+
 이렇게 하면 레이지 로드된 컴포넌트에서 문제가 발생했을 때, 애플리케이션 전체가 망가지는 대신 정의된 `fallback` UI를 사용자에게 보여줄 수 있어요.
 
 ## 🚀 Next.js에서 코드 스플리팅과 레이지 로딩 적용하기
@@ -238,20 +278,21 @@ function App() {
 Next.js는 React 기반이므로 `React.lazy`와 `Suspense`를 사용할 수 있지만, Next.js 자체적으로 제공하는 `next/dynamic`을 사용하는 것이 더 강력하고 Next.js의 SSR/SSG/ISR 환경과 더 잘 통합돼요.
 
 ### 0️⃣ `next/dynamic` 기본 사용법
+
 `next/dynamic`은 Next.js 애플리케이션에서 클라이언트 측에서만 렌더링될 컴포넌트를 동적으로 임포트할 때 주로 사용돼요.
 
 ```tsx showLineNumbers
 // components/ClientOnlyComponent.tsx
-'use client'; // 클라이언트 컴포넌트임을 명시해요.
-import React from 'react';
+"use client"; // 클라이언트 컴포넌트임을 명시해요.
+import React from "react";
 
 const ClientOnlyComponent = () => {
   const [count, setCount] = React.useState(0);
   return (
-    <div style={{ padding: '20px', border: '1px solid green' }}>
+    <div style={{ padding: "20px", border: "1px solid green" }}>
       <h3>저는 클라이언트 전용 컴포넌트예요.</h3>
       <p>클라이언트에서만 인터랙티브하게 동작해요! Count: {count}</p>
-      <button onClick={() => setCount(prev => prev + 1)}>증가</button>
+      <button onClick={() => setCount((prev) => prev + 1)}>증가</button>
     </div>
   );
 };
@@ -263,56 +304,64 @@ export default ClientOnlyComponent;
 
 ```tsx showLineNumbers {5-12}
 // app/page.tsx (App Router) 또는 pages/index.tsx (Pages Router)
-import dynamic from 'next/dynamic';
-import React from 'react';
+import dynamic from "next/dynamic";
+import React from "react";
 
 // next/dynamic을 사용하여 ClientOnlyComponent를 동적으로 임포트해요.
 const DynamicClientOnlyComponent = dynamic(
-  () => import('../components/ClientOnlyComponent'),
+  () => import("../components/ClientOnlyComponent"),
   {
     loading: () => <p>클라이언트 컴포넌트 로딩 중...</p>, // 로딩 중 보여줄 UI
     ssr: false, // 이 컴포넌트는 서버에서 렌더링하지 않아요.
-  }
+  },
 );
 
 export default function HomePage() {
   const [showComponent, setShowComponent] = React.useState(false);
 
   return (
-    <main style={{ padding: '20px' }}>
+    <main style={{ padding: "20px" }}>
       <h1>Next.js Dynamic Import 예시</h1>
-      <button onClick={() => setShowComponent(true)}>클라이언트 컴포넌트 불러오기</button>
+      <button onClick={() => setShowComponent(true)}>
+        클라이언트 컴포넌트 불러오기
+      </button>
 
       {showComponent && <DynamicClientOnlyComponent />}
     </main>
   );
 }
 ```
+
 여기서 중요한 옵션은 `ssr: false`예요. 이 옵션을 사용하면 해당 컴포넌트가 서버에서 사전 렌더링되지 않고, 오직 클라이언트 번들에만 포함되어 클라이언트에서만 로드되고 렌더링돼요. 이는 서버 사이드 렌더링(SSR) 시 불필요한 클라이언트 전용 코드 번들링을 막아줘 성능을 최적화하는 데 큰 도움이 된답니다.<br />
 `loading` 옵션은 `React.Suspense`의 `fallback`과 유사하게 컴포넌트가 로딩되는 동안 보여줄 UI를 정의해요.
 
 ### 1️⃣ `next/dynamic` with Server Components (App Router)
+
 Next.js App Router에서는 기본적으로 모든 컴포넌트가 Server Component로 동작해요. Server Component에서 동적 임포트를 사용하면, 해당 모듈은 여전히 서버에서 번들링되고 렌더링될 수 있어요. 하지만 `next/dynamic`을 사용하고 `ssr: false` 옵션을 주면, 그 컴포넌트는 클라이언트 전용으로 분리되어 클라이언트에서만 로드돼요.<br />
 Server Component 내부에서 `use client` 지시어가 있는 Client Component를 동적으로 불러오는 것은 `next/dynamic`의 가장 일반적인 사용 패턴 중 하나예요.
 
 ### 2️⃣ `import()` 함수를 직접 사용하는 경우
+
 Next.js는 내부적으로 웹팩을 사용하므로, `import()` 함수를 직접 사용하여 코드 스플리팅을 구현할 수도 있어요. 이는 `React.lazy`나 `next/dynamic`이 제공하는 추상화 없이 더 세밀한 제어가 필요할 때 유용할 수 있어요.
 
 ```tsx showLineNumbers
 // app/dashboard/page.tsx (예시)
-'use client'; // 이 페이지는 클라이언트 컴포넌트예요.
-import React, { useState, useEffect } from 'react';
+"use client"; // 이 페이지는 클라이언트 컴포넌트예요.
+import React, { useState, useEffect } from "react";
 
 export default function DashboardPage() {
-  const [ChartComponent, setChartComponent] = useState<React.ComponentType | null>(null);
+  const [ChartComponent, setChartComponent] =
+    useState<React.ComponentType | null>(null);
 
   useEffect(() => {
     // 사용자가 대시보드에 접근했을 때만 차트 컴포넌트를 동적으로 불러와요.
-    import('../components/ChartComponent').then((module) => {
-      setChartComponent(() => module.default);
-    }).catch(error => {
-      console.error('Failed to load ChartComponent:', error);
-    });
+    import("../components/ChartComponent")
+      .then((module) => {
+        setChartComponent(() => module.default);
+      })
+      .catch((error) => {
+        console.error("Failed to load ChartComponent:", error);
+      });
   }, []);
 
   return (
@@ -323,19 +372,27 @@ export default function DashboardPage() {
   );
 }
 ```
+
 이 방식은 `React.lazy`나 `next/dynamic`처럼 `Suspense`나 `loading` 옵션을 자동으로 제공하지 않으므로, 직접 로딩 상태와 에러 핸들링을 구현해야 해요. 하지만 특정 조건에 따라 동적으로 로드해야 하는 모듈이 컴포넌트가 아닐 때(예: 큰 유틸리티 함수 라이브러리) 유용하게 사용할 수 있어요.
 
 ## 💡 번들 최적화 전략과 팁
 
 ### 0️⃣ 언제 코드 스플리팅을 적용해야 할까요?
+
 모든 컴포넌트나 모듈에 코드 스플리팅을 적용하는 것이 능사는 아니에요. 오히려 번들 오버헤드나 복잡성만 증가시킬 수 있죠. 다음의 경우에 적용을 고려해 보세요.<br />
+
 <Blockquote type="tip">
-*   **경로 기반 스플리팅 (Route-based Splitting):** 각 라우트(페이지)별로 코드를 분리하는 것이 가장 일반적이고 효과적인 방법이에요. 사용자가 특정 페이지로 이동할 때만 해당 페이지의 코드를 로드하게 돼요.
-*   **큰 라이브러리/컴포넌트:** 초기 로드 시점에 필요하지 않은 큰 서드파티 라이브러리나 자체 개발한 무거운 컴포넌트(예: 지도, 차트, 복잡한 에디터)에 적용해요.
-*   **조건부 렌더링 컴포넌트:** 모달, 탭 콘텐츠, 관리자 전용 기능 등 특정 조건에서만 렌더링되는 컴포넌트에 적용해요.
+  * **경로 기반 스플리팅 (Route-based Splitting):** 각 라우트(페이지)별로 코드를
+  분리하는 것이 가장 일반적이고 효과적인 방법이에요. 사용자가 특정 페이지로
+  이동할 때만 해당 페이지의 코드를 로드하게 돼요. * **큰 라이브러리/컴포넌트:**
+  초기 로드 시점에 필요하지 않은 큰 서드파티 라이브러리나 자체 개발한 무거운
+  컴포넌트(예: 지도, 차트, 복잡한 에디터)에 적용해요. * **조건부 렌더링
+  컴포넌트:** 모달, 탭 콘텐츠, 관리자 전용 기능 등 특정 조건에서만 렌더링되는
+  컴포넌트에 적용해요.
 </Blockquote>
 
 ### 1️⃣ 번들 크기 분석 도구 활용하기
+
 코드 스플리팅을 적용하기 전에, 어떤 번들이 가장 큰 부분을 차지하는지 파악하는 것이 중요해요. `webpack-bundle-analyzer`와 같은 도구를 사용하면 번들 구성 요소를 시각적으로 분석할 수 있어요.
 
 ```bash showLineNumbers
@@ -350,32 +407,42 @@ npm run analyze
 # 또는
 yarn analyze
 ```
+
 이 명령어를 실행하면 빌드 후 번들의 구조를 보여주는 대화형 웹 페이지가 열려요. 어떤 파일이 번들 크기에 가장 큰 영향을 미치는지 직관적으로 파악하고 최적화 대상을 선정하는 데 큰 도움이 된답니다.
 
 ### 2️⃣ 추가적인 최적화 팁
-*   **프리로드/프리페치 (Preload/Prefetch):** Next.js의 `Link` 컴포넌트는 뷰포트에 들어오면 자동으로 해당 페이지의 코드를 프리페치해요. `React.lazy`와 함께 사용할 경우, 사용자가 다음 페이지로 이동하기 전에 미리 관련 번들을 다운로드하여 전환 속도를 더욱 빠르게 할 수 있어요.
-*   **트리 쉐이킹 (Tree Shaking):** 사용하지 않는 코드를 최종 번들에서 제거하는 기법이에요. 모던 JavaScript 모듈 번들러(Webpack, Rollup 등)는 기본적으로 지원하지만, 사이드 이펙트 없는 모듈을 작성하고 `package.json`에 `sideEffects: false`를 명시하는 등 개발자의 노력도 필요해요.
-*   **압축 (Compression):** Brotli나 Gzip과 같은 압축 알고리즘을 사용하여 서버에서 클라이언트로 전송되는 번들 크기를 줄일 수 있어요. 대부분의 호스팅 서비스나 CDN에서 자동으로 처리해 주지만, 직접 설정하는 경우도 있어요.
+
+- **프리로드/프리페치 (Preload/Prefetch):** Next.js의 `Link` 컴포넌트는 뷰포트에 들어오면 자동으로 해당 페이지의 코드를 프리페치해요. `React.lazy`와 함께 사용할 경우, 사용자가 다음 페이지로 이동하기 전에 미리 관련 번들을 다운로드하여 전환 속도를 더욱 빠르게 할 수 있어요.
+- **트리 쉐이킹 (Tree Shaking):** 사용하지 않는 코드를 최종 번들에서 제거하는 기법이에요. 모던 JavaScript 모듈 번들러(Webpack, Rollup 등)는 기본적으로 지원하지만, 사이드 이펙트 없는 모듈을 작성하고 `package.json`에 `sideEffects: false`를 명시하는 등 개발자의 노력도 필요해요.
+- **압축 (Compression):** Brotli나 Gzip과 같은 압축 알고리즘을 사용하여 서버에서 클라이언트로 전송되는 번들 크기를 줄일 수 있어요. 대부분의 호스팅 서비스나 CDN에서 자동으로 처리해 주지만, 직접 설정하는 경우도 있어요.
 
 ## 📝 정리하며
 
 ### 0️⃣ 핵심 요약
+
 오늘은 React와 Next.js 애플리케이션의 웹 성능을 획기적으로 개선할 수 있는 코드 스플리팅과 레이지 로딩 기법에 대해 자세히 알아봤어요.
+
 <br />
 <Blockquote type="success">
-*   **코드 스플리팅**은 번들을 여러 작은 조각으로 나누는 과정이고, **레이지 로딩**은 이 조각들을 필요할 때만 불러오는 실행 전략이에요.
-*   **React**에서는 `React.lazy`와 `Suspense`를 사용하여 컴포넌트 기반 레이지 로딩을 쉽게 구현할 수 있어요. `ErrorBoundary`를 통한 에러 처리도 잊지 마세요.
-*   **Next.js**에서는 `next/dynamic`을 사용하여 클라이언트 컴포넌트를 동적으로 임포트하고, `ssr: false` 옵션으로 서버 번들에서 제외할 수 있어요.
-*   **최적화 전략**으로는 경로 기반 스플리팅, 큰 라이브러리/컴포넌트 분리, 조건부 렌더링 컴포넌트 적용 등을 고려해야 해요.
-*   `webpack-bundle-analyzer`와 같은 **분석 도구**를 활용하여 최적화 대상을 파악하는 것이 중요해요.
+  * **코드 스플리팅**은 번들을 여러 작은 조각으로 나누는 과정이고, **레이지
+  로딩**은 이 조각들을 필요할 때만 불러오는 실행 전략이에요. * **React**에서는
+  `React.lazy`와 `Suspense`를 사용하여 컴포넌트 기반 레이지 로딩을 쉽게 구현할
+  수 있어요. `ErrorBoundary`를 통한 에러 처리도 잊지 마세요. * **Next.js**에서는
+  `next/dynamic`을 사용하여 클라이언트 컴포넌트를 동적으로 임포트하고, `ssr:
+  false` 옵션으로 서버 번들에서 제외할 수 있어요. * **최적화 전략**으로는 경로
+  기반 스플리팅, 큰 라이브러리/컴포넌트 분리, 조건부 렌더링 컴포넌트 적용 등을
+  고려해야 해요. * `webpack-bundle-analyzer`와 같은 **분석 도구**를 활용하여
+  최적화 대상을 파악하는 것이 중요해요.
 </Blockquote>
 
 ### 1️⃣ 다음 액션: 성능 모니터링
+
 번들 최적화는 한 번의 작업으로 끝나는 것이 아니라 지속적인 관리와 모니터링이 필요해요. 애플리케이션을 배포한 후에도 주기적으로 Core Web Vitals 지표를 확인하고, 번들 크기 변화를 추적하며 추가적인 최적화 기회를 찾아보세요.<br />
 사용자에게 더 빠르고 쾌적한 경험을 제공하기 위한 여러분의 노력은 결코 헛되지 않을 거예요! 궁금한 점이 있다면 언제든지 댓글로 남겨주시거나 관련 문서를 참고해 주세요.
 
 ## 📮 참고
-*   [React 공식 문서: Code Splitting](https://react.dev/learn/thinking-in-react#step-5-add-inverse-data-flow)
-*   [Next.js 공식 문서: Dynamic Imports](https://nextjs.org/docs/app/building-your-application/optimizing/lazy-loading)
-*   [MDN Web Docs: import()](https://developer.mozilla.org/ko/docs/Web/JavaScript/Reference/Statements/import#dynamic_imports)
-*   [Google Developers: Code-splitting](https://developer.chrome.com/docs/lighthouse/performance/uses-code-splitting?hl=ko)
+
+- [React 공식 문서: Code Splitting](https://react.dev/learn/thinking-in-react#step-5-add-inverse-data-flow)
+- [Next.js 공식 문서: Dynamic Imports](https://nextjs.org/docs/app/building-your-application/optimizing/lazy-loading)
+- [MDN Web Docs: import()](https://developer.mozilla.org/ko/docs/Web/JavaScript/Reference/Statements/import#dynamic_imports)
+- [Google Developers: Code-splitting](https://developer.chrome.com/docs/lighthouse/performance/uses-code-splitting?hl=ko)

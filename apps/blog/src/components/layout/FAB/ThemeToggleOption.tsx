@@ -1,16 +1,15 @@
 "use client";
 
-import { useRef } from "react";
-import { useTheme } from "next-themes";
-import { SunIcon, MoonIcon } from "@heroicons/react/24/outline";
-import {
-  motion,
-  AnimatePresence,
-  type Variants,
-  type Transition,
-} from "motion/react";
-
+import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
 import { Button } from "@workspace/ui/components/Button";
+import {
+  AnimatePresence,
+  motion,
+  type Transition,
+  type Variants,
+} from "motion/react";
+import { useTheme } from "next-themes";
+import { useRef } from "react";
 
 const moonVariants: Variants = {
   initial: { scale: 0.8, opacity: 0 },

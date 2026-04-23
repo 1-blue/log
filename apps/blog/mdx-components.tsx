@@ -16,7 +16,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     h1: (props) => (
       <Heading.H1
         {...props}
-        id={(props.children.toString()).replaceAll(" ", "-").toLowerCase()}
+        id={props.children.toString().replaceAll(" ", "-").toLowerCase()}
       />
     ),
     h2: (props) => {
@@ -32,32 +32,32 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       return (
         <Heading.H2
           {...props}
-          id={(props.children.toString()).replaceAll(" ", "-").toLowerCase()}
+          id={props.children.toString().replaceAll(" ", "-").toLowerCase()}
         />
       );
     },
     h3: (props) => (
       <Heading.H3
         {...props}
-        id={(props.children.toString()).replaceAll(" ", "-").toLowerCase()}
+        id={props.children.toString().replaceAll(" ", "-").toLowerCase()}
       />
     ),
     h4: (props) => (
       <Heading.H4
         {...props}
-        id={(props.children.toString()).replaceAll(" ", "-").toLowerCase()}
+        id={props.children.toString().replaceAll(" ", "-").toLowerCase()}
       />
     ),
     h5: (props) => (
       <Heading.H5
         {...props}
-        id={(props.children.toString()).replaceAll(" ", "-").toLowerCase()}
+        id={props.children.toString().replaceAll(" ", "-").toLowerCase()}
       />
     ),
     h6: (props) => (
       <Heading.H6
         {...props}
-        id={(props.children.toString()).replaceAll(" ", "-").toLowerCase()}
+        id={props.children.toString().replaceAll(" ", "-").toLowerCase()}
       />
     ),
     img: (props) => (
@@ -78,7 +78,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
         {...restProps}
         className={cn(
           typeof children === "string" &&
-          "bg-accent text-primary rounded-sm px-[5px] py-[3px] text-sm font-semibold",
+            "bg-accent text-primary rounded-sm px-[5px] py-[3px] text-sm font-semibold",
           className,
         )}
       >

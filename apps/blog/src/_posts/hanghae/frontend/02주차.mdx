@@ -1,7 +1,13 @@
 ---
 title: "항해 플러스 프론트엔드\n2주차 회고"
 description: "항해 플러스 프론트엔드 5기 2주차\n그 과정에 대한 회고글입니다."
-tags: ["항해 플러스", "항해 플러스 프론트엔드 5기", "항해 플러스 회고", "항해 플러스 회고 2주차"]
+tags:
+  [
+    "항해 플러스",
+    "항해 플러스 프론트엔드 5기",
+    "항해 플러스 회고",
+    "항해 플러스 회고 2주차",
+  ]
 icon: ""
 thumbnail: ""
 createdAt: 2025-03-30 22:09:00
@@ -17,6 +23,7 @@ draft: false
 > ( 바닐라 자바스크립트로 구현된 `SPA`에 가상돔 적용하기 )
 
 ## 🧿 프라그마
+
 > 프라그마(`pragma`)는 프로그래밍 언어에서 컴파일러나 인터프리터에게 특별한 지시를 내리는 메타데이터입니다.
 > 이번 과제에서는 `jsx`를 변환해주는거라서 트랜스파일러에서 지시를 내리는 목적으로 사용한 것 같아요
 
@@ -28,13 +35,18 @@ draft: false
 과제를 어느정도 진행하고 정리하면서 해당 부분에 대해서 알아봤는데 `pragma`라고 부르고 `vite`에서 설정해주면 `jsx`를 변환할때 사용할 함수를 트랜스파일러에게 알려주는 역할을 해요.<br />
 
 <Blockquote type="tip">
-옛날에 공부용으로 `babel`을 이용해서 `jsx`를 직접 변환해본적이 있는데 그때 변환했을때 `/*#__PURE__*/` 이런 주석이 붙어있었어요.<br />
-그 당시에 찾아봤을때 순수 컴포넌트임을 컴파일러한테 알려주는 역할이라고 이해했었는데 이런것을 부르는 명칭이 있다는걸 이제 알았네요..!<br />
+  옛날에 공부용으로 `babel`을 이용해서 `jsx`를 직접 변환해본적이 있는데 그때
+  변환했을때 `/*#__PURE__*/` 이런 주석이 붙어있었어요.
+  <br />
+  그 당시에 찾아봤을때 순수 컴포넌트임을 컴파일러한테 알려주는 역할이라고
+  이해했었는데 이런것을 부르는 명칭이 있다는걸 이제 알았네요..!
+  <br />
 </Blockquote>
 
 <LinkPreviewCard href="https://1-blue.github.io/posts/babel/#1%EF%B8%8F%E2%83%A3-%EB%AA%85%EB%A0%B9%EC%96%B4" />
 
 ## 🔮 기본 테스트 코드
+
 아래는 설명을 위한 예시 코드입니다.<br />
 
 ```jsx
@@ -58,13 +70,15 @@ const TestComponent = () => (
 ```
 
 ### 0️⃣ createVNode
+
 > 자세한 코드는 [GitHub](https://github.com/1-blue/front_5th_chapter1-2/blob/main/src/lib/createVNode.js)을 참고해주세요
 
 `jsx`를 받아서 특정 형태의 객체로 반환하는 함수에요.<br />
 ( `type`, `props`, `children`을 가진 객체를 반환하는 함수 )
 
 <Blockquote type="tip">
-여기서 `type`은 `HTML`의 `TagName`이거나 컴포넌트 함수 자체일 수 있어요.<br />
+  여기서 `type`은 `HTML`의 `TagName`이거나 컴포넌트 함수 자체일 수 있어요.
+  <br />
 </Blockquote>
 
 `jsx`에서 `falsy`한 값이나 `boolean`은 화면에 렌더링하지 않아서 해당 부분은 제외하고 반환하게 만들어줘야해요.<br />
@@ -84,6 +98,7 @@ const vNode = createVNode(<TestComponent />);
 ```
 
 ### 1️⃣ normalizeVNode
+
 > 자세한 코드는 [GitHub](https://github.com/1-blue/front_5th_chapter1-2/blob/main/src/lib/normalizeVNode.js)을 참고해주세요
 
 `createVNode()`를 통해서 `jsx`가 변환된 `vNode`를 정규화하는 함수에요.<br />
@@ -127,6 +142,7 @@ const nomarlizedVNode = normalizeVNode(vNode);
 ```
 
 ### 2️⃣ createElement
+
 > 자세한 코드는 [GitHub](https://github.com/1-blue/front_5th_chapter1-2/blob/main/src/lib/createElement.js)을 참고해주세요
 
 `normalizeVNode`로 정규화된 `vNode`를 실제 노드로 변환하는 함수에요.<br />
@@ -169,6 +185,7 @@ Object.entries(vNode.props).forEach(([key, value]) => {
 ```
 
 ### 3️⃣ eventManager
+
 > 자세한 코드는 [GitHub](https://github.com/1-blue/front_5th_chapter1-2/blob/main/src/lib/eventManager.js)을 참고해주세요
 
 이벤트를 통합적으로 관리해주는 함수에요.<br />
@@ -206,12 +223,14 @@ export function setupEventListeners(root) {
 ```
 
 ### 4️⃣ renderElement
+
 > 자세한 코드는 [GitHub](https://github.com/1-blue/front_5th_chapter1-2/blob/main/src/lib/renderElement.js)을 참고해주세요
 
 이전에 작성했던 함수들을 통해 가상 노드를 실제 노드로 만들고 루트 엘리먼트에 추가하는 함수에요.<br />
 최초 렌더링 이후 업데이트하는 로직은 미완성이라 변경되면 모든 노드를 다시 렌더링하도록 임시로 처리해뒀어요.<br />
 
-+ 실행 순서
+- 실행 순서
+
 1. `createVNode()`: `jsx`를 받아서 `vNode`로 변환 ( 프라그마(?)를 통해 이미 처리된 값을 받음 )
 2. `normalizeVNode()`: `vNode`를 정규화
 3. `createElement()`: 정규화된 `vNode`를 실제 노드로 변환
@@ -256,6 +275,7 @@ export function renderElement(vNode, container) {
 ## 🎁 심화 테스트 코드
 
 ### 0️⃣ updateElement
+
 > 자세한 코드는 [GitHub](https://github.com/1-blue/front_5th_chapter1-2/blob/main/src/lib/updateElement.js)을 참고해주세요
 
 이 함수는 리랜더링 시 변환된 부분만 업데이트하는 함수에요.<br />
@@ -287,6 +307,7 @@ const TestComponent = () => (
 ![updateElement](/images/posts/hanghae/frontend/02주차/1.gif)
 
 ### 1️⃣ renderElement 수정
+
 > 자세한 코드는 [GitHub](https://github.com/1-blue/front_5th_chapter1-2/blob/main/src/lib/renderElement.js)을 참고해주세요
 
 기본 과제에서 작성한 부분에서 초기 렌더링 여부 판단하는 값과 이전 렌더링에 사용한 가상노드를 저장하는 로직을 추가했어요.<br />
@@ -326,7 +347,9 @@ export function renderElement(vNode, container) {
 ```
 
 ## 🔥 그 이외의 코드 파악
+
 ### 0️⃣ createObserver
+
 ```js
 export const createObserver = () => {
   const listeners = new Set();
@@ -338,13 +361,15 @@ export const createObserver = () => {
 ```
 
 이 함수는 [옵저버 패턴](https://patterns-dev-kr.github.io/design-patterns/observer-pattern)을 구현한 함수에요.<br />
-+ `listeners`: 실행할 함수들 보관
-+ `subscribe`: 요청이 오면 실행할 함수 등록
-+ `notify`: 등록된 함수들 실행하도록 요청
+
+- `listeners`: 실행할 함수들 보관
+- `subscribe`: 요청이 오면 실행할 함수 등록
+- `notify`: 등록된 함수들 실행하도록 요청
 
 해당 방법을 이용해서 `url` 변경이나 `store`(변수) 변경을 감지해서 리랜더링을 실행해요.<br />
 
 ### 1️⃣ createStore
+
 ```js
 import { createObserver } from "./createObserver.js";
 
@@ -377,6 +402,7 @@ export const createStore = (initialState, initialActions) => {
 그리고 `subscribe()`를 내보내고 있어서 해당 함수를 통해 등록된 함수가 실행될텐데 아마 랜더링을 처리하는 함수를 등록할거에요.<br />
 
 ### 2️⃣ createRouter
+
 ```js
 import { createObserver } from "./createObserver";
 import { BASE_URL } from "../constants";
@@ -412,6 +438,7 @@ export const createRouter = (routes) => {
 따라서 페이지 이동할때 렌더링을 관리하지 않아도 자동으로 실행되게 돼요.<br />
 
 ### 3️⃣ main
+
 ```js
 router.set(
   createRouter({
@@ -435,16 +462,17 @@ main();
 화면을 다시 그린다는 의미이고 `render()` 내부에서 `updateElement()`를 통해 변경된 부분만 업데이트하는 방식으로 구현되어있어요.<br />
 
 ## 🕹️ 정리
+
 전체적인 흐름을 마지막으로 정리해볼게요.<br />
 
 1. `createStore()`를 통해서 전역 `store`를 생성
 2. `createRouter()`를 통해서 전역 `router`를 생성
 3. `main()`에서 `router`와 `store`에 `render()` 함수를 등록하고 최초 렌더링 실행
 4. `render()` 함수 내부에서 아래와 같이 동작
-    1. `createVNode()`를 통해서 `jsx`를 받아서 `vNode`로 변환
-    2. `normalizeVNode()`를 통해서 `vNode`를 정규화
-    3. `createElement()`를 통해서 `vNode`를 실제 노드로 변환
-    4. `renderElement()`를 통해서 실제 노드를 `HTML`에 렌더링
-    5. `updateElement()`를 통해서 변경된 부분만 업데이트
-    6. `setupEventListeners()`를 통해서 최상위 엘리먼트에 이벤트 리스너 등록하고 버블링을 통해 처리
+   1. `createVNode()`를 통해서 `jsx`를 받아서 `vNode`로 변환
+   2. `normalizeVNode()`를 통해서 `vNode`를 정규화
+   3. `createElement()`를 통해서 `vNode`를 실제 노드로 변환
+   4. `renderElement()`를 통해서 실제 노드를 `HTML`에 렌더링
+   5. `updateElement()`를 통해서 변경된 부분만 업데이트
+   6. `setupEventListeners()`를 통해서 최상위 엘리먼트에 이벤트 리스너 등록하고 버블링을 통해 처리
 5. 페이지가 변경되거나 `store`의 상태가 변경되면 `render()`가 실행

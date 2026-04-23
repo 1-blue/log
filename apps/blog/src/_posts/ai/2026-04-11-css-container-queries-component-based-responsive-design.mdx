@@ -1,7 +1,8 @@
 ---
 title: "[🤖] CSS Container Queries: 컴포넌트 기반 반응형 디자인의 새로운 지평"
 description: "미디어 쿼리의 한계를 넘어, 컴포넌트 자체의 크기에 따라 스타일을 조절하는 CSS Container Queries를 깊이 있게 알아보고 실무 적용 방법을 안내해 드려요."
-tags: ["css", "container-queries", "반응형 디자인", "웹 개발", "프론트엔드", "ai"]
+tags:
+  ["css", "container-queries", "반응형 디자인", "웹 개발", "프론트엔드", "ai"]
 icon: ""
 thumbnail: ""
 createdAt: 2026-04-12 06:00:13
@@ -15,12 +16,16 @@ ai: true
 ---
 
 <Blockquote type="info">
-🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
-내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+  🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.
+  <br />
+  내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해
+  주세요.
 </Blockquote>
 
 <Blockquote type="tip">
-이 글에서는 미디어 쿼리의 한계를 극복하고 컴포넌트 단위의 반응형 디자인을 가능하게 하는 CSS Container Queries의 개념부터 실무 적용 예시까지 자세히 살펴봐요.
+  이 글에서는 미디어 쿼리의 한계를 극복하고 컴포넌트 단위의 반응형 디자인을
+  가능하게 하는 CSS Container Queries의 개념부터 실무 적용 예시까지 자세히
+  살펴봐요.
 </Blockquote>
 
 안녕하세요! 10년 이상 실무 경험을 가진 풀스택 개발자이자 기술 블로그 SEO 전문가, 블루입니다.<br />
@@ -41,8 +46,11 @@ ai: true
 이때 미디어 쿼리는 뷰포트 전체의 크기만 알 수 있기 때문에, 특정 컴포넌트가 놓인 '부모 컨테이너의 크기'에 따라 스타일을 변경하기는 매우 어려웠어요.
 
 <Blockquote type="error">
-**미디어 쿼리의 한계**<br />
-미디어 쿼리는 뷰포트(브라우저 창)의 크기에만 반응해요. 특정 컴포넌트나 위젯이 속한 부모 요소의 크기에는 반응할 수 없어서, 컴포넌트 재사용성과 유연성이 떨어지는 문제가 있었어요.
+  **미디어 쿼리의 한계**
+  <br />
+  미디어 쿼리는 뷰포트(브라우저 창)의 크기에만 반응해요. 특정 컴포넌트나 위젯이
+  속한 부모 요소의 크기에는 반응할 수 없어서, 컴포넌트 재사용성과 유연성이
+  떨어지는 문제가 있었어요.
 </Blockquote>
 
 ### 1️⃣ 컴포넌트 기반 디자인의 숙원 사업
@@ -67,15 +75,18 @@ CSS Container Queries는 이름 그대로 '컨테이너(Container)'의 크기를
 
 어떤 요소를 쿼리 가능한 컨테이너로 만들려면, 해당 요소에 `container-type` 속성을 지정해야 해요. 필요하다면 `container-name`도 함께 지정할 수 있어요.
 
-*   **`container-type`**: 컨테이너가 어떤 축으로 쿼리될 수 있는지 정의해요.
-    *   `size`: 인라인(너비) 및 블록(높이) 축 모두 쿼리할 수 있어요. (가장 일반적이에요)
-    *   `inline-size`: 인라인(너비) 축만 쿼리할 수 있어요. (가장 많이 사용될 거예요)
-    *   `normal`: 기본값으로, 컨테이너 쿼리에 영향을 주지 않아요.
-*   **`container-name`**: 컨테이너에 이름을 부여해서, 여러 컨테이너가 중첩되어 있을 때 특정 컨테이너를 명시적으로 쿼리할 수 있게 해줘요. (선택 사항이에요)
+- **`container-type`**: 컨테이너가 어떤 축으로 쿼리될 수 있는지 정의해요.
+  - `size`: 인라인(너비) 및 블록(높이) 축 모두 쿼리할 수 있어요. (가장 일반적이에요)
+  - `inline-size`: 인라인(너비) 축만 쿼리할 수 있어요. (가장 많이 사용될 거예요)
+  - `normal`: 기본값으로, 컨테이너 쿼리에 영향을 주지 않아요.
+- **`container-name`**: 컨테이너에 이름을 부여해서, 여러 컨테이너가 중첩되어 있을 때 특정 컨테이너를 명시적으로 쿼리할 수 있게 해줘요. (선택 사항이에요)
 
 <Blockquote type="tip">
-**`inline-size`를 주로 사용하는 이유**<br />
-대부분의 컴포넌트는 가로 크기에 따라 레이아웃이 변경되는 경우가 많아요. `inline-size`는 이러한 가로 크기(너비) 변화에만 반응하므로, 불필요한 리렌더링이나 레이아웃 변경을 막고 성능에도 유리해요.
+  **`inline-size`를 주로 사용하는 이유**
+  <br />
+  대부분의 컴포넌트는 가로 크기에 따라 레이아웃이 변경되는 경우가 많아요.
+  `inline-size`는 이러한 가로 크기(너비) 변화에만 반응하므로, 불필요한
+  리렌더링이나 레이아웃 변경을 막고 성능에도 유리해요.
 </Blockquote>
 
 ### 2️⃣ `@container` 규칙으로 스타일을 적용해요
@@ -113,10 +124,17 @@ CSS Container Queries는 이름 그대로 '컨테이너(Container)'의 크기를
 ```html showLineNumbers
 <div class="container-wrapper">
   <div class="card-container">
-    <img src="https://via.placeholder.com/150" alt="Placeholder Image" class="card-image" />
+    <img
+      src="https://via.placeholder.com/150"
+      alt="Placeholder Image"
+      class="card-image"
+    />
     <div class="card-content">
       <h3 class="card-title">컨테이너 쿼리로 유연해진 카드 제목</h3>
-      <p class="card-description">이것은 카드 설명 텍스트입니다. 컨테이너의 크기에 따라 레이아웃이 변경될 거예요.</p>
+      <p class="card-description">
+        이것은 카드 설명 텍스트입니다. 컨테이너의 크기에 따라 레이아웃이 변경될
+        거예요.
+      </p>
       <button class="card-button">더 보기</button>
     </div>
   </div>
@@ -124,7 +142,11 @@ CSS Container Queries는 이름 그대로 '컨테이너(Container)'의 크기를
 
 <div class="sidebar-wrapper">
   <div class="card-container">
-    <img src="https://via.placeholder.com/150" alt="Placeholder Image" class="card-image" />
+    <img
+      src="https://via.placeholder.com/150"
+      alt="Placeholder Image"
+      class="card-image"
+    />
     <div class="card-content">
       <h3 class="card-title">사이드바에 들어간 카드</h3>
       <p class="card-description">사이드바에서는 내용이 더 짧아져요.</p>
@@ -146,8 +168,15 @@ CSS Container Queries는 이름 그대로 '컨테이너(Container)'의 크기를
   padding: 1rem;
 }
 
-.container-wrapper { width: 70%; background-color: #f0f0f0; margin-bottom: 2rem; }
-.sidebar-wrapper { width: 25%; background-color: #e0e0e0; }
+.container-wrapper {
+  width: 70%;
+  background-color: #f0f0f0;
+  margin-bottom: 2rem;
+}
+.sidebar-wrapper {
+  width: 25%;
+  background-color: #e0e0e0;
+}
 
 .card-container {
   container-type: inline-size; /* 이 요소의 인라인(가로) 크기를 쿼리할 수 있게 해요 */
@@ -242,9 +271,9 @@ CSS Container Queries는 이름 그대로 '컨테이너(Container)'의 크기를
 CSS Container Queries는 미디어 쿼리의 뷰포트 기반 한계를 극복하고, 컴포넌트 단위의 반응형 디자인을 가능하게 하는 혁신적인 CSS 기능이에요.<br />
 `container-type` 및 `container-name` 속성으로 쿼리 가능한 컨테이너를 정의하고, `@container` 규칙을 사용해서 해당 컨테이너의 크기에 따라 자식 요소의 스타일을 유연하게 변경할 수 있어요.
 
-*   **`container-type: inline-size;`**: 가장 일반적으로 사용되며, 컨테이너의 너비(인라인 축)에 따라 반응해요.
-*   **`@container (query)`**: 미디어 쿼리와 유사한 문법으로 컨테이너의 크기를 조건으로 스타일을 적용해요.
-*   **`container-name`**: 여러 컨테이너가 중첩될 때 특정 컨테이너를 명시적으로 지정할 수 있게 해줘요.
+- **`container-type: inline-size;`**: 가장 일반적으로 사용되며, 컨테이너의 너비(인라인 축)에 따라 반응해요.
+- **`@container (query)`**: 미디어 쿼리와 유사한 문법으로 컨테이너의 크기를 조건으로 스타일을 적용해요.
+- **`container-name`**: 여러 컨테이너가 중첩될 때 특정 컨테이너를 명시적으로 지정할 수 있게 해줘요.
 
 이 기능을 활용하면 컴포넌트의 재사용성을 극대화하고, 훨씬 더 예측 가능하며 유지보수하기 쉬운 반응형 UI를 구축할 수 있게 돼요.
 
@@ -256,6 +285,6 @@ Container Queries는 이미 대부분의 모던 브라우저에서 지원하고 
 
 ## 📮 참고
 
-*   [MDN Web Docs: CSS Container Queries](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Container_Queries)
-*   [CSS-Tricks: A Complete Guide to CSS Container Queries](https://css-tricks.com/a-complete-guide-to-css-container-queries/)
-*   [Chrome Developers: Say Hello To CSS Container Queries](https://developer.chrome.com/blog/container-queries/)
+- [MDN Web Docs: CSS Container Queries](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Container_Queries)
+- [CSS-Tricks: A Complete Guide to CSS Container Queries](https://css-tricks.com/a-complete-guide-to-css-container-queries/)
+- [Chrome Developers: Say Hello To CSS Container Queries](https://developer.chrome.com/blog/container-queries/)

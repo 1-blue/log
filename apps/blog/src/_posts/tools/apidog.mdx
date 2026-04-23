@@ -14,7 +14,7 @@ draft: false
 import Blockquote from "#/components/mdx/Blockquote";
 
 <Blockquote type="tip">
-[API 문서 보기](https://docs.story-dict.com/)
+  [API 문서 보기](https://docs.story-dict.com/)
 </Blockquote>
 
 > `Apidog`라는 툴을 사용해보고 느낀점에 대해 작성하는 글이에요<br />
@@ -22,16 +22,19 @@ import Blockquote from "#/components/mdx/Blockquote";
 > ( 현재 나흘정도 사용해본 경험이라 해당 게시글이 완성은 아니고 계속 사용하면서 추가로 작성할 예정이에요 )
 
 ## 🤔 Postman의 아쉬웠던점
+
 저는 프론트엔드 개발자라서 `Postman`을 직접 만들어본거는 개인 프로젝트에서 API 문서 정리를 위해서 한번 밖에 없었어요<br />
 직접 만들어보면서 너무 아쉬웠던점이 몇가지 있었어요
+
 1. `Schema` 정의 불가능
 2. `Enum` 정의 불가능
 3. UX가 안좋음 ( 잡렉, 보조 기능 부족 등 )
 
 ## 🫢 Apidog의 장점
+
 ### 0. 마이그레이션 쉽고 저렴함
-> [Apidog 공식 문서 - Postman 마이그레이션](https://docs.apidog.com/import-postman-collections-635043m0)<br />
-> [Apidog vs Postman](https://apidog.com/kr/blog/postman-vs-apidog-2/)
+
+> [Apidog 공식 문서 - Postman 마이그레이션](https://docs.apidog.com/import-postman-collections-635043m0)<br /> > [Apidog vs Postman](https://apidog.com/kr/blog/postman-vs-apidog-2/)
 
 `Postman`에서 이전하기가 쉬워요<br />
 문서에 적힌대로 해보면 2분이면 기존 API 문서를 이전할 수 있어요<br />
@@ -39,6 +42,7 @@ import Blockquote from "#/components/mdx/Blockquote";
 저희 회사는 백엔드가 4명인데 `Postman`이 3명까지 무료라 유료 플랜을 사용했었는데 Apidog는 무료 플랜이 4명까지 있어서 무료로도 사용할 수 있어요<br />
 
 ### 1. 스키마 생성 가능
+
 > [Apidog 공식 문서 - Schema](https://docs.apidog.com/overview-533975m0)
 
 ![스키마](/images/posts/tools/apidog/1.png)
@@ -52,6 +56,7 @@ import Blockquote from "#/components/mdx/Blockquote";
 마지막으로 DB와 연결해서 `Schema`를 자동으로 생성할 수 있어요<br />
 
 ### 2. 열거형 정의 가능
+
 > [Apidog 공식 문서 - Enum 정의 방법](https://docs.apidog.com/if-a-string-property-has-multiple-enumerated-values-and-is-used-in-various-locations-how-can-this-enum-be-consistently-referenced-throughout-748053m0)
 
 ![열거형](/images/posts/tools/apidog/2.png)
@@ -62,6 +67,7 @@ import Blockquote from "#/components/mdx/Blockquote";
 ![열거형 확대](/images/posts/tools/apidog/3.png)
 
 ### 3. 컴포넌트
+
 > [Apidog 공식 문서 - Components](https://docs.apidog.com/components-533976m0)
 
 ![컴포넌트](/images/posts/tools/apidog/4.png)
@@ -70,6 +76,7 @@ import Blockquote from "#/components/mdx/Blockquote";
 아직 많이 사용해보지 않아서 사용법과 의도가 맞는지 모르겠지만, 저는 자주 사용하는 `400`대 에러를 컴포넌트로 만들어두고 사용하고 있어요<br />
 
 ### 4. Cloud Mock Server
+
 > [Apidog 공식 문서 - Cloud Mock Server](https://docs.apidog.com/cloud-mock-621066m0)
 
 해당 기능을 사용하기 위해서는 두가지 조건이 필요해요<br />
@@ -79,6 +86,7 @@ import Blockquote from "#/components/mdx/Blockquote";
 2. `Cloud Mock Server`를 활성화하기
 
 ### 5. 여러가지 기능 지원
+
 1. `status`: 배포, 개발중, 지원종료 등의 상태 설정이 가능
 2. `Maintainer`: 관리자 설정 가능
 3. `Tags`: 태그 설정 가능
@@ -89,6 +97,7 @@ import Blockquote from "#/components/mdx/Blockquote";
 ## 🥲 Apidog의 단점
 
 ### 1. 데이터베이스의 스키마 가져올때 열거형 변환 안됨
+
 아래처럼 `Prisma`로 만들고 `DB`에 생성된 것을 확인했는데 `DB` 연동해서 `Schema`를 불러와도 `Enum`이 생성되지 않아요<br />
 그래서 수동으로 `Enum`을 만들고 `Schema`에 연결했어요 🥲<br />
 
@@ -114,19 +123,22 @@ model PostReaction {
 ```
 
 ## 💡 사용팁
+
 ### 1. Schema 일부만 사용하기
+
 `Schema`를 사용하는거는 좋은데 전체말고 일부만 사용하는 경우가 더 많을거에요<br />
 그럴때는 그냥 `Schema`를 가져오고 사용하지 않는 컬럼은 `hide`를 하면 돼요<br />
 그렇게 모든 응답 `Schema`를 관리하면 원본 `Schema`가 수정되면 모든 응답 `Schema`도 변하기 때문에 편해요<br />
 너무 서로 의존하게 된다고 생각할수도 있지만, 어차피 원본이 바뀌면 다른것들도 따라서 바꿔야한다고 생각해요<br />
 
-+ 원본
-![Schema 원본](/images/posts/tools/apidog/5.png)
+- 원본
+  ![Schema 원본](/images/posts/tools/apidog/5.png)
 
-+ 일부만 사용
-![Schema 일부만 사용](/images/posts/tools/apidog/6.png)
+- 일부만 사용
+  ![Schema 일부만 사용](/images/posts/tools/apidog/6.png)
 
 ### 2. Schema 조합하기
+
 응답값이 항상 하나의 테이블의 데이터만 가져오지는 않을거에요<br />
 그런 경우에는 `Schema Composition`을 사용하면 돼요<br />
 
@@ -144,6 +156,7 @@ model PostReaction {
 하지만 `1`은 유저 `Schema`를 사용하고 `2`는 리액션 `Schema`를 사용해서 원본 `Schema`에 의존하게 돼요<br />
 
 ## 📮 레퍼런스
+
 1. [API 문서 보기](https://docs.story-dict.com/)
 2. [Apidog 공식 문서 - Postman 마이그레이션](https://docs.apidog.com/import-postman-collections-635043m0)
 3. [Apidog vs Postman](https://apidog.com/kr/blog/postman-vs-apidog-2/)

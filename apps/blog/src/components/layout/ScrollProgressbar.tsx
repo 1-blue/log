@@ -1,8 +1,8 @@
 "use client";
 
-import { motion, useScroll, useSpring } from "motion/react";
-
 import "#/css/scrollbar.css";
+
+import { motion, useScroll, useSpring } from "motion/react";
 
 const ScrollProgressbar: React.FC = () => {
   const { scrollYProgress } = useScroll();

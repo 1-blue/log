@@ -1,4 +1,3 @@
-import Image from "next/image";
 import {
   AtSymbolIcon,
   DevicePhoneMobileIcon,
@@ -6,8 +5,9 @@ import {
   LinkIcon,
   MapPinIcon,
 } from "@heroicons/react/24/outline";
-
 import { ME } from "@workspace/constants";
+import Image from "next/image";
+
 import CustomSection from "#/app/(BasicLayout)/_components/sections/CustomSection";
 
 /** 프로필 영역 ( 이미지 및 연락처 정보 ) */

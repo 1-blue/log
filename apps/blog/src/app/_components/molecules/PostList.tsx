@@ -6,9 +6,8 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 
-import type { IPostWithETC } from "#/types";
-
 import Tag from "#/app/_components/atoms/Tag";
+import type { IPostWithETC } from "#/types";
 
 interface Props {
   post: Omit<IPostWithETC, "content">;

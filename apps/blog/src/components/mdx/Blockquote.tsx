@@ -5,7 +5,6 @@ import {
   LightBulbIcon,
   ShieldExclamationIcon,
 } from "@heroicons/react/24/solid";
-
 import { cn } from "@workspace/ui/lib/utils";
 
 /**

@@ -1,7 +1,17 @@
 ---
 title: "[🤖] TypeScript 조건부 타입과 infer 키워드: 복잡한 타입도 손쉽게 다루는 방법"
 description: "TypeScript 개발에서 마주하는 복잡한 타입 추론 문제, 조건부 타입과 infer 키워드를 활용하면 훨씬 우아하고 강력하게 해결할 수 있어요. 실전 예제와 함께 그 활용법을 심도 있게 다뤄봅니다."
-tags: ["TypeScript", "타입스크립트", "조건부타입", "infer", "제네릭", "유틸리티타입", "프론트엔드", "ai"]
+tags:
+  [
+    "TypeScript",
+    "타입스크립트",
+    "조건부타입",
+    "infer",
+    "제네릭",
+    "유틸리티타입",
+    "프론트엔드",
+    "ai",
+  ]
 icon: ""
 thumbnail: ""
 createdAt: 2026-03-18 12:18:04
@@ -15,12 +25,16 @@ ai: true
 ---
 
 <Blockquote type="info">
-🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
-내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+  🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.
+  <br />
+  내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해
+  주세요.
 </Blockquote>
 
 <Blockquote type="tip">
-이 글에서는 TypeScript의 조건부 타입과 `infer` 키워드를 깊이 있게 파고들어, 복잡한 타입 추론 로직을 구현하고 실용적인 유틸리티 타입을 만드는 방법을 실전 예제와 함께 배워봐요.
+  이 글에서는 TypeScript의 조건부 타입과 `infer` 키워드를 깊이 있게 파고들어,
+  복잡한 타입 추론 로직을 구현하고 실용적인 유틸리티 타입을 만드는 방법을 실전
+  예제와 함께 배워봐요.
 </Blockquote>
 
 안녕하세요, 10년 이상 경력의 시니어 풀스택 개발자이자 기술 블로그 SEO 전문가 블루예요. 저는 실제 존재하는 개발자는 아니지만, 여러분의 성장에 도움이 되고자 실무 경험을 바탕으로 유익한 기술 정보를 나누고 있어요.<br />
@@ -52,6 +66,7 @@ type MyConditionalType<T> = T extends U ? X : Y;
 ```
 
 여기서 `T extends U`는 `T`가 `U`에 할당 가능한 타입인지(subtype인지) 검사하는 조건이에요.<br />
+
 - 만약 조건이 참(true)이면 `X` 타입이 선택되고,<br />
 - 거짓(false)이면 `Y` 타입이 선택돼요.<br />
 
@@ -62,7 +77,7 @@ type IsString<T> = T extends string ? "yes" : "no";
 
 type A = IsString<string>; // type A = "yes"
 type B = IsString<number>; // type B = "no"
-type C = IsString<any>;    // type C = "yes" | "no" (any는 모든 타입에 할당 가능하므로 유니온 타입이 돼요)
+type C = IsString<any>; // type C = "yes" | "no" (any는 모든 타입에 할당 가능하므로 유니온 타입이 돼요)
 type D = IsString<"hello">; // type D = "yes"
 ```
 
@@ -87,7 +102,7 @@ interface Dog extends Animal {
 
 type CheckAnimal<T> = T extends Animal ? "Is Animal" : "Not Animal";
 
-type E = CheckAnimal<Dog>;    // type E = "Is Animal" (Dog는 Animal에 할당 가능)
+type E = CheckAnimal<Dog>; // type E = "Is Animal" (Dog는 Animal에 할당 가능)
 type F = CheckAnimal<{ name: string; age: number }>; // type F = "Is Animal" (구조적으로 Animal에 할당 가능)
 type G = CheckAnimal<{ age: number }>; // type G = "Not Animal"
 ```
@@ -130,11 +145,12 @@ function add(a: number, b: number): number {
 }
 
 type GreetReturnType = MyReturnType<typeof greet>; // type GreetReturnType = string
-type AddReturnType = MyReturnType<typeof add>;     // type AddReturnType = number
-type NotAFunction = MyReturnType<string>;           // type NotAFunction = any (함수가 아니므로)
+type AddReturnType = MyReturnType<typeof add>; // type AddReturnType = number
+type NotAFunction = MyReturnType<string>; // type NotAFunction = any (함수가 아니므로)
 ```
 
 `MyReturnType`을 보면, `T extends (...args: any[]) => infer R ? R : any;` 라는 조건이 있어요.<br />
+
 - `T`가 '어떤 인자(`...args: any[]`)를 받고 `R`이라는 타입을 반환하는 함수'에 할당 가능하면,<br />
 - 그 반환 타입 `R`을 `infer`로 추론해서 사용하고,<br />
 - 그렇지 않으면 `any`를 반환하도록 되어있죠. 아주 유용해요!
@@ -153,15 +169,18 @@ function multiply(a: number, b: number): number {
 type MultiplyParams = MyParameters<typeof multiply>; // type MultiplyParams = [a: number, b: number]
 
 class Calculator {
-  add(x: number, y: number): number { return x + y; }
+  add(x: number, y: number): number {
+    return x + y;
+  }
 }
 
-type CalculatorAddParams = MyParameters<Calculator['add']>; // type CalculatorAddParams = [x: number, y: number]
+type CalculatorAddParams = MyParameters<Calculator["add"]>; // type CalculatorAddParams = [x: number, y: number]
 
 type NotAFunctionParams = MyParameters<number>; // type NotAFunctionParams = never
 ```
 
 `MyParameters`는 `T extends (...args: infer P) => any ? P : never;` 조건을 사용해요.<br />
+
 - `T`가 '어떤 인자(`...args: infer P`)를 받고 `any` 타입을 반환하는 함수'에 할당 가능하면,<br />
 - 그 인자들의 타입 튜플 `P`를 `infer`로 추론해서 사용하고,<br />
 - 그렇지 않으면 `never`를 반환하도록 되어있어요. 정말 멋지지 않나요?
@@ -174,13 +193,13 @@ type NotAFunctionParams = MyParameters<number>; // type NotAFunctionParams = nev
 type ElementType<T> = T extends (infer U)[] ? U : T;
 
 type Arr = ElementType<string[]>; // type Arr = string
-type Str = ElementType<string>;   // type Str = string (배열이 아니므로 T 자체가 반환)
+type Str = ElementType<string>; // type Str = string (배열이 아니므로 T 자체가 반환)
 
 type PromiseValue<T> = T extends Promise<infer U> ? U : T;
 
 type P1 = PromiseValue<Promise<string>>; // type P1 = string
 type P2 = PromiseValue<Promise<number[]>>; // type P2 = number[]
-type P3 = PromiseValue<string>;          // type P3 = string
+type P3 = PromiseValue<string>; // type P3 = string
 ```
 
 `ElementType`는 `T extends (infer U)[]` 조건을 통해 `T`가 배열이라면 그 요소 타입 `U`를 추출하고, `PromiseValue`는 `T extends Promise<infer U>`를 통해 `Promise`의 제네릭 타입 `U`를 추출하는 것을 볼 수 있어요. 이처럼 `infer`는 타입 내부의 '패턴'을 인식하고 그 패턴에 맞는 타입을 뽑아낼 때 강력한 힘을 발휘해요.
@@ -194,9 +213,12 @@ type P3 = PromiseValue<string>;          // type P3 = string
 비동기 함수를 다룰 때, `Promise<T>`에서 실제 결과 타입 `T`만 깔끔하게 추출하고 싶을 때가 많아요. `PromiseValue`와 비슷하지만, 중첩된 Promise도 처리할 수 있도록 개선해볼까요?
 
 ```tsx showLineNumbers {1-3}
-type UnwrapPromise<T> = T extends Promise<infer U>
-  ? U extends Promise<any> ? UnwrapPromise<U> : U
-  : T;
+type UnwrapPromise<T> =
+  T extends Promise<infer U>
+    ? U extends Promise<any>
+      ? UnwrapPromise<U>
+      : U
+    : T;
 
 interface User {
   id: number;
@@ -208,8 +230,11 @@ async function fetchUser(id: number): Promise<User> {
 }
 
 async function fetchUsersWithDelay(): Promise<Promise<User[]>> {
-  return new Promise(resolve => {
-    setTimeout(() => resolve(Promise.resolve([{ id: 1, name: 'Alice' }])), 1000);
+  return new Promise((resolve) => {
+    setTimeout(
+      () => resolve(Promise.resolve([{ id: 1, name: "Alice" }])),
+      1000,
+    );
   });
 }
 
@@ -231,12 +256,15 @@ TypeScript에서 함수 오버로딩은 같은 이름의 함수에 여러 시그
 
 ```ts showLineNumbers
 function createLogger(prefix: string): (message: string) => void;
-function createLogger(level: 'info' | 'warn', message: string): void;
-function createLogger(arg1: string | 'info' | 'warn', arg2?: string): ((message: string) => void) | void {
-  if (typeof arg1 === 'string' && arg2 === undefined) {
+function createLogger(level: "info" | "warn", message: string): void;
+function createLogger(
+  arg1: string | "info" | "warn",
+  arg2?: string,
+): ((message: string) => void) | void {
+  if (typeof arg1 === "string" && arg2 === undefined) {
     const prefix = arg1;
     return (message: string) => console.log(`[${prefix}] ${message}`);
-  } else if (typeof arg1 === 'string' && typeof arg2 === 'string') {
+  } else if (typeof arg1 === "string" && typeof arg2 === "string") {
     const level = arg1;
     const message = arg2;
     console.log(`[${level.toUpperCase()}] ${message}`);

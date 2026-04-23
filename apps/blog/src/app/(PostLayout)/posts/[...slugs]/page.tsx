@@ -1,18 +1,17 @@
 import { cache } from "react";
-import { notFound } from "next/navigation";
 import type { Metadata, NextPage } from "next";
 import dynamic from "next/dynamic";
+import { notFound } from "next/navigation";
 
 import { Separator } from "@workspace/ui/components/Separator";
 
-import { getAllPosts, getPostTOC } from "#/libs/post";
-import { getSharedMetadata } from "#/libs";
-
-import Thumbnail from "#/app/(PostLayout)/posts/_components/Thumbnail";
-import TopSection from "#/app/(PostLayout)/posts/_components/TopSection/TopSection";
 import ButtomSection from "#/app/(PostLayout)/posts/_components/BottomSection/BottomSection";
 import SuggestSection from "#/app/(PostLayout)/posts/_components/SuggestSection/SuggestSection";
+import Thumbnail from "#/app/(PostLayout)/posts/_components/Thumbnail";
 import TOC from "#/app/(PostLayout)/posts/_components/TOC";
+import TopSection from "#/app/(PostLayout)/posts/_components/TopSection/TopSection";
+import { getSharedMetadata } from "#/libs";
+import { getAllPosts, getPostTOC } from "#/libs/post";
 
 interface Props {
   params: Promise<{ slugs: string[] }>;

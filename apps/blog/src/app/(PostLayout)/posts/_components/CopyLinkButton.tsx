@@ -1,8 +1,8 @@
 "use client";
 
+import { LinkIcon } from "@heroicons/react/24/outline";
 import { usePathname } from "next/navigation";
 import { toast } from "sonner";
-import { LinkIcon } from "@heroicons/react/24/outline";
 
 const CopyLinkButton = () => {
   const pathname = usePathname();

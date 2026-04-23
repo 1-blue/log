@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 
-import { getAllPosts } from "#/libs/post";
-import { dayjs } from "#/libs/dayjs";
-import { getSharedMetadata } from "#/libs";
-
 import PostSection from "#/app/(BasicLayout)/_components/sections/PostSection";
+import { getSharedMetadata } from "#/libs";
+import { dayjs } from "#/libs/dayjs";
+import { getAllPosts } from "#/libs/post";
 
 export const metadata: Metadata = getSharedMetadata();
 

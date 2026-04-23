@@ -1,8 +1,7 @@
-import { getAllPosts } from "#/libs/post";
-
-import InfoSection from "#/app/(BasicLayout)/_components/sections/InfoSection";
 import Navigation from "#/app/(BasicLayout)/_components/Navigation";
+import InfoSection from "#/app/(BasicLayout)/_components/sections/InfoSection";
 import SelectedPostSection from "#/app/(BasicLayout)/_components/SelectedPostSection";
+import { getAllPosts } from "#/libs/post";
 
 const allPosts = getAllPosts();
 const publishedDates = allPosts.reduce<Record<string, number>>((prev, curr) => {

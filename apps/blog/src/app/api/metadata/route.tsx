@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
 import * as cheerio from "cheerio";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
 

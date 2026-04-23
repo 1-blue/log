@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { ListBulletIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Button } from "@workspace/ui/components/Button";
+import { cn } from "@workspace/ui/lib/utils";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { ListBulletIcon, XMarkIcon } from "@heroicons/react/24/outline";
-
-import { cn } from "@workspace/ui/lib/utils";
-import { Button } from "@workspace/ui/components/Button";
 import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 interface IProps {
   toc: {

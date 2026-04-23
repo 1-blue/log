@@ -1,6 +1,6 @@
-import ProfileSection from "#/app/(BasicLayout)/_components/sections/ProfileSection";
 import BioSection from "#/app/(BasicLayout)/_components/sections/BioSection";
 import CalendarSection from "#/app/(BasicLayout)/_components/sections/CalendarSection";
+import ProfileSection from "#/app/(BasicLayout)/_components/sections/ProfileSection";
 
 interface Props {
   publishedDates: Record<string, number>;

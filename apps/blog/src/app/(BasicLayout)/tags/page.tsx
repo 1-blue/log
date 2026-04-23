@@ -1,14 +1,12 @@
-import { redirect } from "next/navigation";
-import type { Metadata, NextPage } from "next";
-
 import { Separator } from "@workspace/ui/components/Separator";
-
-import { getAllPosts } from "#/libs/post";
-import { getSharedMetadata } from "#/libs";
+import type { Metadata, NextPage } from "next";
+import { redirect } from "next/navigation";
 
 import PostList from "#/app/_components/molecules/PostList";
 import AllTag from "#/app/(BasicLayout)/tags/_components/AllTag";
 import TagCombobox from "#/app/(BasicLayout)/tags/_components/TagCombobox";
+import { getSharedMetadata } from "#/libs";
+import { getAllPosts } from "#/libs/post";
 
 interface Props {
   searchParams: Promise<{ tag?: string }>;

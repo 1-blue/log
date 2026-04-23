@@ -14,10 +14,11 @@ draft: false
 ---
 
 <Blockquote type="warning">
-글이 조금 난잡해서 언젠가 다시 정리할게요.
+  글이 조금 난잡해서 언젠가 다시 정리할게요.
 </Blockquote>
 
 ## 🕹️ 목적
+
 티스토리나 벨로그같은 유명한 블로그 플랫폼을 사용하지 않고 개인 블로그를 만든 이유중 가장 큰 이유는 제 마음대로 커스텀하는 블로그를 만들고 싶었어요.<br />
 지금까지 사용해본 블로그는 처음에 [벨로그](https://velog.io/@1-blue/posts), 두번째로 [깃헙 블로그](https://1-blue.github.io)를 사용해봤어요.<br />
 
@@ -33,6 +34,7 @@ draft: false
 ( 참고로 `mdx`란 `markdown` + `jsx`로 `markdown` 내부에서 `jsx`를 사용할 수 있는 문법이에요. )
 
 ### 0️⃣ 블로그 포스트 방식
+
 > `mdx`란 `markdown` + `jsx`로 `markdown` 내부에서 `jsx`를 사용할 수 있는 문법이에요.
 > 마크다운에 컴포넌트를 사용할 수 있다는게 너무 신기하지 않나요? 🫢
 
@@ -41,6 +43,7 @@ draft: false
 참고로 폴더명에 `_`를 붙인 이유는 파일 탐색기 제일 위에 나오게 하고 싶어서 붙인거라 별다른 의미는 없어요.<br />
 
 ### 1️⃣ DB를 사용하지 않은 이유
+
 게시글 자체가 `.mdx` 파일이기 때문에 굳이 `DB`를 사용하지 않아도 될 것 같다고 생각해서 백엔드 없이 구동되는 프로젝트에요.<br />
 물론 `DB`가 없어서 게시글에 거의 기본적으로 있는 댓글, 좋아요 등의 기능을 구현할수가 없어요.<br />
 
@@ -50,6 +53,7 @@ draft: false
 [Next.js PPR](https://nextjs.org/docs/app/building-your-application/rendering/partial-prerendering)이 안정적으로 출시되는 시점을 기점으로 생각하고 있어요.<br />
 
 ## 📌 기본 세팅
+
 > 중요하지 않은 폴더는 생략했어요.
 
 ```txt
@@ -103,14 +107,17 @@ draft: false
 ```
 
 ### 0️⃣ monorepo 세팅
+
 굳이 모노레포를 사용하지 않아도 되지만 이후에 추가될 프로젝트도 같이 관리하고 싶어서 사용했어요.<br />
 현재는 블로그만 있지만 추후에 포트폴리오, 나만의 코딩 컨벤션 문서 등을 추가할 생각을 갖고 있어요.<br />
 
 #### 0️⃣-0️⃣ shadcn/ui 세팅
+
 블로그 개발을 시작한 시점에는 `tailwindcss`가 `v3`였고, `daisyUI`를 사용했었는데 최근에 `v4`로 업데이트 되고, 마이그레이션 하는김에 `shadcn`을 사용하는게 더 편할 것 같아서 디자인시스템 라이브러리를 바꿨어요.<br />
 
 <LinkPreviewCard href="https://ui.shadcn.com/docs/monorepo" />
-공식 문서에서 보일러 플레이트를 제공해줘서 해당 방법으로 기본 세팅을 했어요.<br />
+공식 문서에서 보일러 플레이트를 제공해줘서 해당 방법으로 기본 세팅을 했어요.
+<br />
 
 ```bash
 pnpm dlx shadcn@canary init
@@ -121,6 +128,7 @@ pnpm dlx shadcn@canary init
 TODO: 1, 2, 3
 
 ### 1️⃣ mdx-components 세팅
+
 <LinkPreviewCard href="https://nextjs.org/docs/app/api-reference/file-conventions/mdx-components" />
 
 `mdx-components.tsx` 파일은 `next.js`에서 약속된 이름이에요.<br />
@@ -143,7 +151,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
         {...props}
         className={cn(
           props.className,
-          "!mb-3 [blockquote_&]:!mb-0 break-keep tracking-normal leading-relaxed"
+          "!mb-3 leading-relaxed tracking-normal break-keep [blockquote_&]:!mb-0",
         )}
       />
     ),
@@ -156,10 +164,12 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
 ```
 
 #### 1️⃣-0️⃣ HTML 대체 컴포넌트
+
 기본 엘리먼트를 오버라이딩하고 싶으면 해당 태그명에 컴포넌트로 정의해주면 돼요.<br />
 저의 경우에는 `<p>`를 커스텀하기 위해서 `11~19`번 라인처럼 작성했어요.<br />
 
 #### 1️⃣-1️⃣ 커스텀 컴포넌트
+
 기본 `HTML`이 아닌 컴포넌트는 반환 객체에 추가해주기만하면 `mdx`에서 사용할 수 있어요.<br />
 ( 혹은 `mdx`에서 `import`해도 돼요. )<br />
 [`<LinkPreviewCard>`](https://github.com/1-blue/log/blob/master/apps/blog/src/components/mdx/LinkPreviewCard.tsx) 컴포넌트는 링크를 입력해주면 링크 미리보기 카드를 보여주는 컴포넌트에요.<br />
@@ -173,6 +183,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
 <LinkPreviewCard href="https://nextjs.org/docs/app/api-reference/file-conventions/mdx-components" />
 
 ### 2️⃣ next.config 세팅
+
 ```tsx
 import createMDX from "@next/mdx";
 import remarkGfm from "remark-gfm";
@@ -200,6 +211,7 @@ export default withMDX(nextConfig);
 `next.js`에서 `mdx`를 사용하기 위해서는 몇가지 세팅이 필요해요.<br />
 
 #### 2️⃣-0️⃣ 설치
+
 아래 라이브러리는 그냥 필수적으로 설치해야 하는것으로 알고 있어요.<br />
 
 ```bash
@@ -207,11 +219,13 @@ pnpm i @next/mdx @mdx-js/loader @mdx-js/react @types/mdx
 ```
 
 #### 2️⃣-1️⃣ remark-gfm
+
 > [GitHub - remarkjs/remark-gfm](https://github.com/remarkjs/remark-gfm)
 
 `GitHub`에서 사용하는 마크다운 문법과 동일하게 사용할 수 있도록 도와주는 라이브러리에요.<br />
 
 #### 2️⃣-2️⃣ rehype-prism-plus
+
 > [GitHub - rehype-prism-plus](https://github.com/timlrx/rehype-prism-plus)
 
 코드블럭 스타일과 문법 하이라이트를 적용해주는 라이브러리에요.<br />
@@ -221,7 +235,7 @@ pnpm i @next/mdx @mdx-js/loader @mdx-js/react @types/mdx
 2. `showLineNumbers`: 라인 넘버 표시
 3. `{2-3, 5}`: 각 넘버에 강조 색상 표시
 
-```diff-tsx showLineNumbers {2-3, 5}
+````diff-tsx showLineNumbers {2-3, 5}
 // ```diff-tsx showLineNumbers {2-3, 5}
 const v1 = "강조1";
 const v2 = "강조2";
@@ -231,12 +245,14 @@ const v4 = "강조4"
 - const v5 = "제거"
 + const v5 = "추가"
 // ```
-```
+````
 
 ### 3️⃣ 페이지 세팅
-> [GitHub 참고](https://github.com/1-blue/log/blob/master/apps/blog/src/app/(PostLayout)/posts/%5B...slugs%5D/page.tsx)
+
+> [GitHub 참고](<https://github.com/1-blue/log/blob/master/apps/blog/src/app/(PostLayout)/posts/%5B...slugs%5D/page.tsx>)
 
 #### 3️⃣-0️⃣ 라우팅 세팅
+
 > [Next.js - catch all Segument](https://nextjs.org/docs/app/building-your-application/routing/dynamic-routes#catch-all-segments)
 
 `src/app/(PostLayout)/posts/[...slugs].tsx` 파일은 블로그 포스트 페이지에요.<br />
@@ -262,6 +278,7 @@ const Page: NextPage<Props> = async ({ params }) => {
 ```
 
 #### 3️⃣-1️⃣ 정적 페이지
+
 현재 게시글에서 동적인 부분이 없기 때문에 `generateStaticParams()`를 이용해서 빌드 시점에 정적 페이지를 생성해요.<br />
 이후에 [`PPR`](https://nextjs.org/docs/app/building-your-application/rendering/partial-prerendering)이 안정적으로 출시되면 게시글 내부에 동적인 요소를 추가할 생각이에요<br />
 
@@ -274,9 +291,11 @@ export const generateStaticParams = () => {
 ```
 
 ### 4️⃣ 메타 데이터 세팅
+
 > [Next.js - Metadata](https://nextjs.org/docs/app/api-reference/file-conventions/metadata)
 
 #### 4️⃣-0️⃣ 게시글 정보 읽기
+
 게시글 정보를 읽고 가공할때 많은 라이브러리를 사용해요.<br />
 
 ```bash
@@ -356,6 +375,7 @@ draft: false
 ```
 
 #### 4️⃣-1️⃣ sitemap 세팅
+
 `sitemap`은 검색엔진에게 어떤 페이지가 있는지 알려주기 위한 파일이에요.<br />
 네이버나 구글 검색엔진에 사이트를 등록할때 같이 알려주면 좋아요.<br />
 
@@ -383,7 +403,7 @@ const generateSitemap = (routes: IRoute[]): MetadataRoute.Sitemap => {
 const sitemap = (): MetadataRoute.Sitemap => {
   return [
     ...generateSitemap(
-      ROUTES.filter((route): route is Required<IRoute> => !!route.sitemap)
+      ROUTES.filter((route): route is Required<IRoute> => !!route.sitemap),
     ),
     ...allPosts.map((postMetadata) => ({
       url: `${process.env.NEXT_PUBLIC_CLIENT_URL}${postMetadata.path}`,
@@ -398,6 +418,7 @@ export default sitemap;
 ```
 
 #### 4️⃣-2️⃣ robots 세팅
+
 `robots.txt`는 검색엔진에게 어떤 페이지를 크롤링할지 안할지 알려주는 파일이에요.<br />
 
 ```tsx
@@ -418,10 +439,12 @@ export default function robots(): MetadataRoute.Robots {
 ```
 
 ### 5️⃣ 썸네일 세팅
+
 현재 모든 게시글의 썸네일은 게시글의 메타데이터 기반으로 동적으로 만들어지고 있어요.<br />
 방법이 궁금하다면 [Next로 동적 썸네일 만들기](/posts/etc/next-js-image-response)를 참고해주세요.<br />
 
 ## 📮 레퍼런스
+
 1. [과거 벨로그](https://velog.io/@1-blue/posts)
 2. [과거 깃헙 블로그](https://1-blue.github.io)
 3. [Next.js - PPR](https://nextjs.org/docs/app/building-your-application/rendering/partial-prerendering)

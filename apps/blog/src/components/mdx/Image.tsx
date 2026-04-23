@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import NextImage, { ImageProps } from "next/image";
-import { motion, AnimatePresence } from "motion/react";
+import { useCallback, useState } from "react";
 
 import ImageModal from "#/components/mdx/ImageModal";
 

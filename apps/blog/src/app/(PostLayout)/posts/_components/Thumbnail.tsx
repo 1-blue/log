@@ -1,6 +1,5 @@
-import Image from "next/image";
-
 import { cn } from "@workspace/ui/lib/utils";
+import Image from "next/image";
 
 interface Props extends React.HTMLAttributes<HTMLElement> {
   thumbnail: string;

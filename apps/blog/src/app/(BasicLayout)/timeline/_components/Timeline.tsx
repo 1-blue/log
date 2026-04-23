@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { CheckCircleIcon } from "@heroicons/react/24/solid";
-
 import { cn } from "@workspace/ui/lib/utils";
+import Link from "next/link";
+
 import type { IPost } from "#/types";
 
 interface Props {

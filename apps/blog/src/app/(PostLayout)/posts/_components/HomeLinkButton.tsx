@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { HouseIcon } from "lucide-react";
+import Link from "next/link";
 
 const HomeLinkButton = () => {
   return (

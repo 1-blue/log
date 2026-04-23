@@ -63,8 +63,7 @@ export const GET = async (req: NextRequest) => {
   const description = truncateText(
     searchParams.get("description") ?? DEFAULT_DESCRIPTION,
   );
-  const createdAtRaw =
-    searchParams.get("createdAt") ?? nowKoreaFormatted();
+  const createdAtRaw = searchParams.get("createdAt") ?? nowKoreaFormatted();
   const createdAt = toKoreaLocaleDateLight(createdAtRaw);
   const author = searchParams.get("author") ?? DEFAULT_AUTHOR;
 

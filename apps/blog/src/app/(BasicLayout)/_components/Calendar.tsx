@@ -1,15 +1,15 @@
 "use client";
 
+import "react-tooltip/dist/react-tooltip.css";
+
+import { useTheme } from "next-themes";
 import React from "react";
 import ActivityCalendar, {
   type Activity,
   type ThemeInput,
 } from "react-activity-calendar";
 import { Tooltip as ReactTooltip } from "react-tooltip";
-import { useTheme } from "next-themes";
 import twColors from "tailwindcss/colors";
-
-import "react-tooltip/dist/react-tooltip.css";
 
 import { nowKorea } from "#/libs/dayjs";
 import { useCalendarStore } from "#/stores";

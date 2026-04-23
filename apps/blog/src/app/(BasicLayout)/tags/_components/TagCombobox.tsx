@@ -1,10 +1,5 @@
 "use client";
 
-import * as React from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
-import { useRouter } from "next/navigation";
-
-import { cn } from "@workspace/ui/lib/utils";
 import { Button } from "@workspace/ui/components/Button";
 import {
   Command,
@@ -19,6 +14,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@workspace/ui/components/Popover";
+import { cn } from "@workspace/ui/lib/utils";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { useRouter } from "next/navigation";
+import * as React from "react";
 
 interface IProps {
   tags: string[];

@@ -3,7 +3,7 @@ import Link from "next/link";
 const anchorClassName =
   "hover:after:visible after:invisible lg:after:absolute after:top-0 lg:after:right-full after:ml-2 lg:after:mr-2 after:px-2 after:bg-accent after:text-primary after:rounded-md after:content-['#']";
 
-interface Props extends React.HTMLAttributes<HTMLHeadingElement> { }
+interface Props extends React.HTMLAttributes<HTMLHeadingElement> {}
 
 const H1: React.FC<React.PropsWithChildren<Props>> = ({
   children,
@@ -15,7 +15,9 @@ const H1: React.FC<React.PropsWithChildren<Props>> = ({
     {...restProps}
   >
     <Link
-      href={"#" + (children?.toString() ?? "").replaceAll(" ", "-").toLowerCase()}
+      href={
+        "#" + (children?.toString() ?? "").replaceAll(" ", "-").toLowerCase()
+      }
       className={anchorClassName}
     >
       {children}
@@ -32,7 +34,9 @@ const H2: React.FC<React.PropsWithChildren<Props>> = ({
     {...restProps}
   >
     <Link
-      href={"#" + (children?.toString() ?? "").replaceAll(" ", "-").toLowerCase()}
+      href={
+        "#" + (children?.toString() ?? "").replaceAll(" ", "-").toLowerCase()
+      }
       className={anchorClassName}
     >
       {children}
@@ -49,7 +53,9 @@ const H3: React.FC<React.PropsWithChildren<Props>> = ({
     {...restProps}
   >
     <Link
-      href={"#" + (children?.toString() ?? "").replaceAll(" ", "-").toLowerCase()}
+      href={
+        "#" + (children?.toString() ?? "").replaceAll(" ", "-").toLowerCase()
+      }
       className={anchorClassName}
     >
       {children}
@@ -66,7 +72,9 @@ const H4: React.FC<React.PropsWithChildren<Props>> = ({
     {...restProps}
   >
     <Link
-      href={"#" + (children?.toString() ?? "").replaceAll(" ", "-").toLowerCase()}
+      href={
+        "#" + (children?.toString() ?? "").replaceAll(" ", "-").toLowerCase()
+      }
       className={anchorClassName}
     >
       {children}
@@ -83,7 +91,9 @@ const H5: React.FC<React.PropsWithChildren<Props>> = ({
     {...restProps}
   >
     <Link
-      href={"#" + (children?.toString() ?? "").replaceAll(" ", "-").toLowerCase()}
+      href={
+        "#" + (children?.toString() ?? "").replaceAll(" ", "-").toLowerCase()
+      }
       className={anchorClassName}
     >
       {children}
@@ -100,7 +110,9 @@ const H6: React.FC<React.PropsWithChildren<Props>> = ({
     {...restProps}
   >
     <Link
-      href={"#" + (children?.toString() ?? "").replaceAll(" ", "-").toLowerCase()}
+      href={
+        "#" + (children?.toString() ?? "").replaceAll(" ", "-").toLowerCase()
+      }
       className={anchorClassName}
     >
       {children}

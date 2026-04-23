@@ -1,10 +1,9 @@
 import type { Metadata, NextPage } from "next";
 
-import { getAllPosts } from "#/libs/post";
-import { dayjs } from "#/libs/dayjs";
-import { getSharedMetadata } from "#/libs";
-
 import Timeline from "#/app/(BasicLayout)/timeline/_components/Timeline";
+import { getSharedMetadata } from "#/libs";
+import { dayjs } from "#/libs/dayjs";
+import { getAllPosts } from "#/libs/post";
 
 const allPosts = getAllPosts();
 const latestSortedPosts = allPosts.sort(

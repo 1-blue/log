@@ -1,13 +1,13 @@
-import { cache } from "react";
-import path from "path";
 import fs from "fs";
+import { sync } from "glob";
 import matter from "gray-matter";
 import yaml from "js-yaml";
+import path from "path";
+import { cache } from "react";
 import readingTime from "reading-time";
-import { sync } from "glob";
 
-import type { IPost, IPostWithETC } from "#/types";
 import { makeThumbnailPath, toKoreaDate } from "#/libs";
+import type { IPost, IPostWithETC } from "#/types";
 
 /** YAML 날짜 자동 파싱 비활성화 - 입력값을 항상 한국 시간 문자열로 유지 */
 const matterOptions = {
@@ -42,9 +42,7 @@ export const getAllPosts = cache((publishedOnly = true): IPostWithETC[] => {
       .slice(postFolderPath.length)
       .replace(".mdx", "");
 
-    const createdAtFormatted = toKoreaDate(
-      String(metadata.createdAt ?? ""),
-    );
+    const createdAtFormatted = toKoreaDate(String(metadata.createdAt ?? ""));
     const publishedAtFormatted = toKoreaDate(
       String(metadata.publishedAt ?? ""),
     );

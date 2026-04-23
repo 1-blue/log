@@ -22,26 +22,26 @@
 
 ### 1️⃣ Common
 
-| `TypeScript` | `Turborepo` | `pnpm` |
-| :--: | :--: | :--: |
+|                                         `TypeScript`                                          |                                         `Turborepo`                                          |                                         `pnpm`                                          |
+| :-------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------: |
 | <img src="https://cdn.simpleicons.org/typescript/3178C6" alt="icon" width="75" height="75" /> | <img src="https://cdn.simpleicons.org/turborepo/FF1E56" alt="icon" width="75" height="75" /> | <img src="https://cdn.simpleicons.org/pnpm/F69220" alt="icon" width="75" height="75" /> |
 
 ### 2️⃣ FrontEnd (Blog)
 
-| `Next.js` | `Tailwind CSS` | `MDX` | `React` | `shadcn/ui` |
-| :--: | :--: | :--: | :--: | :--: |
+|                                          `Next.js`                                           |                                         `Tailwind CSS`                                         |                                         `MDX`                                          |                                         `React`                                          |                                         `shadcn/ui`                                         |
+| :------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------: |
 | <img src="https://cdn.simpleicons.org/nextdotjs/000000" alt="icon" width="75" height="75" /> | <img src="https://cdn.simpleicons.org/tailwindcss/06B6D4" alt="icon" width="75" height="75" /> | <img src="https://cdn.simpleicons.org/mdx/1B1F24" alt="icon" width="75" height="75" /> | <img src="https://cdn.simpleicons.org/react/61DAFB" alt="icon" width="75" height="75" /> | <img src="https://cdn.simpleicons.org/shadcnui/000000" alt="icon" width="75" height="75" /> |
 
 ### 3️⃣ Blog 라이브러리
 
-| `remark` | `Prettier` | `Zod` |
-| :--: | :--: | :--: |
+|                                         `remark`                                          |                                         `Prettier`                                          |                                         `Zod`                                          |
+| :---------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------: |
 | <img src="https://cdn.simpleicons.org/remark/000000" alt="icon" width="75" height="75" /> | <img src="https://cdn.simpleicons.org/prettier/F7B93E" alt="icon" width="75" height="75" /> | <img src="https://cdn.simpleicons.org/zod/408AFF" alt="icon" width="75" height="75" /> |
 
 ### 4️⃣ Infra & 자동화
 
-| `Vercel` | `n8n` | `GitHub` |
-| :--: | :--: | :--: |
+|                                         `Vercel`                                          |                                         `n8n`                                          |                                         `GitHub`                                          |
+| :---------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------: |
 | <img src="https://cdn.simpleicons.org/vercel/000000" alt="icon" width="75" height="75" /> | <img src="https://cdn.simpleicons.org/n8n/EA4B71" alt="icon" width="75" height="75" /> | <img src="https://cdn.simpleicons.org/github/181717" alt="icon" width="75" height="75" /> |
 
 ## 🤖 n8n 블로그 포스팅 자동화

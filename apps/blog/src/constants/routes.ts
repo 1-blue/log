@@ -8,8 +8,8 @@ import {
   NewspaperIcon as SNewspaperIcon,
   TagIcon as STagIcon,
 } from "@heroicons/react/24/solid";
-
 import { DEFAULT_SITEMAP } from "@workspace/constants";
+
 import type { IRoute } from "#/types";
 
 /** 전체 경로 */
