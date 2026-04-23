@@ -17,7 +17,16 @@ const latestSortedPosts = allPosts.sort(
 const Page: React.FC = () => {
   return (
     <article className="mx-auto my-8 flex max-w-7xl flex-col gap-6">
-      <PostSection title="최근 포스팅" posts={latestSortedPosts} />
+      <PostSection
+        title="최근 포스팅"
+        posts={latestSortedPosts}
+        excludeTagToggle={{
+          tag: "AI",
+          label: "AI 포스팅 제외",
+          defaultChecked: false,
+          caseInsensitive: true,
+        }}
+      />
     </article>
   );
 };

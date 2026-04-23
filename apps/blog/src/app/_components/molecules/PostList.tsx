@@ -17,7 +17,7 @@ interface Props {
 const PostList: React.FC<Props> = ({ post }) => {
   return (
     <li key={post.path} className="flex gap-4">
-      <Link href={post.path} className="inline-block self-center">
+      <Link href={post.path} className="hidden self-center sm:inline-block">
         <figure className="relative aspect-square h-28 overflow-hidden rounded-xl sm:aspect-video sm:h-40">
           <Image
             src={post.thumbnail}
