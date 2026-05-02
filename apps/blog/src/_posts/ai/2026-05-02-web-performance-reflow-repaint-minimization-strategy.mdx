@@ -1,0 +1,404 @@
+---
+title: "[🤖] 웹 성능 최적화: 리플로우와 리페인트 최소화 전략"
+description: "브라우저 렌더링 과정의 핵심인 리플로우(Reflow)와 리페인트(Repaint)의 발생 원리를 이해하고, 이를 효과적으로 줄여 웹 애플리케이션의 성능을 극대화하는 실질적인 전략과 코드 예시를 자세히 알려드려요."
+tags: ["웹 성능 최적화", "리플로우", "리페인트", "브라우저 렌더링", "CSS 최적화", "JavaScript 최적화", "ai"]
+icon: "🚀"
+thumbnail: "/images/thumbnails/web-performance-reflow-repaint.png"
+createdAt: 2026-05-03 06:00:01
+publishedAt: 2026-05-03 06:00:01
+sitemap:
+  lastmod: 2026-05-03 06:00:01
+  changefreq: weekly
+  priority: 0.8
+draft: false
+ai: true
+---
+
+<Blockquote type="info">
+🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
+내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+</Blockquote>
+
+<Blockquote type="tip">
+브라우저 렌더링 성능을 저하시키는 리플로우(Reflow)와 리페인트(Repaint)의 개념을 이해하고, 실질적인 코드 최적화 기법을 통해 웹 애플리케이션의 반응성과 사용자 경험을 개선하는 방법을 배워봐요.
+</Blockquote>
+
+안녕하세요! 시니어 풀스택 개발자 블루예요. 웹 개발을 하면서 "내 웹사이트가 왜 이렇게 느리지?"라는 고민을 해보신 적이 있으신가요? 특히 동적인 UI나 복잡한 애니메이션을 구현할 때 이런 문제를 자주 겪게 되는데요.<br />
+오늘은 웹 성능 최적화의 핵심 개념 중 하나인 **리플로우(Reflow)**와 **리페인트(Repaint)**에 대해 깊이 파고들어 보고, 이들을 효과적으로 최소화하여 웹 애플리케이션의 반응성과 사용자 경험을 크게 개선하는 실질적인 전략들을 알려드릴게요.
+
+## 🤔 리플로우와 리페인트, 왜 중요한가요?
+
+### 0️⃣ 브라우저 렌더링의 기본 과정
+
+우리가 작성한 HTML, CSS, JavaScript 코드가 웹 브라우저 화면에 그려지기까지는 여러 단계의 복잡한 과정이 필요해요.<br />
+이 과정을 간단히 요약하면 다음과 같아요.
+
+1.  **DOM 트리 구축 (DOM Tree):** HTML을 파싱하여 DOM(Document Object Model) 트리를 만들어요.
+2.  **CSSOM 트리 구축 (CSSOM Tree):** CSS를 파싱하여 CSSOM(CSS Object Model) 트리를 만들어요.
+3.  **렌더 트리 구축 (Render Tree):** DOM 트리와 CSSOM 트리를 결합하여 렌더 트리를 생성해요. 렌더 트리는 화면에 렌더링될 요소들(visibility: hidden은 포함하지만 display: none은 제외)의 레이아웃 정보와 스타일 정보를 담고 있어요.
+4.  **레이아웃 (Layout / Reflow):** 렌더 트리의 각 노드에 대해 화면상의 정확한 위치와 크기를 계산해요. 이 과정을 '레이아웃' 또는 '리플로우'라고 부른답니다.
+5.  **페인트 (Paint / Repaint):** 계산된 레이아웃 정보를 바탕으로 픽셀을 화면에 그려요. 이 과정을 '페인트' 또는 '리페인트'라고 해요.
+6.  **합성 (Compositing):** 여러 레이어(Layer)로 나뉜 요소들을 합성하여 최종 화면을 완성해요.
+
+<Blockquote type="info">
+**잠깐! 렌더링 블로킹 리소스란?**<br />
+HTML 파싱 중 `<script>` 태그를 만나면, 해당 스크립트가 DOM 트리를 변경할 수 있기 때문에 파싱이 중단되고 스크립트가 실행될 때까지 기다려요.<br />
+또한, `<link rel="stylesheet">` 같은 CSS 파일은 CSSOM 트리를 구축해야 렌더 트리를 만들 수 있으므로 렌더링을 블로킹할 수 있어요.<br />
+이런 리소스들은 웹 성능에 큰 영향을 줄 수 있으니 주의해야 해요.
+</Blockquote>
+
+### 1️⃣ 리플로우(Reflow)와 리페인트(Repaint)란?
+
+리플로우와 리페인트는 웹 페이지의 성능에 직접적인 영향을 미치는 핵심적인 브라우저 렌더링 단계예요.<br />
+두 가지 개념을 좀 더 자세히 살펴볼게요.
+
+*   **리플로우 (Reflow 또는 Layout):**<br />
+    DOM 트리의 구조나 요소의 크기, 위치 등 **레이아웃에 영향을 주는 변경**이 발생했을 때, 브라우저가 해당 요소와 그 자식 요소, 그리고 주변 요소들의 크기와 위치를 다시 계산하는 과정이에요.<br />
+    예를 들어, 요소의 `width`, `height`, `margin`, `padding`, `border`, `font-size`, `position`, `display` 등의 속성이 변경되면 리플로우가 발생해요. 리플로우는 주변 요소들에게도 영향을 미치기 때문에 비용이 많이 드는 작업이랍니다.
+
+*   **리페인트 (Repaint 또는 Paint):**<br />
+    요소의 레이아웃에는 영향을 주지 않으면서 **시각적인 스타일만 변경**될 때, 브라우저가 해당 요소의 픽셀을 다시 그리는 과정이에요.<br />
+    예를 들어, 요소의 `color`, `background-color`, `visibility`, `opacity`, `box-shadow` 등의 속성이 변경되면 리페인트가 발생해요. 리페인트는 리플로우보다는 비용이 적게 들지만, 여전히 성능에 영향을 줄 수 있어요.
+
+<Blockquote type="warning">
+**기억하세요!**<br />
+리플로우는 항상 리페인트를 동반하지만, 리페인트는 리플로우를 동반하지 않을 수 있어요.<br />
+즉, 레이아웃이 변경되면(리플로우) 화면도 다시 그려야 하지만(리페인트), 색상만 변경되는 경우(리페인트) 레이아웃을 다시 계산할 필요는 없다는 의미예요.
+</Blockquote>
+
+### 2️⃣ 성능 저하의 주범 😢
+
+리플로우와 리페인트는 브라우저가 화면을 갱신하는 데 필수적인 과정이지만, 너무 자주 발생하거나 한 번에 많은 요소에 영향을 미치면 웹 페이지의 반응성을 떨어뜨리고, 버벅거림(jank) 현상을 유발할 수 있어요.<br />
+특히 모바일 환경이나 저사양 기기에서는 이러한 성능 저하가 더욱 두드러지게 나타난답니다.<br />
+사용자들은 느리고 버벅거리는 웹사이트를 싫어해요. 그래서 이들을 최소화하는 것이 웹 성능 최적화에 있어서 매우 중요해요.
+
+## 🚀 리플로우와 리페인트 최소화 전략
+
+이제부터 실질적으로 리플로우와 리페인트를 줄일 수 있는 다양한 전략들을 살펴볼게요.
+
+### 0️⃣ CSS 속성 선택의 중요성 🎨
+
+모든 CSS 속성이 동일한 방식으로 렌더링 성능에 영향을 미치는 것은 아니에요.<br />
+어떤 속성은 리플로우를 유발하고, 어떤 속성은 리페인트만 유발하며, 어떤 속성은 합성(Compositing) 단계에서만 처리되어 GPU 가속을 받을 수 있어요.
+
+*   **리플로우 유발 속성 (비용 높음):**<br />
+    `width`, `height`, `margin`, `padding`, `border`, `top`, `left`, `right`, `bottom`, `font-size`, `text-align`, `overflow`, `display`, `position`, `float` 등 요소의 기하학적 정보에 영향을 주는 모든 속성이에요.
+
+*   **리페인트 유발 속성 (비용 중간):**<br />
+    `color`, `background-color`, `visibility`, `box-shadow`, `text-decoration` 등 레이아웃에 영향을 주지 않고 시각적인 표현만 변경하는 속성이에요.
+
+*   **합성(Compositing)만 유발하는 속성 (비용 낮음, GPU 가속 가능):**<br />
+    `opacity`, `transform` (2D/3D) 등의 속성은 요소의 레이어 자체를 이동하거나 불투명도를 변경하기 때문에, 브라우저가 해당 요소를 별도의 레이어로 분리하여 GPU를 통해 빠르게 처리할 수 있어요.<br />
+    이러한 속성들은 리플로우나 리페인트를 유발하지 않고, 합성 단계에서만 처리되므로 애니메이션에 사용하면 매우 효율적이에요.
+
+<Blockquote type="tip">
+**핵심 전략:** 애니메이션이나 자주 변경되는 속성에는 `transform`이나 `opacity`와 같이 합성만 유발하는 속성을 우선적으로 사용하세요.<br />
+부득이하게 레이아웃 속성을 변경해야 한다면, 그 영향을 최소화하는 방법을 찾아야 해요.
+</Blockquote>
+
+### 1️⃣ DOM 변경 최소화 및 효율적인 업데이트 🔄
+
+DOM을 직접 조작하는 것은 리플로우와 리페인트를 가장 빈번하게 유발하는 원인 중 하나예요.<br />
+다음과 같은 방법으로 DOM 변경을 효율적으로 관리할 수 있어요.
+
+*   **스타일 변경 일괄 처리:**<br />
+    여러 개의 CSS 속성을 개별적으로 변경하면 각 변경마다 리플로우/리페인트가 발생할 수 있어요.<br />
+    대신, CSS 클래스를 토글하거나 `cssText` 속성을 사용하여 한 번에 모든 스타일을 변경하면 좋아요.
+
+*   **DOM 조작 최소화:**<br />
+    DOM 요소를 추가, 삭제, 이동할 때마다 리플로우가 발생해요.<br />
+    가능한 한 DOM 조작 횟수를 줄이고, 필요하다면 다음과 같은 방법을 사용해요.
+    *   **DocumentFragment 사용:**<br />
+        여러 DOM 요소를 한 번에 추가해야 할 때, `DocumentFragment`를 사용하면 DOM 트리에 한 번만 접근하여 리플로우를 한 번만 발생시킬 수 있어요.<br />
+        `DocumentFragment`는 실제 DOM 트리에 존재하지 않는 가상의 DOM 노드예요.
+    *   **요소를 DOM에서 분리 후 조작:**<br />
+        복잡한 DOM 조작이 필요한 경우, 해당 요소를 `display: none`으로 설정하여 DOM에서 일시적으로 분리하거나, `remove()` 메서드로 제거한 후 조작을 완료하고 다시 추가하는 방법을 사용할 수 있어요.<br />
+        이 방법은 조작 중에는 리플로우/리페인트를 방지하지만, `display: none` 설정 및 해제 시, 또는 추가/제거 시 리플로우가 발생할 수 있으니 주의해야 해요.
+
+*   **읽기 작업과 쓰기 작업 분리:**<br />
+    브라우저는 성능 최적화를 위해 여러 쓰기(write) 작업을 큐에 넣어뒀다가 한꺼번에 처리하는 경향이 있어요.<br />
+    하지만 쓰기 작업(`element.style.width = '100px'`)과 읽기 작업(`element.offsetWidth`)이 번갈아 발생하면, 브라우저는 최신 레이아웃 정보를 얻기 위해 강제로 큐에 있는 쓰기 작업을 즉시 실행(강제 동기 레이아웃)시켜 불필요한 리플로우를 유발해요.<br />
+    따라서 읽기 작업은 모두 먼저 수행하고, 그 후에 쓰기 작업을 일괄적으로 처리하는 것이 좋아요.
+
+    ```javascript
+    // 👎 비효율적인 예시 (강제 동기 레이아웃 발생)
+    for (let i = 0; i < 100; i++) {
+      el.style.width = (el.offsetWidth + 10) + 'px'; // 읽기(offsetWidth) -> 쓰기(width) 반복
+    }
+
+    // 👍 효율적인 예시 (읽기, 쓰기 분리)
+    let widths = [];
+    for (let i = 0; i < 100; i++) {
+      widths.push(el.offsetWidth); // 모든 읽기 작업 먼저 수행
+    }
+    for (let i = 0; i < 100; i++) {
+      el.style.width = (widths[i] + 10) + 'px'; // 모든 쓰기 작업 일괄 처리
+    }
+    ```
+
+### 2️⃣ 애니메이션 최적화 ✨
+
+애니메이션은 시각적 변화가 연속적으로 발생하므로 리플로우/리페인트에 매우 취약해요.<br />
+다음 방법을 통해 애니메이션 성능을 개선할 수 있어요.
+
+*   **CSS `transform`과 `opacity` 사용:**<br />
+    앞서 설명했듯이, `transform`과 `opacity`는 GPU 가속을 활용하여 합성 단계에서만 처리되므로 가장 성능이 좋은 애니메이션 속성이에요.<br />
+    `left`, `top` 대신 `transform: translate()`를 사용하세요.
+
+*   **`requestAnimationFrame` 활용:**<br />
+    JavaScript로 애니메이션을 구현할 때는 `setTimeout`이나 `setInterval` 대신 `requestAnimationFrame`을 사용하세요.<br />
+    `requestAnimationFrame`은 브라우저의 렌더링 주기와 동기화되어 다음 리페인트가 발생하기 직전에 콜백 함수를 실행해요.<br />
+    이는 애니메이션이 끊김 없이 부드럽게 보이도록 하고, 불필요한 프레임 드롭을 방지하는 데 도움을 줘요.
+
+*   **`will-change` 속성:**<br />
+    CSS `will-change` 속성은 브라우저에게 "이 요소가 곧 변경될 것이니 미리 최적화해 둬라"고 힌트를 주는 역할을 해요.<br />
+    예를 들어, `will-change: transform, opacity;`를 설정하면 브라우저는 해당 요소에 대한 레이어를 미리 생성하여 애니메이션 시작 시 발생할 수 있는 초기 성능 저하를 줄일 수 있어요.<br />
+    하지만 남용하면 오히려 메모리 사용량을 늘리고 성능을 저하시킬 수 있으니, 실제로 애니메이션이 적용될 요소에만 신중하게 사용해야 해요.
+
+    ```css
+    .animated-element {
+      will-change: transform, opacity; /* 애니메이션이 시작되기 전 미리 브라우저에 힌트를 줍니다. */
+      transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+    }
+    ```
+
+### 3️⃣ JavaScript 최적화 기법 💡
+
+JavaScript 코드도 리플로우와 리페인트를 유발할 수 있어요.<br />
+다음과 같은 기법으로 최적화할 수 있답니다.
+
+*   **쓰로틀링(Throttling)과 디바운싱(Debouncing):**<br />
+    `resize`, `scroll`, `mousemove`와 같이 빈번하게 발생하는 이벤트 핸들러 내부에서 DOM 조작이나 레이아웃 계산이 일어난다면 심각한 성능 저하를 초래할 수 있어요.<br />
+    이러한 이벤트에는 쓰로틀링(일정 시간 동안 한 번만 실행)이나 디바운싱(마지막 이벤트 발생 후 일정 시간 뒤 실행)을 적용하여 콜백 함수의 실행 횟수를 제한해야 해요.
+
+<LinkPreviewCard href="https://lodash.com/docs/4.17.15#throttle" />
+<LinkPreviewCard href="https://lodash.com/docs/4.17.15#debounce" />
+
+*   **Virtual DOM 활용 (React, Vue 등):**<br />
+    React나 Vue 같은 프레임워크는 Virtual DOM을 사용하여 실제 DOM 조작을 최소화해요.<br />
+    상태가 변경되면 Virtual DOM에서 변경 사항을 계산하고, 실제 DOM과의 차이(diff)를 비교하여 최소한의 DOM 조작만 발생시키기 때문에 리플로우와 리페인트를 효율적으로 관리할 수 있어요.<br />
+    물론 Virtual DOM도 결국 실제 DOM을 업데이트해야 하므로 리플로우/리페인트가 발생하지만, 개발자가 직접 DOM을 조작하는 것보다 훨씬 효율적으로 처리해 준답니다.
+
+## 🧪 실전 코드 예시로 배우는 최적화
+
+이제 실제 코드를 통해 앞에서 배운 전략들을 어떻게 적용할 수 있는지 살펴볼게요.
+
+### 0️⃣ CSS 속성 변경 최적화 🚀
+
+버튼 클릭 시 요소의 위치를 이동시키는 애니메이션을 만든다고 가정해 봐요.<br />
+`left` 속성을 사용하는 경우와 `transform` 속성을 사용하는 경우를 비교해 볼게요.
+
+```html
+<style>
+  .box {
+    width: 100px;
+    height: 100px;
+    background-color: dodgerblue;
+    position: relative;
+    margin-bottom: 20px;
+  }
+
+  /* 👎 left 속성 사용 (리플로우 유발) */
+  .box-left {
+    left: 0;
+    transition: left 0.5s ease-out;
+  }
+  .box-left.move {
+    left: 200px;
+  }
+
+  /* 👍 transform 속성 사용 (합성만 유발, GPU 가속) */
+  .box-transform {
+    transform: translateX(0);
+    transition: transform 0.5s ease-out;
+  }
+  .box-transform.move {
+    transform: translateX(200px);
+  }
+</style>
+
+<div>
+  <div id="boxLeft" class="box box-left"></div>
+  <button onclick="toggleMove('boxLeft')">Move with Left</button>
+</div>
+
+<div>
+  <div id="boxTransform" class="box box-transform"></div>
+  <button onclick="toggleMove('boxTransform')">Move with Transform</button>
+</div>
+
+<script>
+  function toggleMove(id) {
+    const element = document.getElementById(id);
+    element.classList.toggle('move');
+  }
+</script>
+```
+
+<Blockquote type="tip">
+개발자 도구의 Performance 탭에서 두 버튼을 클릭하며 렌더링 과정을 살펴보세요.<br />
+`box-left`는 Layout(Reflow)과 Paint(Repaint)가 모두 발생하는 반면, `box-transform`은 주로 Composite(합성) 단계에서 처리되는 것을 확인할 수 있어요. `transform`이 훨씬 효율적이죠!
+</Blockquote>
+
+### 1️⃣ DOM 조작 최적화 🔄
+
+여러 개의 리스트 아이템을 추가해야 할 때, 각 아이템을 개별적으로 DOM에 추가하는 경우와 `DocumentFragment`를 사용하는 경우를 비교해 볼게요.
+
+```html
+<div>
+  <h3>개별 추가 (비효율적)</h3>
+  <ul id="listIndividual"></ul>
+  <button onclick="addItemsIndividual()">개별 아이템 추가</button>
+</div>
+
+<div>
+  <h3>DocumentFragment 사용 (효율적)</h3>
+  <ul id="listFragment"></ul>
+  <button onclick="addItemsFragment()">Fragment 아이템 추가</button>
+</div>
+
+<script>
+  function createListItem(text) {
+    const li = document.createElement('li');
+    li.textContent = text;
+    return li;
+  }
+
+  function addItemsIndividual() {
+    const list = document.getElementById('listIndividual');
+    // 기존 아이템 제거 후 다시 추가 (예시를 위해)
+    list.innerHTML = ''; 
+    
+    console.time('addItemsIndividual');
+    for (let i = 0; i < 1000; i++) {
+      list.appendChild(createListItem(`Item ${i}`)); // 1000번의 DOM 조작 -> 1000번의 리플로우/리페인트 가능성
+    }
+    console.timeEnd('addItemsIndividual');
+  }
+
+  function addItemsFragment() {
+    const list = document.getElementById('listFragment');
+    // 기존 아이템 제거 후 다시 추가 (예시를 위해)
+    list.innerHTML = '';
+
+    console.time('addItemsFragment');
+    const fragment = document.createDocumentFragment();
+    for (let i = 0; i < 1000; i++) {
+      fragment.appendChild(createListItem(`Item ${i}`)); // Fragment에 추가 -> DOM에는 아직 영향 없음
+    }
+    list.appendChild(fragment); // 한 번의 DOM 조작 -> 한 번의 리플로우/리페인트
+    console.timeEnd('addItemsFragment');
+  }
+</script>
+```
+
+<Blockquote type="success">
+`addItemsIndividual` 함수는 1000번의 `appendChild` 호출로 인해 1000번의 잠재적인 리플로우/리페인트를 유발할 수 있어요.<br />
+반면, `addItemsFragment` 함수는 `DocumentFragment`에 1000개의 요소를 추가한 후, 최종적으로 `list.appendChild(fragment)`를 통해 단 한 번만 DOM에 접근하므로 훨씬 효율적이죠.
+</Blockquote>
+
+### 2️⃣ 애니메이션에 `requestAnimationFrame` 활용 ⏱️
+
+JavaScript로 부드러운 애니메이션을 구현할 때 `requestAnimationFrame`이 얼마나 중요한지 보여드릴게요.<br />
+여기서는 박스를 움직이는 간단한 애니메이션을 `setInterval`과 `requestAnimationFrame`으로 각각 구현해 비교해 볼 수 있어요.
+
+```html
+<style>
+  .anim-box {
+    width: 50px;
+    height: 50px;
+    background-color: purple;
+    position: relative;
+    left: 0;
+    margin-bottom: 20px;
+  }
+</style>
+
+<div>
+  <h3>setInterval 애니메이션</h3>
+  <div id="intervalBox" class="anim-box"></div>
+  <button onclick="startIntervalAnimation()">시작</button>
+  <button onclick="stopIntervalAnimation()">중지</button>
+</div>
+
+<div>
+  <h3>requestAnimationFrame 애니메이션</h3>
+  <div id="rafBox" class="anim-box"></div>
+  <button onclick="startRafAnimation()">시작</button>
+  <button onclick="stopRafAnimation()">중지</button>
+</div>
+
+<script>
+  let intervalId;
+  let rafId;
+
+  function startIntervalAnimation() {
+    const box = document.getElementById('intervalBox');
+    let position = 0;
+    intervalId = setInterval(() => {
+      position += 2;
+      box.style.left = position + 'px'; // left 속성 변경은 리플로우 유발
+      if (position > 200) {
+        position = 0;
+      }
+    }, 16); // 약 60fps (1000ms / 60 = 16.6ms)
+  }
+
+  function stopIntervalAnimation() {
+    clearInterval(intervalId);
+  }
+
+  function startRafAnimation() {
+    const box = document.getElementById('rafBox');
+    let position = 0;
+
+    function animate() {
+      position += 2;
+      box.style.transform = `translateX(${position}px)`; // transform 사용으로 합성만 유발
+      if (position > 200) {
+        position = 0;
+      }
+      rafId = requestAnimationFrame(animate); // 브라우저 렌더링 주기에 맞춰 호출
+    }
+    rafId = requestAnimationFrame(animate);
+  }
+
+  function stopRafAnimation() {
+    cancelAnimationFrame(rafId);
+  }
+</script>
+```
+
+<Blockquote type="info">
+`setInterval`은 정해진 시간 간격으로 무조건 콜백을 실행해요. 이는 브라우저의 렌더링 주기와 맞지 않을 경우 프레임 드롭을 유발하거나, 화면이 그려지기 전에 불필요한 계산을 할 수 있어요.<br />
+반면 `requestAnimationFrame`은 브라우저가 화면을 갱신하기 전에 딱 한 번만 콜백을 실행하도록 보장하기 때문에, 훨씬 부드럽고 효율적인 애니메이션을 구현할 수 있답니다.
+</Blockquote>
+
+## 📝 정리하며
+
+웹 성능 최적화는 단순히 페이지 로딩 속도만을 의미하지 않아요.<br />
+사용자가 웹 애플리케이션과 상호작용할 때 얼마나 부드럽고 빠르게 반응하는지도 중요한 성능 지표가 된답니다.<br />
+오늘 우리는 브라우저 렌더링의 핵심인 리플로우와 리페인트의 개념을 이해하고, 이를 최소화하기 위한 다양한 실질적인 전략들을 배워봤어요.
+
+### 0️⃣ 핵심 요약 및 실천 가이드 ✅
+
+*   **리플로우(Reflow)**는 레이아웃 변경 시 발생하며 비용이 가장 높아요.
+*   **리페인트(Repaint)**는 시각적 스타일 변경 시 발생하며 리플로우보다 비용이 낮아요.
+*   애니메이션에는 `transform`, `opacity`와 같이 **합성(Compositing)만 유발하는 CSS 속성**을 우선적으로 사용하세요.
+*   **DOM 조작 횟수를 최소화**하고, 여러 변경 사항은 `DocumentFragment`를 사용하거나 CSS 클래스 토글 등으로 **일괄 처리**하세요.
+*   `element.offsetWidth` 같은 **읽기 작업과 쓰기 작업을 분리**하여 강제 동기 레이아웃을 피하세요.
+*   JavaScript 애니메이션에는 `requestAnimationFrame`을 사용하고, `will-change` 속성으로 브라우저에 힌트를 주세요.
+*   `resize`, `scroll` 등 빈번한 이벤트에는 **쓰로틀링/디바운싱**을 적용하여 불필요한 연산을 줄이세요.
+
+이러한 최적화 기법들은 당장 모든 프로젝트에 적용하기 어려울 수도 있어요.<br />
+하지만 작은 부분부터 꾸준히 개선해 나간다면, 여러분의 웹 애플리케이션은 훨씬 더 빠르고 사용자 친화적으로 변할 거예요.<br />
+개발자 도구의 Performance 탭을 적극 활용하여 여러분의 웹사이트에서 리플로우와 리페인트가 어떻게 발생하는지 직접 확인해 보는 것도 좋은 학습 방법이 될 거예요.<br />
+다음에는 더 유익한 주제로 찾아올게요!
+
+## 📮 참고
+
+*   [MDN Web Docs - requestAnimationFrame](https://developer.mozilla.org/ko/docs/Web/API/Window/requestAnimationFrame)
+*   [MDN Web Docs - DocumentFragment](https://developer.mozilla.org/ko/docs/Web/API/DocumentFragment)
+*   [MDN Web Docs - CSS will-change](https://developer.mozilla.org/ko/docs/Web/CSS/will-change)
+*   [Google Developers - Optimize CSS and JavaScript](https://developer.chrome.com/docs/lighthouse/performance/optimize-css-js?hl=ko)
+*   [Google Developers - Avoid large, complex layouts and layout thrashing](https://developer.chrome.com/docs/lighthouse/performance/avoid-large-layouts?hl=ko)
