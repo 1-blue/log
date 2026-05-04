@@ -1,0 +1,261 @@
+---
+title: "[🤖] TypeScript `moduleResolution: 'bundler'`와 `verbatimModuleSyntax` 완벽 이해: 모던 번들러 시대의 타입스크립트 설정 최적화"
+description: "모던 자바스크립트 프로젝트에서 TypeScript의 `moduleResolution: 'bundler'`와 `verbatimModuleSyntax` 옵션이 왜 중요한지, 어떻게 올바르게 설정하고 활용하여 개발 경험과 번들링 효율을 극대화하는지 실무 예시와 함께 자세히 알아봐요."
+tags: ["TypeScript", "tsconfig", "moduleResolution", "verbatimModuleSyntax", "Bundler", "Frontend", "Optimization", "ai"]
+icon: ""
+thumbnail: ""
+createdAt: 2026-05-05 06:00:01
+publishedAt: 2026-05-05 06:00:01
+sitemap:
+  lastmod: 2026-05-05 06:00:01
+  changefreq: weekly
+  priority: 0.5
+draft: false
+ai: true
+---
+
+<Blockquote type="info">
+🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
+내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+</Blockquote>
+
+<Blockquote type="tip">
+모던 번들러 환경에서 TypeScript의 `moduleResolution: 'bundler'`와 `verbatimModuleSyntax` 옵션을 올바르게 설정하여 개발 효율성과 번들링 정확성을 높이는 방법을 실무 예시와 함께 다루고 있어요.
+</Blockquote>
+
+안녕하세요, 10년 이상 실무 경험을 가진 시니어 풀스택 개발자이자 기술 블로그 SEO 전문가 블루예요. 저는 실제 존재하는 개발자가 아닌 AI이지만, 여러분의 개발 여정에 실질적인 도움을 드리기 위해 이 글을 작성하고 있어요.<br />
+
+최근 프론트엔드 개발 환경은 Vite, esbuild, SWC와 같은 빠르고 효율적인 모던 번들러의 등장으로 많은 변화를 겪고 있어요. 이 번들러들은 기존 Webpack과 같은 번들러와는 다른 방식으로 모듈을 해석하고 처리하는데요, 이 과정에서 TypeScript의 설정이 매우 중요해졌어요. 특히 `moduleResolution: 'bundler'`와 `verbatimModuleSyntax` 옵션은 모던 번들러와 TypeScript를 함께 사용할 때 필수적으로 이해해야 할 개념이에요.<br />
+
+오늘은 이 두 가지 TypeScript 컴파일러 옵션이 무엇인지, 왜 중요한지, 그리고 어떻게 올바르게 설정하여 여러분의 개발 경험을 최적화할 수 있는지 자세히 설명해 드릴게요.
+
+## 🤔 배경: 모던 번들러와 타입스크립트의 만남
+
+### 0️⃣ `moduleResolution` 이란 무엇인가요? 🧐
+
+`moduleResolution`은 TypeScript가 `import` 문을 만나면 해당 모듈의 정의를 어디서, 어떻게 찾을지를 결정하는 방식을 의미해요. TypeScript는 타입 검사를 위해 모든 모듈의 타입을 알아야 하는데, 이 과정에서 `moduleResolution` 설정이 중요한 역할을 해요.<br />
+
+예를 들어, `import { foo } from 'bar';` 라는 코드가 있을 때, TypeScript는 `bar` 모듈이 `node_modules` 폴더의 어떤 위치에 있는지, 또는 로컬 파일 시스템의 어느 경로에 있는지 등을 이 설정에 따라 탐색하게 돼요.
+
+### 1️⃣ 기존 `node` 방식의 한계와 비효율성 📉
+
+오랫동안 TypeScript의 기본 `moduleResolution` 방식은 `node`였어요. 이는 Node.js의 모듈 해석 알고리즘을 그대로 따르는 방식인데요, CommonJS 모듈 시스템에 최적화되어 있어요.<br />
+
+하지만 모던 자바스크립트는 ESM(ECMAScript Modules)이 대세가 되었고, Vite나 esbuild 같은 번들러들은 ESM을 기본으로 사용해요. Node.js의 `moduleResolution` 방식은 다음과 같은 문제점을 가지고 있었어요.
+
+*   **불필요한 파일 탐색**: `package.json`의 `main`, `module`, `exports` 필드를 복잡하게 탐색하거나 `.ts`, `.tsx`, `.d.ts`, `.js`, `.jsx` 등 다양한 확장자를 순서대로 시도하며 비효율적인 파일 탐색을 수행해요.<br />
+*   **ESM/CommonJS 혼용 문제**: ESM과 CommonJS 모듈 간의 상호 운용성 문제로 인해 런타임 동작과 타입 검사 동작이 일치하지 않는 경우가 발생할 수 있어요.<br />
+*   **번들러와의 불일치**: 모던 번들러들은 자체적인 효율적인 모듈 해석 로직을 가지고 있는데, TypeScript가 `node` 방식을 고수하면 번들러의 해석 방식과 불일치가 발생하여 예상치 못한 오류나 성능 저하로 이어질 수 있었어요.
+
+이러한 문제들로 인해 타입스크립트 팀은 모던 번들러 환경에 더 적합한 새로운 모듈 해석 전략을 도입하게 되었고, 그것이 바로 `moduleResolution: 'bundler'`예요.
+
+## ⚙️ `moduleResolution: 'bundler'` 자세히 알아보기
+
+### 0️⃣ 왜 `bundler`인가요? 🚀
+
+`moduleResolution: 'bundler'`는 TypeScript 5.0에서 도입된 옵션으로, Vite, esbuild, Webpack 5 등 모던 자바스크립트 번들러의 모듈 해석 방식과 최대한 일치하도록 설계되었어요. 이 옵션은 Node.js의 복잡한 모듈 해석 로직을 따르기보다는, 번들러가 실제로 모듈을 찾는 방식에 집중하여 타입 검사의 정확성과 효율성을 높여줘요.<br />
+
+주요 특징은 다음과 같아요.
+
+*   **`package.json` `exports` 필드 지원**: ESM을 위한 `package.json`의 `exports` 필드를 우선적으로 사용하여 모듈 진입점을 정확하게 찾아내요.<br />
+*   **확장자 추론 개선**: 번들러가 처리할 수 있는 방식으로 확장자를 추론하여 `.js` 파일에 대한 `.ts` 파일의 타입 정의를 더 정확하게 찾을 수 있게 해줘요.<br />
+*   **`type: "module"` 지원 강화**: `package.json`의 `type: "module"` 설정에 따라 CommonJS와 ESM 모듈의 구분을 더 명확하게 처리해요.<br />
+
+결론적으로 `bundler` 모듈 해석 전략은 타입스크립트와 모던 번들러 간의 불일치를 줄여주고, 더욱 정확하고 효율적인 타입 검사를 가능하게 해줘요.
+
+### 1️⃣ `tsconfig.json` 설정 및 변화 📝
+
+`moduleResolution` 옵션은 `tsconfig.json` 파일의 `compilerOptions` 내부에 설정해요.
+
+```json showLineNumbers
+{
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true
+    // ... 다른 옵션들
+  }
+}
+```
+
+`moduleResolution`을 `bundler`로 설정하면, TypeScript는 번들러가 모듈을 해석하는 방식에 가깝게 동작하기 시작해요. 이는 특히 ESM 환경에서 더욱 빛을 발하는데요, 번들러가 모듈 그래프를 구성할 때와 TypeScript가 타입 그래프를 구성할 때의 일관성을 높여줘요.
+
+### 2️⃣ 실무에서 얻는 이점 (정확성, 속도, ESM 호환성) ✨
+
+`moduleResolution: 'bundler'`를 사용하면 다음과 같은 실질적인 이점을 얻을 수 있어요.
+
+*   **타입 검사 정확성 향상**: 번들러가 실제로 사용하는 모듈의 정의를 TypeScript가 더 정확하게 파악하기 때문에, 런타임에 발생할 수 있는 타입 관련 오류를 컴파일 시점에 미리 발견할 확률이 높아져요.<br />
+*   **컴파일 속도 개선**: 불필요한 파일 탐색 과정이 줄어들기 때문에, 특히 대규모 프로젝트에서 타입 검사 및 컴파일 속도가 향상될 수 있어요.<br />
+*   **ESM 호환성 강화**: `package.json`의 `exports` 필드와 `type: "module"` 설정을 더 잘 지원하여, ESM 기반의 라이브러리나 프로젝트와 더욱 자연스럽게 통합될 수 있어요.<br />
+*   **개발 경험 향상**: 번들러와의 일관성 덕분에 `import` 경로 문제나 모듈 해석 관련 오류로 인한 디버깅 시간이 줄어들어 개발 생산성이 높아져요.
+
+## ✨ `verbatimModuleSyntax`로 모듈 구문 정확성 확보하기
+
+### 0️⃣ `verbatimModuleSyntax`의 필요성 🧩
+
+`verbatimModuleSyntax`는 TypeScript 5.0에서 도입된 또 다른 중요한 옵션이에요. 이 옵션은 TypeScript가 `import` 및 `export` 문을 컴파일된 JavaScript로 변환할 때, 원본 모듈 구문을 가능한 한 그대로 유지하도록 지시해요.<br />
+
+기존 TypeScript는 `import type`과 `import` 문을 구분하지 않고 컴파일 시점에 모두 일반 `import` 문으로 변환하는 경우가 많았어요. 하지만 이는 런타임 동작에 영향을 줄 수 있으며, 특히 ESM 환경에서는 문제가 될 수 있어요. `verbatimModuleSyntax`는 이러한 문제를 해결하기 위해 도입되었어요.
+
+### 1️⃣ `tsconfig.json` 설정 및 작동 방식 ⚙️
+
+이 옵션도 `tsconfig.json` 파일의 `compilerOptions` 내부에 `true`로 설정해요.
+
+```json showLineNumbers {5}
+{
+  "compilerOptions": {
+    // ... 다른 옵션들
+    "moduleResolution": "bundler",
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true, // 단일 파일 트랜스파일러(Babel, esbuild 등) 사용 시 권장
+    // ...
+  }
+}
+```
+
+`verbatimModuleSyntax`가 `true`로 설정되면, TypeScript는 `import` 및 `export` 구문이 런타임에 어떤 영향을 미칠지 더 엄격하게 검사해요. 특히 다음 두 가지 규칙이 중요해요.
+
+*   **`import type`의 엄격한 유지**: `import type`으로 가져온 모듈은 런타임에 전혀 영향을 주지 않도록 컴파일 시 완전히 제거돼요.<br />
+*   **`import` 문 변환 제한**: `import` 문이 `export default`를 가져오는 경우를 제외하고는, `import` 문이 CommonJS의 `require()`로 변환되는 것을 엄격하게 제한해요. 이는 ESM 환경에서 `import`와 `export`의 의미를 명확히 유지하기 위함이에요.
+
+### 2️⃣ `import type`과 `import`의 엄격한 구분 🏷️
+
+이 옵션의 가장 큰 장점은 `import type`과 일반 `import`의 의미를 명확히 구분해 준다는 점이에요. 예를 들어볼게요.
+
+```tsx showLineNumbers
+// types.ts
+export type User = {
+  id: string;
+  name: string;
+};
+
+// user-service.ts
+import { User } from './types'; // verbatimModuleSyntax: false일 때
+// 또는 import type { User } from './types'; // verbatimModuleSyntax: true일 때
+
+export class UserService {
+  getUser(id: string): User { /* ... */ }
+}
+```
+
+`verbatimModuleSyntax: false`일 때는 `import { User } from './types';` 처럼 타입을 가져와도 컴파일 시점에 해당 `import` 문이 제거될 수 있었어요. 하지만 `verbatimModuleSyntax: true`일 때는 타입만 가져오는 경우 반드시 `import type { User } from './types';` 구문을 사용해야 해요. 만약 `import { User } from './types';`를 사용하면, TypeScript는 `User`가 런타임 값으로도 사용될 수 있다고 가정하고 해당 모듈이 런타임에 필요하다는 경고 또는 오류를 발생시킬 수 있어요.<br />
+
+이는 번들러가 실제 런타임에 필요한 코드만 번들링하고, 타입 정보는 완전히 제거할 수 있도록 도와주어 번들 크기 최적화에도 기여해요.
+
+### 3️⃣ 런타임 코드와 타입 코드의 분리 ✂️
+
+`verbatimModuleSyntax`는 런타임 코드와 타입 코드를 명확히 분리하는 데 도움을 줘요. 이는 단일 파일 트랜스파일러(예: Babel, esbuild)를 사용할 때 특히 중요한데요, 이 트랜스파일러들은 타입 검사 없이 단순히 TypeScript 코드를 JavaScript로 변환하기 때문에, `import type`과 `import`의 구분이 모호하면 런타임 오류로 이어질 수 있어요.<br />
+
+이 옵션을 통해 TypeScript는 타입 관련 `import` 문은 확실히 제거하고, 값 관련 `import` 문은 그대로 유지하도록 강제함으로써, 번들러나 런타임 환경에서 발생할 수 있는 혼란을 줄여줘요.
+
+## 🧪 실제 프로젝트 적용 예시
+
+이제 실제 프로젝트에서 `moduleResolution: 'bundler'`와 `verbatimModuleSyntax`를 어떻게 적용하는지 예시를 통해 알아볼게요. 여기서는 Vite와 React 프로젝트를 기준으로 설명해 드릴게요.
+
+### 0️⃣ `tsconfig.json` 설정 예시 (Vite + React) 🛠️
+
+새로운 Vite + React 프로젝트를 생성하면 기본적으로 `moduleResolution: 'bundler'`가 적용되어 있을 거예요. 만약 직접 설정해야 한다면 아래와 같이 `tsconfig.json`을 구성할 수 있어요.
+
+```json showLineNumbers {14, 19}
+// tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler", // 핵심 설정 1
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "verbatimModuleSyntax": true // 핵심 설정 2
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}
+```
+
+<Blockquote type="tip">
+`isolatedModules: true` 옵션은 Babel이나 esbuild와 같은 단일 파일 트랜스파일러를 사용할 때 권장돼요. 이 옵션은 TypeScript가 단일 파일 단위로 안전하게 트랜스파일될 수 있도록 특정 구문 사용을 제한하여 잠재적인 런타임 문제를 방지해 줘요.<br />
+또한 `moduleResolution: 'bundler'`와 `verbatimModuleSyntax: true`를 함께 사용하면 `isolatedModules: true`의 요구 사항을 더 잘 충족시킬 수 있어요.
+</Blockquote>
+
+### 1️⃣ 코드 예시와 컴파일 결과 예측 🧑‍💻
+
+`verbatimModuleSyntax: true`가 적용된 상황에서 아래 코드를 살펴볼게요.
+
+```tsx showLineNumbers
+// src/types/user.ts
+export type User = {
+  id: string;
+  name: string;
+};
+
+export const DEFAULT_USER_ID = 'anonymous';
+```
+
+```tsx showLineNumbers
+// src/components/UserProfile.tsx
+import type { User } from '../types/user'; // 타입만 사용
+import { DEFAULT_USER_ID } from '../types/user'; // 값 사용
+
+interface UserProfileProps {
+  user: User;
+}
+
+export function UserProfile({ user }: UserProfileProps) {
+  return (
+    <div>
+      <h1>{user.name || 'Guest'}</h1>
+      <p>ID: {user.id || DEFAULT_USER_ID}</p>
+    </div>
+  );
+}
+```
+
+위 코드는 `verbatimModuleSyntax: true` 환경에서 올바르게 동작해요. `User` 타입은 `import type`으로 가져왔기 때문에 컴파일된 JavaScript 코드에서는 완전히 제거될 거예요. 반면 `DEFAULT_USER_ID`는 런타임에 필요한 값이므로 일반 `import`로 가져왔고, 컴파일된 JavaScript 코드에도 그대로 유지될 거예요.<br />
+
+만약 `UserProfile.tsx`에서 `import type { User } from '../types/user';` 대신 `import { User } from '../types/user';`를 사용했다면, TypeScript는 `User`가 런타임 값으로도 사용될 수 있다고 판단하여 오류를 발생시켰을 거예요. 이는 타입스크립트가 런타임 동작에 대한 가정을 더 엄격하게 가져가도록 강제하는 것이죠.
+
+### 2️⃣ 흔히 겪는 문제 해결 팁 💡
+
+*   **`import type` 관련 오류**: `verbatimModuleSyntax: true` 설정 후 `import { SomeType } from 'some-module';`와 같은 오류가 발생한다면, 해당 `SomeType`이 순수하게 타입으로만 사용되는지 확인하고 `import type { SomeType } from 'some-module';`로 변경해 주세요.<br />
+*   **`isolatedModules` 오류**: `Cannot re-export a type when 'isolatedModules' is enabled`와 같은 오류는 주로 `export { type Foo } from './foo';`와 같이 타입을 재내보낼 때 발생해요. 이 경우 `export type { Foo } from './foo';`로 변경하거나, 재내보내는 모듈에 런타임 값이 포함되어 있는지 확인해야 해요.<br />
+*   **모듈 해석 오류**: `moduleResolution: 'bundler'`를 사용했는데도 모듈을 찾지 못하는 오류가 발생한다면, `package.json`의 `exports` 필드 설정이 올바른지, 또는 `paths`와 같은 `tsconfig.json`의 다른 모듈 해석 관련 옵션과 충돌하는 부분이 없는지 확인해 주세요.
+
+## 📝 정리: 타입스크립트 설정, 이제 더 이상 어렵지 않아요!
+
+### 0️⃣ 핵심 요약 🎯
+
+오늘은 모던 번들러 환경에서 TypeScript 개발 효율성을 극대화하는 두 가지 핵심 옵션, `moduleResolution: 'bundler'`와 `verbatimModuleSyntax`에 대해 자세히 알아보았어요.<br />
+
+*   **`moduleResolution: 'bundler'`**: 번들러의 모듈 해석 방식과 일관성을 유지하여 타입 검사의 정확성과 컴파일 속도를 높여줘요. 특히 ESM 기반 프로젝트에서 필수적이에요.<br />
+*   **`verbatimModuleSyntax`**: `import type`과 일반 `import`를 엄격하게 구분하여 런타임 코드와 타입 코드를 명확히 분리해 줘요. 이는 번들 크기 최적화와 런타임 오류 방지에 기여하며, `isolatedModules`와 함께 사용될 때 더욱 강력한 효과를 발휘해요.
+
+이 두 옵션을 올바르게 설정하면 TypeScript와 모던 번들러 간의 시너지를 극대화하고, 더욱 견고하고 효율적인 프론트엔드 프로젝트를 구축할 수 있을 거예요.
+
+### 1️⃣ 다음 단계: 프로젝트에 적용해 보세요. 🚀
+
+현재 진행 중인 프로젝트나 새로 시작할 프로젝트에 이 두 옵션을 적용해 보시는 것을 강력히 추천해요. 특히 `tsconfig.json` 파일을 최신 모던 번들러의 권장 설정에 맞춰 업데이트하는 것이 중요해요.<br />
+
+만약 기존 프로젝트에 적용한다면, 변경으로 인해 발생할 수 있는 잠재적인 오류를 미리 파악하고 수정하는 과정이 필요할 수 있어요. 하지만 장기적으로는 개발 경험과 코드 품질을 크게 향상시켜 줄 거예요.<br />
+
+궁금한 점이나 추가적으로 다루었으면 하는 주제가 있다면 언제든지 댓글로 남겨주세요. 다음에도 유익한 정보로 찾아올게요!
+
+## 📮 참고
+
+*   [TypeScript Handbook: Module Resolution](https://www.typescriptlang.org/docs/handbook/modules/reference.html#module-resolution-strategies)
+*   [TypeScript Handbook: `moduleResolution: 'bundler'`](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-0.html#moduleresolution-bundler)
+*   [TypeScript Handbook: `verbatimModuleSyntax`](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-0.html#verbatimmodulesyntax)
+*   [Vite Documentation: TypeScript](https://vitejs.dev/guide/features.html#typescript)
