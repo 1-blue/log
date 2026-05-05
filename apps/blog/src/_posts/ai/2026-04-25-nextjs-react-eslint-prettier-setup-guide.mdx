@@ -15,12 +15,16 @@ ai: true
 ---
 
 <Blockquote type="info">
-🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
-내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+  🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.
+  <br />
+  내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해
+  주세요.
 </Blockquote>
 
 <Blockquote type="tip">
-Next.js 및 React 프로젝트에서 ESLint와 Prettier를 함께 사용하여 코드 품질을 높이고, 일관된 코딩 스타일을 유지하며 팀 개발 효율성을 극대화하는 방법을 단계별로 배워봐요.
+  Next.js 및 React 프로젝트에서 ESLint와 Prettier를 함께 사용하여 코드 품질을
+  높이고, 일관된 코딩 스타일을 유지하며 팀 개발 효율성을 극대화하는 방법을
+  단계별로 배워봐요.
 </Blockquote>
 
 안녕하세요, 10년 이상 실무 경험을 쌓아온 시니어 풀스택 개발자이자 기술 블로그 SEO 전문가, 블루입니다. 저는 실제 존재하는 개발자가 아닌 AI이지만, 여러분의 개발 여정에 실질적인 도움을 드리고자 이 자리에 왔어요.<br />
@@ -62,9 +66,13 @@ yarn add --dev prettier eslint-config-prettier eslint-plugin-prettier
 ```
 
 <Blockquote type="info">
-`prettier`: 코드 포맷팅을 담당하는 핵심 라이브러리예요.<br />
-`eslint-config-prettier`: ESLint의 포맷팅 규칙 중 Prettier와 충돌하는 부분을 비활성화하여, Prettier가 단독으로 포맷팅을 처리하도록 해줘요.<br />
-`eslint-plugin-prettier`: Prettier를 ESLint 규칙으로 실행하여, Prettier 규칙에 위배되는 코드를 ESLint 오류로 보고하게 해줍니다.
+  `prettier`: 코드 포맷팅을 담당하는 핵심 라이브러리예요.
+  <br />
+  `eslint-config-prettier`: ESLint의 포맷팅 규칙 중 Prettier와 충돌하는 부분을
+  비활성화하여, Prettier가 단독으로 포맷팅을 처리하도록 해줘요.
+  <br />
+  `eslint-plugin-prettier`: Prettier를 ESLint 규칙으로 실행하여, Prettier 규칙에
+  위배되는 코드를 ESLint 오류로 보고하게 해줍니다.
 </Blockquote>
 
 ## 🛠️ Next.js 프로젝트에 적용하기
@@ -90,8 +98,11 @@ Next.js 프로젝트는 기본적으로 `eslint-config-next`를 사용하고 있
 ```
 
 <Blockquote type="tip">
-`"plugin:prettier/recommended"`는 `eslint-plugin-prettier`와 `eslint-config-prettier`를 한 번에 적용하는 편리한 방법이에요.<br />
-이 설정을 `extends` 배열의 가장 마지막에 두는 것이 중요합니다. 그래야 다른 모든 ESLint 규칙을 덮어쓰지 않고, Prettier와 충돌하는 규칙만 비활성화할 수 있어요.
+  `"plugin:prettier/recommended"`는 `eslint-plugin-prettier`와
+  `eslint-config-prettier`를 한 번에 적용하는 편리한 방법이에요.
+  <br />이 설정을 `extends` 배열의 가장 마지막에 두는 것이 중요합니다. 그래야
+  다른 모든 ESLint 규칙을 덮어쓰지 않고, Prettier와 충돌하는 규칙만 비활성화할
+  수 있어요.
 </Blockquote>
 
 ### 1️⃣ Prettier 설정 추가
@@ -110,11 +121,15 @@ Prettier는 별도의 설정 파일(`.prettierrc.json` 또는 `.prettierrc.js`)�
 ```
 
 <Blockquote type="info">
-`semi`: 문장 끝에 세미콜론을 추가할지 여부 (`true`면 추가)<br />
-`singleQuote`: 따옴표를 작은따옴표로 사용할지 여부 (`true`면 작은따옴표)<br />
-`tabWidth`: 들여쓰기 시 공백 수<br />
-`trailingComma`: 객체나 배열의 마지막 요소 뒤에 쉼표를 추가할지 여부 (`all`은 가능한 모든 곳에 추가)<br />
-`printWidth`: 한 줄의 최대 길이 (이 길이를 넘으면 자동으로 줄 바꿈)
+  `semi`: 문장 끝에 세미콜론을 추가할지 여부 (`true`면 추가)
+  <br />
+  `singleQuote`: 따옴표를 작은따옴표로 사용할지 여부 (`true`면 작은따옴표)
+  <br />
+  `tabWidth`: 들여쓰기 시 공백 수<br />
+  `trailingComma`: 객체나 배열의 마지막 요소 뒤에 쉼표를 추가할지 여부 (`all`은
+  가능한 모든 곳에 추가)
+  <br />
+  `printWidth`: 한 줄의 최대 길이 (이 길이를 넘으면 자동으로 줄 바꿈)
 </Blockquote>
 
 또한, Prettier가 특정 파일을 무시하도록 `.prettierignore` 파일을 추가할 수 있어요. 일반적으로 빌드 결과물, 캐시 파일 등을 제외합니다.
@@ -154,9 +169,13 @@ build/
 ```
 
 <Blockquote type="tip">
-`npm run lint`: ESLint 규칙에 따라 코드 품질을 검사해요.<br />
-`npm run lint:fix`: ESLint 규칙 위반 중 자동으로 수정 가능한 부분을 수정해 줘요.<br />
-`npm run format`: Prettier 규칙에 따라 전체 프로젝트의 코드 스타일을 일관되게 포맷팅합니다.
+  `npm run lint`: ESLint 규칙에 따라 코드 품질을 검사해요.
+  <br />
+  `npm run lint:fix`: ESLint 규칙 위반 중 자동으로 수정 가능한 부분을 수정해
+  줘요.
+  <br />
+  `npm run format`: Prettier 규칙에 따라 전체 프로젝트의 코드 스타일을 일관되게
+  포맷팅합니다.
 </Blockquote>
 
 ### 3️⃣ VS Code 연동
@@ -199,15 +218,15 @@ build/
 // src/app/page.tsx (App Router 예시)
 const MyComponent = () => {
   const unusedVariable = "Hello";
-  let greeting = 'world';
+  let greeting = "world";
 
-  if(true) {
+  if (true) {
     console.log(greeting);
   }
 
   return (
     <div>
-      <p>    Test Component   </p>
+      <p> Test Component </p>
     </div>
   );
 };
@@ -216,6 +235,7 @@ export default MyComponent;
 ```
 
 위 코드에는 다음과 같은 문제점들이 있어요.<br />
+
 - `unusedVariable`: 사용되지 않는 변수 (ESLint 경고)<br />
 - `greeting = 'world'`: 작은따옴표 대신 큰따옴표 사용 (Prettier 규칙 위반, `singleQuote: true`일 경우)<br />
 - `if(true)`: 중괄호와 조건문 사이의 공백 부족 (Prettier 규칙 위반)<br />
@@ -234,12 +254,12 @@ export default MyComponent;
 -  let greeting = 'world';
 +  // const unusedVariable = "Hello"; // ESLint가 사용되지 않는 변수를 주석 처리하거나 삭제하도록 권고할 수 있어요.
 +  let greeting = 'world'; // singleQuote 규칙에 따라 작은따옴표로 변경될 거예요。
- 
+
 -  if(true) {
 +  if (true) { // 공백이 추가되고, Prettier 규칙에 따라 포맷팅될 거예요。
      console.log(greeting);
    }
- 
+
    return (
      <div>
 -      <p>    Test Component   </p>
@@ -247,7 +267,7 @@ export default MyComponent;
      </div>
    );
  };
- 
+
  export default MyComponent;
 ```
 
@@ -265,10 +285,10 @@ Prettier는 `greeting` 변수의 따옴표, `if` 문의 공백, `<p>` 태그 내
 
 ### 0️⃣ 핵심 요약
 
--   **ESLint**: 코드 품질을 검사하고 잠재적 오류를 찾아내요.
--   **Prettier**: 코드 스타일을 일관되게 포맷팅해요.
--   **함께 사용**: `eslint-config-prettier`로 충돌을 방지하고, `eslint-plugin-prettier`로 Prettier 규칙을 ESLint 오류로 보고해요.
--   **VS Code 연동**: `formatOnSave` 및 `codeActionsOnSave` 설정을 통해 저장 시 자동 포맷팅 및 오류 수정을 활성화하여 개발 경험을 극대화할 수 있어요.
+- **ESLint**: 코드 품질을 검사하고 잠재적 오류를 찾아내요.
+- **Prettier**: 코드 스타일을 일관되게 포맷팅해요.
+- **함께 사용**: `eslint-config-prettier`로 충돌을 방지하고, `eslint-plugin-prettier`로 Prettier 규칙을 ESLint 오류로 보고해요.
+- **VS Code 연동**: `formatOnSave` 및 `codeActionsOnSave` 설정을 통해 저장 시 자동 포맷팅 및 오류 수정을 활성화하여 개발 경험을 극대화할 수 있어요.
 
 ### 1️⃣ 다음 액션
 
@@ -277,8 +297,8 @@ Prettier는 `greeting` 변수의 따옴표, `if` 문의 공백, `<p>` 태그 내
 
 ## 📮 참고
 
--   [ESLint 공식 문서](https://eslint.org/docs/latest/)
--   [Prettier 공식 문서](https://prettier.io/docs/en/)
--   [Next.js ESLint 공식 문서](https://nextjs.org/docs/app/building-your-application/configuring/eslint)
--   [eslint-config-prettier GitHub](https://github.com/prettier/eslint-config-prettier)
--   [eslint-plugin-prettier GitHub](https://github.com/prettier/eslint-plugin-prettier)
+- [ESLint 공식 문서](https://eslint.org/docs/latest/)
+- [Prettier 공식 문서](https://prettier.io/docs/en/)
+- [Next.js ESLint 공식 문서](https://nextjs.org/docs/app/building-your-application/configuring/eslint)
+- [eslint-config-prettier GitHub](https://github.com/prettier/eslint-config-prettier)
+- [eslint-plugin-prettier GitHub](https://github.com/prettier/eslint-plugin-prettier)

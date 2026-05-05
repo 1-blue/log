@@ -1,7 +1,17 @@
 ---
 title: "[🤖] JavaScript WeakMap과 WeakSet: 메모리 누수 방지와 최적화 전략"
 description: "JavaScript에서 WeakMap과 WeakSet을 활용하여 메모리 누수를 방지하고 성능을 최적화하는 방법을 실용적인 예시와 함께 자세히 알아봐요. 가비지 컬렉션 동작 원리와 함께 객체 참조 관리의 중요성을 이해하고, 실제 프로젝트에 적용하는 전략을 배워봐요."
-tags: ["JavaScript", "WeakMap", "WeakSet", "메모리 최적화", "가비지 컬렉션", "성능", "프런트엔드", "ai"]
+tags:
+  [
+    "JavaScript",
+    "WeakMap",
+    "WeakSet",
+    "메모리 최적화",
+    "가비지 컬렉션",
+    "성능",
+    "프런트엔드",
+    "ai",
+  ]
 icon: ""
 thumbnail: ""
 createdAt: 2026-04-27 06:00:01
@@ -15,12 +25,16 @@ ai: true
 ---
 
 <Blockquote type="info">
-🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
-내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+  🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.
+  <br />
+  내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해
+  주세요.
 </Blockquote>
 
 <Blockquote type="tip">
-이 글에서는 JavaScript의 강력한 메모리 관리 도구인 WeakMap과 WeakSet의 기본 개념부터 실전 활용 방법, 그리고 주의사항까지 초중급 개발자 눈높이에 맞춰 자세히 다루고 있어요.
+  이 글에서는 JavaScript의 강력한 메모리 관리 도구인 WeakMap과 WeakSet의 기본
+  개념부터 실전 활용 방법, 그리고 주의사항까지 초중급 개발자 눈높이에 맞춰
+  자세히 다루고 있어요.
 </Blockquote>
 
 안녕하세요, 10년 이상 실무 경험을 가진 시니어 풀스택 개발자이자 기술 블로그 SEO 전문가 블루예요. 저는 실제 존재하는 개발자는 아니지만, 여러분의 성장을 돕기 위해 최선을 다하고 있어요.<br />
@@ -42,19 +56,19 @@ const cache = new Map();
 
 function expensiveOperation(obj: object) {
   if (cache.has(obj)) {
-    console.log('캐시 히트!', obj);
+    console.log("캐시 히트!", obj);
     return cache.get(obj);
   }
 
   // 비용이 많이 드는 연산이라고 가정해요.
   const result = { data: obj.id * 2 };
   cache.set(obj, result);
-  console.log('캐시 미스! 연산 후 저장', obj);
+  console.log("캐시 미스! 연산 후 저장", obj);
   return result;
 }
 
-let user1 = { id: 1, name: '블루' };
-let user2 = { id: 2, name: '레드' };
+let user1 = { id: 1, name: "블루" };
+let user2 = { id: 2, name: "레드" };
 
 expensiveOperation(user1);
 expensiveOperation(user2);
@@ -75,9 +89,9 @@ user1 = null;
 
 이러한 강한 참조로 인한 메모리 누수는 실무에서 다양한 형태로 나타날 수 있어요.
 
-*   **DOM 요소 참조:** JavaScript에서 DOM 요소를 변수에 저장하고, 나중에 해당 DOM 요소가 DOM 트리에서 제거되어도 변수 참조가 남아있으면 메모리 누수가 발생해요.<br />
-*   **캐싱:** 위 예시처럼 `Map` 등을 사용하여 객체를 캐싱할 때, 캐시된 객체가 더 이상 사용되지 않는데도 캐시에서 제거되지 않으면 메모리 누수가 생겨요.<br />
-*   **이벤트 리스너:** 객체에 이벤트 리스너를 등록하고 해당 객체가 사라질 때 리스너를 해제하지 않으면, 리스너가 객체를 참조하여 메모리 누수를 유발할 수 있어요.
+- **DOM 요소 참조:** JavaScript에서 DOM 요소를 변수에 저장하고, 나중에 해당 DOM 요소가 DOM 트리에서 제거되어도 변수 참조가 남아있으면 메모리 누수가 발생해요.<br />
+- **캐싱:** 위 예시처럼 `Map` 등을 사용하여 객체를 캐싱할 때, 캐시된 객체가 더 이상 사용되지 않는데도 캐시에서 제거되지 않으면 메모리 누수가 생겨요.<br />
+- **이벤트 리스너:** 객체에 이벤트 리스너를 등록하고 해당 객체가 사라질 때 리스너를 해제하지 않으면, 리스너가 객체를 참조하여 메모리 누수를 유발할 수 있어요.
 
 이러한 문제를 해결하기 위해 등장한 것이 바로 `WeakMap`과 `WeakSet`이에요.
 
@@ -93,30 +107,30 @@ user1 = null;
 
 `WeakMap`은 `Map`과 유사하게 키-값 쌍을 저장하지만, 다음과 같은 중요한 차이점이 있어요.
 
-*   **키는 반드시 객체여야 해요:** 원시 값(문자열, 숫자, 심볼 등)은 키로 사용할 수 없어요. `WeakMap`의 약한 참조는 오직 객체에만 적용되기 때문이에요.<br />
-*   **키에 대한 약한 참조를 유지해요:** `WeakMap`의 키는 약한 참조로 저장돼요. 만약 키로 사용된 객체에 대한 모든 강한 참조가 사라지면, 해당 객체는 가비지 컬렉션의 대상이 되고, `WeakMap`에서도 해당 키-값 쌍이 자동으로 제거돼요.<br />
-*   **이터러블하지 않아요:** `WeakMap`은 `Map`처럼 `size`, `clear()`, `keys()`, `values()`, `entries()` 메서드를 제공하지 않아요. 약한 참조로 인해 가비지 컬렉터가 언제 키를 제거할지 예측할 수 없기 때문에, `WeakMap`의 내용을 반복하거나 크기를 정확히 알 수 없어요. 이는 `WeakMap`이 주로 객체와 데이터를 연결하는 '메타데이터 저장소'로 사용되는 이유예요.
+- **키는 반드시 객체여야 해요:** 원시 값(문자열, 숫자, 심볼 등)은 키로 사용할 수 없어요. `WeakMap`의 약한 참조는 오직 객체에만 적용되기 때문이에요.<br />
+- **키에 대한 약한 참조를 유지해요:** `WeakMap`의 키는 약한 참조로 저장돼요. 만약 키로 사용된 객체에 대한 모든 강한 참조가 사라지면, 해당 객체는 가비지 컬렉션의 대상이 되고, `WeakMap`에서도 해당 키-값 쌍이 자동으로 제거돼요.<br />
+- **이터러블하지 않아요:** `WeakMap`은 `Map`처럼 `size`, `clear()`, `keys()`, `values()`, `entries()` 메서드를 제공하지 않아요. 약한 참조로 인해 가비지 컬렉터가 언제 키를 제거할지 예측할 수 없기 때문에, `WeakMap`의 내용을 반복하거나 크기를 정확히 알 수 없어요. 이는 `WeakMap`이 주로 객체와 데이터를 연결하는 '메타데이터 저장소'로 사용되는 이유예요.
 
 **주요 메서드:**
 
-*   `weakMap.set(key, value)`: 키-값 쌍을 저장해요. `key`는 반드시 객체여야 해요.<br />
-*   `weakMap.get(key)`: `key`에 해당하는 값을 반환해요. 키가 없으면 `undefined`를 반환해요.<br />
-*   `weakMap.has(key)`: `key`가 `WeakMap`에 존재하는지 여부를 `boolean`으로 반환해요.<br />
-*   `weakMap.delete(key)`: `key`에 해당하는 키-값 쌍을 제거해요.
+- `weakMap.set(key, value)`: 키-값 쌍을 저장해요. `key`는 반드시 객체여야 해요.<br />
+- `weakMap.get(key)`: `key`에 해당하는 값을 반환해요. 키가 없으면 `undefined`를 반환해요.<br />
+- `weakMap.has(key)`: `key`가 `WeakMap`에 존재하는지 여부를 `boolean`으로 반환해요.<br />
+- `weakMap.delete(key)`: `key`에 해당하는 키-값 쌍을 제거해요.
 
 ### 2️⃣ WeakSet 깊이 알아보기
 
 `WeakSet`은 `Set`과 유사하게 고유한 객체들을 저장하지만, 역시 중요한 차이점이 있어요.
 
-*   **값은 반드시 객체여야 해요:** `WeakSet`은 오직 객체만 저장할 수 있어요. 원시 값은 허용되지 않아요.<br />
-*   **값에 대한 약한 참조를 유지해요:** `WeakSet`의 값은 약한 참조로 저장돼요. 저장된 객체에 대한 모든 강한 참조가 사라지면, 해당 객체는 가비지 컬렉션 대상이 되고, `WeakSet`에서도 자동으로 제거돼요.<br />
-*   **이터러블하지 않아요:** `WeakSet`도 `WeakMap`과 마찬가지로 `size`, `clear()`, `keys()`, `values()`, `entries()` 메서드를 제공하지 않아요. 이는 `WeakSet`의 내용이나 크기를 반복하거나 예측할 수 없다는 의미예요.
+- **값은 반드시 객체여야 해요:** `WeakSet`은 오직 객체만 저장할 수 있어요. 원시 값은 허용되지 않아요.<br />
+- **값에 대한 약한 참조를 유지해요:** `WeakSet`의 값은 약한 참조로 저장돼요. 저장된 객체에 대한 모든 강한 참조가 사라지면, 해당 객체는 가비지 컬렉션 대상이 되고, `WeakSet`에서도 자동으로 제거돼요.<br />
+- **이터러블하지 않아요:** `WeakSet`도 `WeakMap`과 마찬가지로 `size`, `clear()`, `keys()`, `values()`, `entries()` 메서드를 제공하지 않아요. 이는 `WeakSet`의 내용이나 크기를 반복하거나 예측할 수 없다는 의미예요.
 
 **주요 메서드:**
 
-*   `weakSet.add(value)`: `value`(객체)를 `WeakSet`에 추가해요.<br />
-*   `weakSet.has(value)`: `value`가 `WeakSet`에 존재하는지 여부를 `boolean`으로 반환해요.<br />
-*   `weakSet.delete(value)`: `value`를 `WeakSet`에서 제거해요.
+- `weakSet.add(value)`: `value`(객체)를 `WeakSet`에 추가해요.<br />
+- `weakSet.has(value)`: `value`가 `WeakSet`에 존재하는지 여부를 `boolean`으로 반환해요.<br />
+- `weakSet.delete(value)`: `value`를 `WeakSet`에서 제거해요.
 
 ## ⚙️ 실전 활용 예시
 
@@ -156,12 +170,12 @@ function getElementClicks(element: HTMLElement): number {
 }
 
 // 예시 DOM 요소 생성
-const div1 = document.createElement('div');
-div1.id = 'div1';
+const div1 = document.createElement("div");
+div1.id = "div1";
 document.body.appendChild(div1);
 
-const div2 = document.createElement('div');
-div2.id = 'div2';
+const div2 = document.createElement("div");
+div2.id = "div2";
 document.body.appendChild(div2);
 
 attachDataToElement(div1);
@@ -179,7 +193,7 @@ document.body.removeChild(div1);
 // WeakMap은 이터러블하지 않으므로 직접 확인할 방법은 없지만, 메모리 효율이 향상돼요.
 
 // 여전히 참조되는 div2의 데이터는 유효해요.
-console.log('div2의 현재 데이터:', elementDataMap.get(div2));
+console.log("div2의 현재 데이터:", elementDataMap.get(div2));
 ```
 
 이 예시에서는 `elementDataMap`이 `div1`과 `div2` 객체에 대한 약한 참조를 유지해요. `div1`이 DOM에서 제거되고 더 이상 강한 참조가 없으면, `div1` 객체는 가비지 컬렉션의 대상이 되고 `elementDataMap`에서도 `div1`과 관련된 데이터가 자동으로 정리돼요. 이렇게 하면 개발자가 일일이 메모리를 해제할 필요 없이 메모리 누수를 방지할 수 있어요.<br />
@@ -194,19 +208,19 @@ const objectCache = new WeakMap<object, any>();
 
 function calculateExpensiveValue(obj: object): any {
   if (objectCache.has(obj)) {
-    console.log('✨ 캐시 히트!', obj);
+    console.log("✨ 캐시 히트!", obj);
     return objectCache.get(obj);
   }
 
   // 실제로는 복잡하고 비용이 많이 드는 계산이라고 가정해요.
   const result = { value: Math.random() * 100, timestamp: new Date() };
   objectCache.set(obj, result);
-  console.log('🚀 캐시 미스! 새로운 값 계산 및 저장', obj, result);
+  console.log("🚀 캐시 미스! 새로운 값 계산 및 저장", obj, result);
   return result;
 }
 
-let config1 = { id: 'config-A', settings: { theme: 'dark' } };
-let config2 = { id: 'config-B', settings: { theme: 'light' } };
+let config1 = { id: "config-A", settings: { theme: "dark" } };
+let config2 = { id: "config-B", settings: { theme: "light" } };
 
 calculateExpensiveValue(config1);
 calculateExpensiveValue(config2);
@@ -237,19 +251,19 @@ const processedObjects = new WeakSet<object>();
 
 function processObject(obj: object) {
   if (processedObjects.has(obj)) {
-    console.log('✅ 이미 처리된 객체예요:', obj);
+    console.log("✅ 이미 처리된 객체예요:", obj);
     return;
   }
 
-  console.log('🚀 객체를 처리 중...', obj);
+  console.log("🚀 객체를 처리 중...", obj);
   // 여기에 비용이 많이 드는 실제 처리 로직을 구현해요.
   processedObjects.add(obj);
-  console.log('🎉 객체 처리 완료 및 WeakSet에 추가:', obj);
+  console.log("🎉 객체 처리 완료 및 WeakSet에 추가:", obj);
 }
 
-let item1 = { id: 'item-A' };
-let item2 = { id: 'item-B' };
-let item3 = { id: 'item-C' };
+let item1 = { id: "item-A" };
+let item2 = { id: "item-B" };
+let item3 = { id: "item-C" };
 
 processObject(item1);
 processObject(item2);
@@ -271,24 +285,25 @@ processObject(item3);
 
 `WeakMap`과 `WeakSet`은 강력한 도구이지만, 몇 가지 제약사항과 주의할 점이 있어요.
 
-*   **키/값은 반드시 객체여야 해요:** 앞에서 강조했듯이, 원시 값은 키(`WeakMap`)나 값(`WeakSet`)으로 사용할 수 없어요. 이는 약한 참조가 객체에만 적용되기 때문이에요.<br />
-*   **이터러블하지 않아요:** `WeakMap`과 `WeakSet`은 `size` 속성이나 `keys()`, `values()`, `entries()` 같은 메서드를 제공하지 않아요. 따라서 컬렉션의 모든 요소를 반복하거나 현재 크기를 정확히 알 수 없어요. 이는 가비지 컬렉션이 언제 일어날지 예측할 수 없기 때문이에요. 이 때문에 `WeakMap`과 `WeakSet`은 주로 '메타데이터 저장소'나 '객체 존재 여부 트래킹'과 같이 특정 객체에 정보를 연결하거나 추적하는 용도로 사용돼요.<br />
-*   **가비지 컬렉션 시점 예측 불가능:** 약한 참조가 언제 가비지 컬렉션될지는 정확히 예측할 수 없어요. 이는 JavaScript 엔진의 내부 구현과 현재 메모리 상태에 따라 달라져요. 따라서 `WeakMap`이나 `WeakSet`에 특정 키/값이 존재할 것이라고 맹목적으로 가정하면 안 돼요.<br />
-*   **메모리 누수를 완전히 막아주지는 않아요:** `WeakMap`과 `WeakSet`은 '약한 참조'를 통해 특정 상황에서의 메모리 누수를 방지하지만, 모든 종류의 메모리 누수를 해결해 주지는 않아요. 예를 들어, 콜백 함수 내에서 외부 스코프의 변수를 강하게 참조하는 클로저로 인한 누수는 여전히 발생할 수 있어요. 항상 코드 전체의 참조 관계를 신중하게 고려해야 해요.<br />
+- **키/값은 반드시 객체여야 해요:** 앞에서 강조했듯이, 원시 값은 키(`WeakMap`)나 값(`WeakSet`)으로 사용할 수 없어요. 이는 약한 참조가 객체에만 적용되기 때문이에요.<br />
+- **이터러블하지 않아요:** `WeakMap`과 `WeakSet`은 `size` 속성이나 `keys()`, `values()`, `entries()` 같은 메서드를 제공하지 않아요. 따라서 컬렉션의 모든 요소를 반복하거나 현재 크기를 정확히 알 수 없어요. 이는 가비지 컬렉션이 언제 일어날지 예측할 수 없기 때문이에요. 이 때문에 `WeakMap`과 `WeakSet`은 주로 '메타데이터 저장소'나 '객체 존재 여부 트래킹'과 같이 특정 객체에 정보를 연결하거나 추적하는 용도로 사용돼요.<br />
+- **가비지 컬렉션 시점 예측 불가능:** 약한 참조가 언제 가비지 컬렉션될지는 정확히 예측할 수 없어요. 이는 JavaScript 엔진의 내부 구현과 현재 메모리 상태에 따라 달라져요. 따라서 `WeakMap`이나 `WeakSet`에 특정 키/값이 존재할 것이라고 맹목적으로 가정하면 안 돼요.<br />
+- **메모리 누수를 완전히 막아주지는 않아요:** `WeakMap`과 `WeakSet`은 '약한 참조'를 통해 특정 상황에서의 메모리 누수를 방지하지만, 모든 종류의 메모리 누수를 해결해 주지는 않아요. 예를 들어, 콜백 함수 내에서 외부 스코프의 변수를 강하게 참조하는 클로저로 인한 누수는 여전히 발생할 수 있어요. 항상 코드 전체의 참조 관계를 신중하게 고려해야 해요.<br />
 
 <Blockquote type="tip">
 **언제 `Map`/`Set`을 사용하고, 언제 `WeakMap`/`WeakSet`을 사용할까요?**<br />
 
-*   **`Map`/`Set`:** 컬렉션에 저장된 모든 키/값 쌍을 명시적으로 관리하고, 반복하거나 크기를 알아야 할 때 사용해요. 키/값으로 원시 값을 포함한 모든 타입을 사용할 수 있어요.<br />
-*   **`WeakMap`/`WeakSet`:** 특정 객체에 데이터를 연결하거나 객체의 존재 여부를 추적해야 하지만, 해당 객체가 더 이상 사용되지 않을 때 자동으로 메모리에서 해제되기를 원할 때 사용해요. 키/값은 반드시 객체여야 해요.
+- **`Map`/`Set`:** 컬렉션에 저장된 모든 키/값 쌍을 명시적으로 관리하고, 반복하거나 크기를 알아야 할 때 사용해요. 키/값으로 원시 값을 포함한 모든 타입을 사용할 수 있어요.<br />
+- **`WeakMap`/`WeakSet`:** 특정 객체에 데이터를 연결하거나 객체의 존재 여부를 추적해야 하지만, 해당 객체가 더 이상 사용되지 않을 때 자동으로 메모리에서 해제되기를 원할 때 사용해요. 키/값은 반드시 객체여야 해요.
+
 </Blockquote>
 
 ## 📝 정리
 
 오늘은 JavaScript의 `WeakMap`과 `WeakSet`에 대해 자세히 알아보았어요. 이 특별한 컬렉션은 '약한 참조'라는 개념을 통해 메모리 누수를 방지하고 애플리케이션의 성능을 최적화하는 데 큰 도움을 줘요.<br />
 
-*   **`WeakMap`**은 키가 객체인 키-값 쌍을 저장하며, 키 객체에 대한 강한 참조가 사라지면 자동으로 해당 엔트리가 제거돼요. 주로 DOM 요소에 데이터 연결, 객체 기반 캐싱 등에 활용돼요.<br />
-*   **`WeakSet`**은 객체만을 값으로 저장하며, 값 객체에 대한 강한 참조가 사라지면 자동으로 해당 값이 제거돼요. 주로 객체의 존재 여부 추적, 이벤트 리스너 관리 등에 활용될 수 있어요.<br />
+- **`WeakMap`**은 키가 객체인 키-값 쌍을 저장하며, 키 객체에 대한 강한 참조가 사라지면 자동으로 해당 엔트리가 제거돼요. 주로 DOM 요소에 데이터 연결, 객체 기반 캐싱 등에 활용돼요.<br />
+- **`WeakSet`**은 객체만을 값으로 저장하며, 값 객체에 대한 강한 참조가 사라지면 자동으로 해당 값이 제거돼요. 주로 객체의 존재 여부 추적, 이벤트 리스너 관리 등에 활용될 수 있어요.<br />
 
 `WeakMap`과 `WeakSet`은 이터러블하지 않고 가비지 컬렉션 시점을 예측할 수 없다는 제약이 있지만, 이러한 특성을 이해하고 적절한 상황에 활용한다면 훨씬 더 효율적이고 안정적인 JavaScript 애플리케이션을 만들 수 있을 거예요.<br />
 
@@ -296,6 +311,6 @@ processObject(item3);
 
 ## 📮 참고
 
-*   [MDN Web Docs: WeakMap](https://developer.mozilla.org/ko/docs/Web/JavaScript/Reference/Global_Objects/WeakMap)
-*   [MDN Web Docs: WeakSet](https://developer.mozilla.org/ko/docs/Web/JavaScript/Reference/Global_Objects/WeakSet)
-*   [JavaScript.info: WeakMap and WeakSet](https://javascript.info/weakmap-weakset)
+- [MDN Web Docs: WeakMap](https://developer.mozilla.org/ko/docs/Web/JavaScript/Reference/Global_Objects/WeakMap)
+- [MDN Web Docs: WeakSet](https://developer.mozilla.org/ko/docs/Web/JavaScript/Reference/Global_Objects/WeakSet)
+- [JavaScript.info: WeakMap and WeakSet](https://javascript.info/weakmap-weakset)

@@ -1,7 +1,17 @@
 ---
 title: "[🤖] React 커스텀 훅: 재사용성 높이는 설계 원칙과 테스트 전략"
 description: "React 애플리케이션의 재사용성과 유지보수성을 극대화하는 커스텀 훅 설계 원칙, 실용적인 패턴, 그리고 견고한 테스트 전략을 시니어 개발자의 관점에서 자세히 설명해 드려요."
-tags: ["React", "Custom Hooks", "Hooks", "재사용성", "테스트", "프론트엔드", "JavaScript", "ai"]
+tags:
+  [
+    "React",
+    "Custom Hooks",
+    "Hooks",
+    "재사용성",
+    "테스트",
+    "프론트엔드",
+    "JavaScript",
+    "ai",
+  ]
 icon: ""
 thumbnail: ""
 createdAt: 2026-04-24 08:01:08
@@ -15,12 +25,16 @@ ai: true
 ---
 
 <Blockquote type="info">
-🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
-내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+  🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.
+  <br />
+  내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해
+  주세요.
 </Blockquote>
 
 <Blockquote type="tip">
-이 글에서는 React 애플리케이션의 재사용성과 유지보수성을 높이는 커스텀 훅의 설계 원칙과 실용적인 구현 패턴, 그리고 효과적인 테스트 전략에 대해 자세히 알아볼 거예요.
+  이 글에서는 React 애플리케이션의 재사용성과 유지보수성을 높이는 커스텀 훅의
+  설계 원칙과 실용적인 구현 패턴, 그리고 효과적인 테스트 전략에 대해 자세히
+  알아볼 거예요.
 </Blockquote>
 
 안녕하세요, 10년 이상 경력의 시니어 풀스택 개발자 블루예요. 저는 실제 존재하는 개발자가 아닌 AI이지만, 실무 경험을 바탕으로 초중급 개발자분들께 도움이 될 만한 이야기를 전해드리고 싶어요.<br />
@@ -74,7 +88,7 @@ React 훅(Hooks)이 도입되면서 함수형 컴포넌트에서 상태 관리�
 많은 React 애플리케이션에서 데이터를 가져오는 로직은 필수적이에요. `useFetch` 훅은 로딩 상태, 에러 처리, 그리고 데이터 자체를 추상화하여 제공할 수 있어요.
 
 ```tsx showLineNumbers
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 interface FetchResult<T> {
   data: T | null;
@@ -102,7 +116,7 @@ function useFetch<T>(url: string): FetchResult<T> {
         if (err instanceof Error) {
           setError(err);
         } else {
-          setError(new Error('An unknown error occurred'));
+          setError(new Error("An unknown error occurred"));
         }
       } finally {
         setLoading(false);
@@ -117,7 +131,13 @@ function useFetch<T>(url: string): FetchResult<T> {
 
 // 사용 예시
 function UserProfile({ userId }: { userId: number }) {
-  const { data: user, loading, error } = useFetch<{ name: string; email: string }>(`https://jsonplaceholder.typicode.com/users/${userId}`);
+  const {
+    data: user,
+    loading,
+    error,
+  } = useFetch<{ name: string; email: string }>(
+    `https://jsonplaceholder.typicode.com/users/${userId}`,
+  );
 
   if (loading) return <div>로딩 중...</div>;
   if (error) return <div>에러: {error.message}</div>;
@@ -139,7 +159,7 @@ function UserProfile({ userId }: { userId: number }) {
 폼 입력 값과 유효성 검사를 관리하는 훅은 재사용성이 매우 높아요. `useForm` 훅은 여러 입력 필드의 상태를 한곳에서 관리하고, 제출 로직을 추상화할 수 있어요.
 
 ```tsx showLineNumbers
-import { useState, useCallback } from 'react';
+import { useState, useCallback } from "react";
 
 interface FormValues {
   [key: string]: string;
@@ -147,26 +167,36 @@ interface FormValues {
 
 interface FormHooks {
   values: FormValues;
-  handleChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  handleSubmit: (callback: (values: FormValues) => void) => (event: React.FormEvent) => void;
+  handleChange: (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void;
+  handleSubmit: (
+    callback: (values: FormValues) => void,
+  ) => (event: React.FormEvent) => void;
   resetForm: () => void;
 }
 
 function useForm(initialValues: FormValues = {}): FormHooks {
   const [values, setValues] = useState<FormValues>(initialValues);
 
-  const handleChange = useCallback((event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    // React 17 이전 버전과의 호환성을 위해 event.persist()를 사용하기도 했지만, 최신 React에서는 이벤트 객체가 풀링되지 않아 불필요해요.
-    setValues(prevValues => ({
-      ...prevValues,
-      [event.target.name]: event.target.value,
-    }));
-  }, []);
+  const handleChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      // React 17 이전 버전과의 호환성을 위해 event.persist()를 사용하기도 했지만, 최신 React에서는 이벤트 객체가 풀링되지 않아 불필요해요.
+      setValues((prevValues) => ({
+        ...prevValues,
+        [event.target.name]: event.target.value,
+      }));
+    },
+    [],
+  );
 
-  const handleSubmit = useCallback((callback: (values: FormValues) => void) => (event: React.FormEvent) => {
-    event.preventDefault();
-    callback(values);
-  }, [values]); // values가 변경될 때마다 handleSubmit 함수를 재생성해요.
+  const handleSubmit = useCallback(
+    (callback: (values: FormValues) => void) => (event: React.FormEvent) => {
+      event.preventDefault();
+      callback(values);
+    },
+    [values],
+  ); // values가 변경될 때마다 handleSubmit 함수를 재생성해요.
 
   const resetForm = useCallback(() => {
     setValues(initialValues);
@@ -178,33 +208,57 @@ function useForm(initialValues: FormValues = {}): FormHooks {
 // 사용 예시
 function ContactForm() {
   const { values, handleChange, handleSubmit, resetForm } = useForm({
-    name: '',
-    email: '',
-    message: '',
+    name: "",
+    email: "",
+    message: "",
   });
 
   const onSubmit = (formValues: FormValues) => {
-    console.log('폼 제출:', formValues);
-    alert(`폼 제출됨!\n이름: ${formValues.name}\n이메일: ${formValues.email}\n메시지: ${formValues.message}`);
+    console.log("폼 제출:", formValues);
+    alert(
+      `폼 제출됨!\n이름: ${formValues.name}\n이메일: ${formValues.email}\n메시지: ${formValues.message}`,
+    );
     resetForm();
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div>
-        <label htmlFor="name">이름:</label><br />
-        <input type="text" id="name" name="name" value={values.name} onChange={handleChange} />
+        <label htmlFor="name">이름:</label>
+        <br />
+        <input
+          type="text"
+          id="name"
+          name="name"
+          value={values.name}
+          onChange={handleChange}
+        />
       </div>
       <div>
-        <label htmlFor="email">이메일:</label><br />
-        <input type="email" id="email" name="email" value={values.email} onChange={handleChange} />
+        <label htmlFor="email">이메일:</label>
+        <br />
+        <input
+          type="email"
+          id="email"
+          name="email"
+          value={values.email}
+          onChange={handleChange}
+        />
       </div>
       <div>
-        <label htmlFor="message">메시지:</label><br />
-        <textarea id="message" name="message" value={values.message} onChange={handleChange}></textarea>
+        <label htmlFor="message">메시지:</label>
+        <br />
+        <textarea
+          id="message"
+          name="message"
+          value={values.message}
+          onChange={handleChange}
+        ></textarea>
       </div>
       <button type="submit">제출</button>
-      <button type="button" onClick={resetForm}>초기화</button>
+      <button type="button" onClick={resetForm}>
+        초기화
+      </button>
     </form>
   );
 }
@@ -219,9 +273,12 @@ function ContactForm() {
 브라우저의 `localStorage`와 같은 API를 직접 다루는 로직도 커스텀 훅으로 만들면 재사용성이 높아져요. `useLocalStorage` 훅은 특정 키에 해당하는 값을 `localStorage`에 저장하고 가져오는 기능을 추상화할 수 있어요.
 
 ```tsx showLineNumbers
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
-function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => void] {
+function useLocalStorage<T>(
+  key: string,
+  initialValue: T,
+): [T, (value: T) => void] {
   const [storedValue, setStoredValue] = useState<T>(() => {
     try {
       const item = window.localStorage.getItem(key);
@@ -248,7 +305,10 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => voi
         try {
           setStoredValue(JSON.parse(event.newValue));
         } catch (error) {
-          console.error('Error parsing storage event value for key "' + key + '":', error);
+          console.error(
+            'Error parsing storage event value for key "' + key + '":',
+            error,
+          );
         }
       } else if (event.key === key && event.newValue === null) {
         // 값이 삭제되었을 때
@@ -256,9 +316,9 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => voi
       }
     };
 
-    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener("storage", handleStorageChange);
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener("storage", handleStorageChange);
     };
   }, [key, initialValue]);
 
@@ -267,10 +327,13 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => voi
 
 // 사용 예시
 function ThemeSwitcher() {
-  const [theme, setTheme] = useLocalStorage<'light' | 'dark'>('app-theme', 'light');
+  const [theme, setTheme] = useLocalStorage<"light" | "dark">(
+    "app-theme",
+    "light",
+  );
 
   const toggleTheme = () => {
-    setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
+    setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
   };
 
   useEffect(() => {
@@ -300,8 +363,8 @@ function ThemeSwitcher() {
 
 이 라이브러리는 훅을 테스트하기 위한 유틸리티를 제공하여, 실제 컴포넌트를 렌더링하는 것과 유사한 환경에서 훅의 상태와 반환 값을 검증할 수 있게 해줘요.
 
-*   **`renderHook`**: 훅을 렌더링하고, 훅의 반환 값과 리렌더링 함수를 제공해요.
-*   **`act`**: React의 업데이트를 래핑하여, 테스트가 React의 스케줄러와 동기화되도록 해줘요.
+- **`renderHook`**: 훅을 렌더링하고, 훅의 반환 값과 리렌더링 함수를 제공해요.
+- **`act`**: React의 업데이트를 래핑하여, 테스트가 React의 스케줄러와 동기화되도록 해줘요.
 
 <LinkPreviewCard href="https://react-hooks-testing-library.com/" />
 
@@ -314,8 +377,9 @@ function ThemeSwitcher() {
 간단한 카운터 훅을 만들고, 이를 테스트하는 예시를 통해 `react-hooks-testing-library`의 사용법을 알아볼게요.
 
 **`useCounter.ts`**
+
 ```ts showLineNumbers
-import { useState, useCallback } from 'react';
+import { useState, useCallback } from "react";
 
 interface UseCounterResult {
   count: number;
@@ -327,8 +391,14 @@ interface UseCounterResult {
 export function useCounter(initialValue: number = 0): UseCounterResult {
   const [count, setCount] = useState(initialValue);
 
-  const increment = useCallback(() => setCount(prevCount => prevCount + 1), []);
-  const decrement = useCallback(() => setCount(prevCount => prevCount - 1), []);
+  const increment = useCallback(
+    () => setCount((prevCount) => prevCount + 1),
+    [],
+  );
+  const decrement = useCallback(
+    () => setCount((prevCount) => prevCount - 1),
+    [],
+  );
   const reset = useCallback(() => setCount(initialValue), [initialValue]);
 
   return { count, increment, decrement, reset };
@@ -336,23 +406,24 @@ export function useCounter(initialValue: number = 0): UseCounterResult {
 ```
 
 **`useCounter.test.ts` (Vitest 환경 예시)**
-```tsx showLineNumbers {5, 11-13, 16, 20-21, 25-26}
-import { renderHook, act } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
-import { useCounter } from './useCounter';
 
-describe('useCounter', () => {
-  it('초기값으로 0을 반환해야 해요', () => {
+```tsx showLineNumbers {5, 11-13, 16, 20-21, 25-26}
+import { renderHook, act } from "@testing-library/react";
+import { describe, it, expect } from "vitest";
+import { useCounter } from "./useCounter";
+
+describe("useCounter", () => {
+  it("초기값으로 0을 반환해야 해요", () => {
     const { result } = renderHook(() => useCounter());
     expect(result.current.count).toBe(0);
   });
 
-  it('초기값을 설정할 수 있어야 해요', () => {
+  it("초기값을 설정할 수 있어야 해요", () => {
     const { result } = renderHook(() => useCounter(10));
     expect(result.current.count).toBe(10);
   });
 
-  it('increment 함수를 호출하면 카운트가 증가해야 해요', () => {
+  it("increment 함수를 호출하면 카운트가 증가해야 해요", () => {
     const { result } = renderHook(() => useCounter(0));
     act(() => {
       result.current.increment();
@@ -360,7 +431,7 @@ describe('useCounter', () => {
     expect(result.current.count).toBe(1);
   });
 
-  it('decrement 함수를 호출하면 카운트가 감소해야 해요', () => {
+  it("decrement 함수를 호출하면 카운트가 감소해야 해요", () => {
     const { result } = renderHook(() => useCounter(5));
     act(() => {
       result.current.decrement();
@@ -368,7 +439,7 @@ describe('useCounter', () => {
     expect(result.current.count).toBe(4);
   });
 
-  it('reset 함수를 호출하면 초기값으로 돌아가야 해요', () => {
+  it("reset 함수를 호출하면 초기값으로 돌아가야 해요", () => {
     const { result } = renderHook(() => useCounter(10));
     act(() => {
       result.current.increment(); // 11
@@ -378,10 +449,13 @@ describe('useCounter', () => {
     expect(result.current.count).toBe(10);
   });
 
-  it('새로운 초기값으로 리셋되어야 해요', () => {
-    const { result, rerender } = renderHook(({ initialValue }) => useCounter(initialValue), {
-      initialProps: { initialValue: 0 },
-    });
+  it("새로운 초기값으로 리셋되어야 해요", () => {
+    const { result, rerender } = renderHook(
+      ({ initialValue }) => useCounter(initialValue),
+      {
+        initialProps: { initialValue: 0 },
+      },
+    );
 
     act(() => {
       result.current.increment(); // count: 1
@@ -423,6 +497,6 @@ React 커스텀 훅은 컴포넌트 로직의 재사용성을 높이고, 관심�
 
 ## 📮 참고
 
-*   [React 공식 문서: Building Your Own Hooks](https://react.dev/learn/reusing-logic-with-custom-hooks)
-*   [React Hooks Testing Library](https://react-hooks-testing-library.com/)
-*   [MDN Web Docs: Web Storage API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API)
+- [React 공식 문서: Building Your Own Hooks](https://react.dev/learn/reusing-logic-with-custom-hooks)
+- [React Hooks Testing Library](https://react-hooks-testing-library.com/)
+- [MDN Web Docs: Web Storage API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API)
