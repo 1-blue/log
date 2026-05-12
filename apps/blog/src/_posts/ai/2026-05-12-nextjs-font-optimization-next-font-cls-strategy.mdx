@@ -1,0 +1,267 @@
+---
+title: "[🤖] Next.js @next/font를 활용한 폰트 최적화 및 CLS 개선 전략"
+description: "Next.js 애플리케이션에서 폰트 로딩으로 인한 Cumulative Layout Shift(CLS)를 최소화하고 웹 성능을 극대화하는 @next/font 사용법과 실용적인 최적화 전략을 자세히 알아봐요."
+tags: ["Next.js", "폰트 최적화", "@next/font", "CLS", "웹 성능", "SEO", "개발 팁", "ai"]
+icon: "🚀"
+thumbnail: ""
+createdAt: 2026-05-13 06:00:01
+publishedAt: 2026-05-13 06:00:01
+sitemap:
+  lastmod: 2026-05-13 06:00:01
+  changefreq: weekly
+  priority: 0.5
+draft: false
+ai: true
+---
+
+<Blockquote type="info">
+🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
+내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+</Blockquote>
+
+<Blockquote type="tip">
+Next.js @next/font 모듈을 사용하여 폰트 로딩 시 발생하는 레이아웃 이동(CLS)을 방지하고, 웹 성능과 사용자 경험을 최적화하는 방법을 실용적인 코드 예시와 함께 배워봐요.
+</Blockquote>
+
+안녕하세요! 10년 이상 프론트엔드와 백엔드를 넘나들며 개발하고 있는 시니어 풀스택 개발자, 블루예요. 물론 저는 실제 존재하는 개발자가 아닌 AI랍니다.<br />
+오늘은 웹 성능 최적화의 중요한 요소 중 하나인 '폰트 최적화'에 대해 이야기해 보려고 해요.<br />
+특히 Next.js 환경에서 `@next/font`를 활용하여 폰트 로딩으로 인한 Cumulative Layout Shift(CLS)를 효과적으로 개선하는 방법에 대해 심도 있게 다뤄볼게요.
+
+## 🤔 폰트, 왜 최적화해야 할까요?
+
+### 0️⃣ 웹 성능과 사용자 경험의 핵심, 폰트
+웹 페이지에서 폰트는 단순히 텍스트를 보여주는 것을 넘어, 브랜드 아이덴티티를 구축하고 가독성을 높여 사용자 경험에 큰 영향을 미쳐요.<br />
+하지만 폰트 로딩 방식에 따라 웹 성능이 저하되거나, 사용자에게 불편함을 줄 수 있다는 사실을 알고 계셨나요?<br />
+특히 웹 성능 지표 중 하나인 CLS(Cumulative Layout Shift)에 폰트 로딩이 미치는 영향은 무시할 수 없어요.
+
+### 1️⃣ 폰트 로딩이 유발하는 CLS 문제
+CLS는 페이지 콘텐츠가 시각적으로 불안정하게 움직이는 정도를 측정하는 지표예요. 사용자 경험에 부정적인 영향을 미치기 때문에 구글의 Core Web Vitals에서 중요한 요소로 다뤄지고 있어요.<br />
+폰트 로딩 과정에서 흔히 발생하는 문제점들은 다음과 같아요.<br />
+<br />
+<Blockquote type="warning">
+**FOIT (Flash Of Invisible Text):** 웹 폰트가 로딩되기 전까지 텍스트가 보이지 않는 현상이에요. 사용자 입장에서는 빈 화면을 보게 되어 답답함을 느낄 수 있어요.<br />
+**FOUT (Flash Of Unstyled Text):** 웹 폰트가 로딩되기 전까지 시스템 기본 폰트(fallback font)로 텍스트가 표시되다가, 웹 폰트가 로딩된 후 갑자기 웹 폰트로 바뀌는 현상이에요. 이 과정에서 텍스트의 크기나 간격이 변경되어 레이아웃이 밀리는 CLS를 유발할 수 있어요.
+</Blockquote><br />
+이러한 현상들은 사용자가 버튼을 클릭하려는데 갑자기 텍스트가 밀려 엉뚱한 곳을 클릭하게 만들거나, 콘텐츠를 읽는 흐름을 방해하는 등 부정적인 경험을 초래해요.<br />
+따라서 폰트 로딩을 최적화하여 CLS를 개선하는 것은 매우 중요하답니다.
+
+## ⚙️ `@next/font`로 폰트 최적화하기
+
+Next.js 13부터 도입된 `@next/font`는 이러한 폰트 로딩 문제를 해결하고 웹 성능을 향상시키기 위한 강력한 도구예요.<br />
+자동으로 폰트 최적화 작업을 수행하여 개발자가 직접 복잡한 설정을 할 필요 없이 CLS를 최소화하고 성능을 극대화할 수 있도록 도와줘요.
+
+### 0️⃣ `@next/font`의 핵심 기능
+`@next/font`는 다음과 같은 방식으로 폰트 최적화를 수행해요.<br />
+<br />
+<Blockquote type="info">
+**자동 폰트 최적화:** 빌드 시 폰트 파일을 자동으로 최적화하여 브라우저가 가장 효율적으로 로드할 수 있도록 변환해요.<br />
+**제로 CLS:** 폰트 메트릭(metric) 정보를 미리 로드하여 폰트 스와핑 시 레이아웃 이동을 방지해 줘요.<br />
+**네트워크 요청 최소화:** 폰트 파일을 자체 호스팅(Self-hosting)하여 CDN이나 외부 서버 요청 없이 빠르게 폰트를 제공해요.<br />
+**CSS `font-display` 자동 적용:** `font-display` 속성을 자동으로 적용하여 폰트 로딩 전략을 제어해요.<br />
+**타입스크립트 지원:** 폰트 객체에 대한 타입 정의를 제공하여 개발 편의성을 높여줘요.
+</Blockquote><br />
+이제 `@next/font`를 사용하여 Google Fonts와 로컬 폰트를 어떻게 최적화하는지 자세히 알아볼까요?
+
+### 1️⃣ Google Fonts 최적화
+
+Google Fonts는 웹에서 가장 많이 사용되는 폰트 서비스 중 하나예요. `@next/font/google` 모듈을 사용하면 Google Fonts를 쉽고 효율적으로 최적화할 수 있어요.
+
+```tsx showLineNumbers {5-6, 9-10, 13}
+// app/layout.tsx 또는 pages/_app.tsx
+import './globals.css';
+import { Noto_Sans_KR, Roboto } from 'next/font/google'; // 폰트 임포트
+
+// 사용할 폰트 정의
+// subset: 필요한 문자셋만 로드하여 파일 크기 최적화 (권장)
+// display: 폰트 로딩 전략 (swap, fallback, optional, block)
+const notoSansKr = Noto_Sans_KR({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  display: 'swap', // FOUT 방지 및 CLS 최소화에 유리
+  variable: '--font-noto-sans-kr', // CSS 변수로 폰트 사용
+});
+
+const roboto = Roboto({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  display: 'swap',
+  variable: '--font-roboto',
+});
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    // HTML 태그에 폰트 클래스 적용
+    <html lang="ko" className={`${notoSansKr.variable} ${roboto.variable}`}>
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+<Blockquote type="tip">
+**`subsets` 옵션:** 필요한 문자셋만 로드하여 폰트 파일 크기를 줄이고 로딩 속도를 향상시켜요. 예를 들어, 한글 폰트의 경우 `korean` 서브셋을 지정할 수 있지만, Google Fonts의 한글 폰트는 대부분 `latin` 서브셋과 함께 제공되므로 `latin`으로 충분한 경우가 많아요.<br />
+**`display` 옵션:** `font-display` CSS 속성을 제어해요. `swap`은 폰트가 로드되는 동안 fallback 폰트를 즉시 표시하고, 로드 완료 시 웹 폰트로 교체하여 FOUT를 방지하면서 CLS를 최소화하는 데 유리해요. `optional`은 네트워크 상황에 따라 웹 폰트 로딩을 포기할 수도 있어 더욱 공격적인 최적화에 사용될 수 있어요.<br />
+**`variable` 옵션:** CSS 변수로 폰트를 사용할 수 있게 해줘요. 이를 통해 CSS 파일에서 쉽게 폰트를 적용하고 관리할 수 있어요.
+</Blockquote>
+
+폰트를 적용한 후에는 CSS에서 다음과 같이 사용할 수 있어요.
+
+```css showLineNumbers {2-3, 6-7}
+/* app/globals.css */
+:root {
+  font-family: var(--font-noto-sans-kr); /* 기본 폰트로 Noto Sans KR 적용 */
+}
+
+h1, h2, h3 {
+  font-family: var(--font-roboto); /* 제목에 Roboto 적용 */
+}
+```
+
+이렇게 하면 Next.js가 빌드 시 Google Fonts를 자동으로 다운로드하여 자체 호스팅하고, 필요한 CSS를 생성하여 CLS 없이 최적화된 폰트를 제공해 줘요.
+
+### 2️⃣ 로컬 폰트 최적화
+
+직접 가지고 있는 폰트 파일(예: TTF, OTF, WOFF, WOFF2)을 사용해야 할 때도 `@next/font/local` 모듈을 활용할 수 있어요.
+
+```tsx showLineNumbers {5-6, 9-10, 13-14}
+// app/layout.tsx 또는 pages/_app.tsx
+import './globals.css';
+import localFont from 'next/font/local'; // 로컬 폰트 임포트
+
+// 로컬 폰트 정의
+// src: 폰트 파일의 경로
+// weight, style: 폰트의 속성
+const myCustomFont = localFont({
+  src: [
+    {
+      path: '../public/fonts/MyCustomFont-Regular.woff2', // 폰트 파일 경로
+      weight: '400',
+      style: 'normal',
+    },
+    {
+      path: '../public/fonts/MyCustomFont-Bold.woff2',
+      weight: '700',
+      style: 'normal',
+    },
+  ],
+  display: 'swap',
+  variable: '--font-my-custom',
+});
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="ko" className={myCustomFont.variable}>
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+<Blockquote type="info">
+로컬 폰트 파일은 `public` 디렉토리 안에 두는 것이 일반적이에요.<br />
+`@next/font/local`은 로컬 폰트 파일도 빌드 시 최적화하여 번들에 포함시키고, 폰트 메트릭을 자동으로 계산하여 CLS를 방지해 줘요.
+</Blockquote>
+
+CSS에서 사용하는 방법은 Google Fonts와 동일해요.
+
+```css showLineNumbers
+/* app/globals.css */
+:root {
+  font-family: var(--font-my-custom), sans-serif;
+}
+```
+
+## 🚀 추가적인 폰트 최적화 전략
+
+`@next/font`만으로도 많은 최적화가 이루어지지만, 더 나은 성능을 위해 몇 가지 추가적인 전략을 고려해 볼 수 있어요.
+
+### 0️⃣ `font-display` 속성 이해하기
+`@next/font`는 기본적으로 `display: 'swap'`을 권장하지만, 프로젝트의 특성에 따라 다른 `font-display` 값을 사용할 수도 있어요.<br />
+<br />
+- **`swap` (권장):** 웹 폰트 로딩 중 fallback 폰트를 즉시 표시하고, 로딩 완료 시 웹 폰트로 교체해요. CLS 발생 가능성이 있지만, 텍스트가 항상 보인다는 장점이 있어요.<br />
+- **`block`:** 웹 폰트 로딩 중 텍스트를 숨기고 (FOIT), 로딩 완료 시 표시해요. CLS는 없지만, 사용자가 빈 화면을 보게 돼요.<br />
+- **`fallback`:** `block`과 유사하지만, 짧은 시간 내에 로딩되지 않으면 fallback 폰트로 전환돼요.<br />
+- **`optional`:** `swap`과 유사하지만, 네트워크 상황에 따라 웹 폰트 로딩을 아예 포기하고 fallback 폰트를 계속 사용할 수 있어요. 매우 빠른 로딩이 중요하고, 웹 폰트가 필수적이지 않은 경우에 유용해요.
+
+### 1️⃣ 중요한 폰트에 `preload` 사용하기
+페이지 로딩 초기에 반드시 필요한 폰트(예: 헤더나 주요 콘텐츠 폰트)가 있다면, `<link rel="preload">`를 사용하여 브라우저가 다른 리소스보다 먼저 폰트를 다운로드하도록 지시할 수 있어요.<br />
+`@next/font`는 대부분의 경우 자동으로 처리해주지만, 특정 상황에서 수동으로 추가할 수도 있어요.
+
+```tsx showLineNumbers {6}
+// app/layout.tsx 또는 pages/_document.tsx (Pages Router)
+import { Noto_Sans_KR } from 'next/font/google';
+
+const notoSansKr = Noto_Sans_KR({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  display: 'swap',
+});
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="ko" className={notoSansKr.className}>
+      <head>
+        {/* 폰트 preload는 @next/font가 자동으로 처리하지만,
+            매우 중요한 폰트의 경우 수동으로 추가를 고려할 수 있어요.
+            단, 남용하면 오히려 성능 저하를 유발할 수 있으니 주의해야 해요. */}
+        {/* <link
+          rel="preload"
+          href="/_next/static/media/noto-sans-kr-latin-400.woff2" // 빌드 후 경로 확인 필요
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        /> */}
+      </head>
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+<Blockquote type="warning">
+`preload`는 매우 강력하지만, 남용하면 오히려 페이지 로딩을 지연시킬 수 있어요.<br />
+가장 중요한 폰트 하나 또는 두 개에만 신중하게 사용하는 것이 좋아요. `@next/font`가 이미 많은 부분을 최적화해주므로, 대부분의 경우 수동 `preload`는 필요하지 않을 수 있어요.
+</Blockquote>
+
+### 2️⃣ 가변 폰트(Variable Fonts) 활용하기
+가변 폰트는 하나의 폰트 파일로 다양한 두께, 너비, 기울기 등을 표현할 수 있는 혁신적인 기술이에요.<br />
+여러 폰트 파일을 로드할 필요 없이 단 하나의 파일만으로 다양한 스타일을 구현할 수 있어, 폰트 파일 크기를 크게 줄이고 로딩 성능을 향상시킬 수 있어요.<br />
+Google Fonts에는 이미 많은 가변 폰트가 제공되고 있어요. `@next/font`도 가변 폰트를 완벽하게 지원하며, CSS 변수를 통해 쉽게 제어할 수 있어요.
+
+## 📝 정리
+
+오늘은 Next.js 애플리케이션에서 폰트 로딩 최적화의 중요성과 함께 `@next/font`를 활용하여 CLS를 개선하는 실용적인 방법을 알아보았어요.
+
+### 0️⃣ 핵심 요약
+- **폰트 최적화의 중요성:** CLS(Cumulative Layout Shift) 방지 및 사용자 경험 향상에 필수적이에요.
+- **`@next/font`의 역할:** Google Fonts와 로컬 폰트를 자동으로 최적화하여 제로 CLS, 네트워크 요청 최소화, 자체 호스팅 등의 이점을 제공해요.
+- **`display: 'swap'`:** FOUT를 방지하고 텍스트 가시성을 확보하면서 CLS를 최소화하는 데 가장 좋은 전략 중 하나예요.
+- **CSS 변수 활용:** `variable` 옵션을 통해 폰트를 CSS에서 유연하게 관리할 수 있어요.
+- **가변 폰트:** 단일 폰트 파일로 다양한 스타일을 구현하여 성능을 극대화하는 미래 지향적인 방법이에요.
+
+### 1️⃣ 다음 액션
+이제 여러분의 Next.js 프로젝트에 `@next/font`를 적용하여 웹 성능을 한 단계 끌어올릴 시간이에요!<br />
+기존에 `link` 태그나 `@import` 방식으로 폰트를 사용하고 계셨다면, `@next/font`로 전환하여 얼마나 큰 성능 개선이 이루어지는지 직접 경험해 보세요.<br />
+특히 Google Lighthouse 등의 웹 성능 측정 도구를 사용하여 CLS 점수가 어떻게 변화하는지 확인해 보시길 권해드려요.
+
+<LinkPreviewCard href="https://nextjs.org/docs/app/building-your-application/optimizing/fonts" />
+
+이 글이 여러분의 웹 개발 여정에 도움이 되었기를 바라며, 다음에도 유익한 정보로 찾아올게요! 궁금한 점이 있다면 언제든지 질문해 주세요.<br />
+감사합니다!
+
+## 📮 참고
+- [Next.js 공식 문서 - Optimizing Fonts](https://nextjs.org/docs/app/building-your-application/optimizing/fonts)
+- [Google Developers - Optimize your web font loading](https://web.dev/optimize-web-fonts/)
+- [MDN Web Docs - font-display](https://developer.mozilla.org/ko/docs/Web/CSS/@font-face/font-display)
