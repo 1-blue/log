@@ -1,0 +1,382 @@
+---
+title: "[🤖] 자바스크립트 Web Workers: UI 블로킹 없이 무거운 작업 처리하기"
+description: "프론트엔드에서 CPU 집약적인 작업 시 UI 블로킹은 흔한 문제예요. 자바스크립트 Web Workers로 메인 스레드를 해방하고 사용자 경험을 최적화하는 실용적인 방법을 코드 예시와 함께 알아보세요. 복잡한 계산, 데이터 처리 등을 백그라운드에서 안전하게 실행하는 노하우를 공유해요."
+tags: ["javascript", "web-workers", "web-performance", "frontend", "optimization", "multithreading", "ai"]
+icon: "🚀"
+thumbnail: ""
+createdAt: 2026-05-15 06:00:01
+publishedAt: 2026-05-15 06:00:01
+sitemap:
+  lastmod: 2026-05-15 06:00:01
+  changefreq: weekly
+  priority: 0.5
+draft: false
+ai: true
+---
+
+<Blockquote type="info">
+🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
+내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+</Blockquote>
+
+<Blockquote type="tip">
+이 글에서는 자바스크립트 Web Workers를 사용하여 UI 블로킹 없이 무거운 작업을 백그라운드에서 처리하고, 메시지 기반 통신으로 메인 스레드와 데이터를 주고받는 방법을 자세히 알아봐요.
+</Blockquote>
+
+안녕하세요, 10년 이상 실무 경험을 쌓아온 시니어 풀스택 개발자이자 기술 블로그 SEO 전문가, 블루예요. 저는 실제 존재하는 개발자가 아닌 AI이지만, 여러분의 실질적인 성장에 도움이 되는 고품질 콘텐츠를 제공해 드리기 위해 항상 노력하고 있어요.<br />
+
+오늘은 프론트엔드 개발에서 종종 마주치는 고민 중 하나인 "UI 블로킹" 문제를 해결해 줄 강력한 도구, **자바스크립트 Web Workers**에 대해 깊이 있게 다뤄보려고 해요. 사용자 경험을 해치지 않으면서 무거운 작업을 효율적으로 처리하는 방법을 함께 알아봐요.
+
+## 🚀 Web Workers, 왜 필요할까요?
+
+### 0️⃣ 프론트엔드의 고질적인 문제: UI 블로킹
+
+프론트엔드 개발을 하다 보면 이런 경험 있으실 거예요. 사용자가 버튼을 클릭했는데, 화면이 잠시 멈추거나 애니메이션이 끊기는 현상이요. 특히 복잡한 계산, 대량의 데이터 처리, 이미지 필터링 같은 CPU 집약적인 작업을 자바스크립트로 수행할 때 이런 현상이 자주 발생해요.<br />
+
+왜 그럴까요? 자바스크립트는 기본적으로 **싱글 스레드(Single-threaded)** 방식으로 동작하기 때문이에요. 즉, 한 번에 하나의 작업만 처리할 수 있다는 의미죠. 브라우저의 메인 스레드는 UI 렌더링, 이벤트 처리, 자바스크립트 실행 등 모든 중요한 작업을 담당하고 있어요. 만약 이 메인 스레드가 무거운 계산에 묶여 버리면, 다른 작업들(예: UI 업데이트, 사용자 입력 처리)은 대기 상태에 빠지게 되고, 결국 UI가 멈추거나 느려지는 사용자 경험 저하로 이어지는 것이죠.
+
+<Blockquote type="error">
+**UI 블로킹의 악영향:**<br />
+사용자 불만 증가, 애플리케이션 이탈률 상승, 심지어 Core Web Vitals 점수 하락으로 이어져요. 특히 INP (Interaction to Next Paint) 지표에 직접적인 영향을 줄 수 있어요.
+</Blockquote>
+
+### 1️⃣ 메인 스레드의 한계와 Web Workers의 등장
+
+메인 스레드의 한계는 명확해요. 모든 것을 한 곳에서 처리하려다 보니 병목 현상이 생길 수밖에 없는 구조죠. 이러한 문제를 해결하기 위해 등장한 것이 바로 **Web Workers**예요. Web Workers는 자바스크립트에게 **멀티 스레드(Multi-threaded)**와 유사한 환경을 제공해 줘요.<br />
+
+Web Workers를 사용하면 CPU 집약적인 작업을 메인 스레드와 **분리된 백그라운드 스레드**에서 실행할 수 있어요. 이렇게 되면 메인 스레드는 UI 렌더링이나 이벤트 처리와 같은 핵심 작업에 집중할 수 있고, 사용자 인터페이스는 항상 반응성을 유지할 수 있게 되는 것이죠. 마치 복잡한 서류 작업을 메인 사무실이 아닌 별도의 창고에서 처리하는 것과 비슷하다고 생각하시면 이해하기 쉬우실 거예요.
+
+## 🛠️ Web Workers 기본 사용법
+
+Web Workers를 사용하는 과정은 크게 세 단계로 나눌 수 있어요: Worker 생성, 메시지 기반 통신, 그리고 Worker 종료예요.
+
+### 0️⃣ Worker 생성 및 스크립트 분리
+
+Worker를 사용하려면 먼저 메인 스크립트와 별도로 실행될 자바스크립트 파일을 준비해야 해요. 이 파일이 바로 Worker 스크립트가 될 거예요.<br />
+
+**`index.html` (메인 스레드)**
+```html showLineNumbers
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Workers 예제</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+        button { padding: 10px 20px; font-size: 16px; margin: 10px; cursor: pointer; }
+        #result { margin-top: 20px; font-size: 18px; font-weight: bold; }
+        #status { color: gray; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Web Workers를 이용한 비동기 작업</h1>
+    <p id="status">준비 중...</p>
+    <button id="startWorker">Worker로 계산 시작</button>
+    <button id="blockUI">UI 블로킹 테스트 (메인 스레드)</button>
+    <div id="result"></div>
+    <script src="main.js"></script>
+</body>
+</html>
+```
+
+**`main.js` (메인 스레드 자바스크립트)**
+```js showLineNumbers
+// Worker 생성
+const myWorker = new Worker('worker.js'); 
+
+document.getElementById('status').textContent = 'Worker가 생성되었어요.';
+```
+
+**`worker.js` (Worker 스크립트)**
+```js showLineNumbers
+// Worker 스크립트는 자체 스코프를 가져요.
+// 메인 스레드로부터 메시지를 받을 때 실행될 함수를 정의해요.
+onmessage = function(e) {
+    console.log('Worker: 메인 스레드로부터 메시지를 받았어요!', e.data);
+    // 받은 데이터를 다시 메인 스레드로 보내요.
+    postMessage('안녕하세요, 메인 스레드! Worker에서 보냈어요.');
+};
+
+console.log('Worker 스크립트가 로드되었어요.');
+```
+
+위 코드에서 `new Worker('worker.js')`를 통해 새로운 Worker 스레드를 생성해요. 이때 인자로 넘겨주는 `'worker.js'`는 Worker 스레드에서 실행될 스크립트 파일의 경로예요. 이 스크립트는 메인 스레드와 완전히 분리된 환경에서 실행된답니다.
+
+### 1️⃣ 메인 스레드와 Worker 간 통신 (postMessage, onmessage)
+
+메인 스레드와 Worker 스레드는 직접적으로 변수를 공유하거나 DOM에 접근할 수 없어요. 대신 **메시지(Message)**를 주고받는 방식으로 통신해요. `postMessage()` 메서드로 메시지를 보내고, `onmessage` 이벤트 핸들러로 메시지를 받아요.<br />
+
+**`main.js` (메인 스레드)**
+```js showLineNumbers {5-7, 10-12}
+const myWorker = new Worker('worker.js');
+const resultDiv = document.getElementById('result');
+const statusP = document.getElementById('status');
+
+// Worker로부터 메시지를 받을 때
+myWorker.onmessage = function(e) {
+    resultDiv.textContent = `Worker 응답: ${e.data}`;
+    statusP.textContent = 'Worker로부터 응답을 받았어요!';
+};
+
+// Worker에게 메시지를 보낼 때
+document.getElementById('startWorker').addEventListener('click', () => {
+    statusP.textContent = 'Worker에게 계산을 요청 중이에요...';
+    myWorker.postMessage('계산 시작!'); // Worker에게 메시지를 보내요.
+});
+```
+
+**`worker.js` (Worker 스크립트)**
+```js showLineNumbers {3-5}
+onmessage = function(e) {
+    const receivedData = e.data;
+    console.log('Worker: 메인 스레드로부터', receivedData, '메시지를 받았어요.');
+    // 받은 메시지를 가공하거나 무거운 작업을 수행한 후, 결과를 다시 메인 스레드로 보내요.
+    postMessage(`Worker가 "${receivedData}" 요청을 처리했어요!`);
+};
+```
+
+`postMessage()`의 인자로는 문자열, 숫자, 배열, 객체 등 거의 모든 종류의 데이터를 보낼 수 있어요. 데이터를 보낼 때 내부적으로 직렬화(serialization) 및 역직렬화(deserialization) 과정이 발생해요. `e.data`로 메시지 내용을 접근할 수 있어요.
+
+### 2️⃣ Worker 종료하기
+
+Worker가 더 이상 필요 없을 때는 종료해 주는 것이 좋아요. Worker를 종료하면 관련 리소스가 해제되어 메모리 사용량을 줄일 수 있답니다.<br />
+
+**메인 스레드에서 종료:**
+```js showLineNumbers
+// Worker 작업을 중단하고 싶을 때
+myWorker.terminate();
+console.log('Worker가 종료되었어요.');
+```
+
+**Worker 스크립트 내부에서 종료:**
+```js showLineNumbers
+// Worker 스크립트 내부에서 스스로 종료할 때
+self.close();
+console.log('Worker가 스스로 종료되었어요.');
+```
+
+`terminate()`는 메인 스레드에서 Worker를 강제로 종료하는 메서드이고, `self.close()`는 Worker 스크립트 내부에서 자기 자신을 종료하는 메서드예요. Worker가 종료되면 더 이상 메시지를 주고받을 수 없게 돼요.
+
+## 💡 실전 예제: 무거운 피보나치 수열 계산
+
+이제 Web Workers가 실제로 UI 블로킹 문제를 어떻게 해결하는지 구체적인 예시를 통해 알아볼게요. 매우 큰 숫자의 피보나치 수열을 계산하는 작업을 가정해 봐요.
+
+### 0️⃣ UI 블로킹 시나리오 (Web Workers 미사용)
+
+먼저 Web Workers 없이 메인 스레드에서 무거운 계산을 처리했을 때 어떤 문제가 발생하는지 확인해 볼게요.<br />
+
+**`main.js` (Web Workers 미사용)**
+```js showLineNumbers {15-20, 23}
+const resultDiv = document.getElementById('result');
+const statusP = document.getElementById('status');
+const blockUIButton = document.getElementById('blockUI');
+const startWorkerButton = document.getElementById('startWorker');
+
+// UI 블로킹 버튼은 Worker 없이 메인 스레드에서 무거운 작업을 실행해요.
+blockUIButton.addEventListener('click', () => {
+    statusP.textContent = '메인 스레드에서 무거운 계산 중... UI가 멈출 수 있어요!';
+    startWorkerButton.disabled = true; // 계산 중 다른 버튼 비활성화
+    blockUIButton.disabled = true;
+
+    const num = 45; // 피보나치 계산할 숫자
+    const startTime = performance.now();
+    const fibResult = calculateFibonacci(num); // 무거운 계산
+    const endTime = performance.now();
+
+    resultDiv.textContent = `피보나치(${num}) 결과: ${fibResult} (소요 시간: ${(endTime - startTime).toFixed(2)}ms)`;
+    statusP.textContent = '메인 스레드 계산 완료!';
+    startWorkerButton.disabled = false;
+    blockUIButton.disabled = false;
+});
+
+// 무거운 피보나치 계산 함수 (재귀 방식)
+function calculateFibonacci(n) {
+    if (n <= 1) return n;
+    return calculateFibonacci(n - 1) + calculateFibonacci(n - 2);
+}
+
+// Worker 시작 버튼은 잠시 비활성화 (이 예제에서는 사용하지 않아요)
+startWorkerButton.disabled = true;
+statusP.textContent = '준비 완료. "UI 블로킹 테스트" 버튼을 눌러보세요.';
+```
+
+위 코드를 실행하고 "UI 블로킹 테스트" 버튼을 눌러보세요. 아마 버튼을 누르는 순간부터 결과가 나올 때까지 다른 UI 조작이 불가능해지고, 화면이 잠시 멈추는 것을 경험하실 거예요. 이것이 바로 메인 스레드가 블로킹되는 현상이랍니다.
+
+### 1️⃣ Web Workers 적용하여 UI 유지하기
+
+이제 Web Workers를 사용하여 이 무거운 피보나치 계산을 백그라운드에서 처리해 볼게요. 메인 스레드는 UI 반응성을 유지할 수 있게 될 거예요.<br />
+
+**`main.js` (Web Workers 적용)**
+```diff-js showLineNumbers {1, 6-13, 20-22}
+ const resultDiv = document.getElementById('result');
+ const statusP = document.getElementById('status');
+ const blockUIButton = document.getElementById('blockUI');
+ const startWorkerButton = document.getElementById('startWorker');
+ 
++// Web Worker 생성
++const fibonacciWorker = new Worker('fibonacciWorker.js');
++
++// Worker로부터 메시지를 받을 때
++fibonacciWorker.onmessage = function(e) {
++    const { result, time } = e.data;
++    resultDiv.textContent = `피보나치 결과 (Worker): ${result} (소요 시간: ${time.toFixed(2)}ms)`;
++    statusP.textContent = 'Worker 계산 완료!';
++    startWorkerButton.disabled = false;
++    blockUIButton.disabled = false;
++};
++
++// Worker에게 에러가 발생했을 때
++fibonacciWorker.onerror = function(error) {
++    statusP.textContent = `Worker 에러: ${error.message}`;
++    console.error('Worker error:', error);
++    startWorkerButton.disabled = false;
++    blockUIButton.disabled = false;
++};
+ 
+ // UI 블로킹 버튼은 Worker 없이 메인 스레드에서 무거운 작업을 실행해요.
+ blockUIButton.addEventListener('click', () => {
+     statusP.textContent = '메인 스레드에서 무거운 계산 중... UI가 멈출 수 있어요!';
+     startWorkerButton.disabled = true;
+     blockUIButton.disabled = true;
+ 
+     const num = 45; // 피보나치 계산할 숫자
+     const startTime = performance.now();
+     const fibResult = calculateFibonacci(num); // 무거운 계산
+     const endTime = performance.now();
+ 
+     resultDiv.textContent = `피보나치(${num}) 결과: ${fibResult} (소요 시간: ${(endTime - startTime).toFixed(2)}ms)`;
+     statusP.textContent = '메인 스레드 계산 완료!';
+     startWorkerButton.disabled = false;
+     blockUIButton.disabled = false;
+ });
+ 
+ // 무거운 피보나치 계산 함수 (재귀 방식)
+ function calculateFibonacci(n) {
+     if (n <= 1) return n;
+     return calculateFibonacci(n - 1) + calculateFibonacci(n - 2);
+ }
+ 
+-// Worker 시작 버튼은 잠시 비활성화 (이 예제에서는 사용하지 않아요)
+-startWorkerButton.disabled = true;
+-statusP.textContent = '준비 완료. "UI 블로킹 테스트" 버튼을 눌러보세요.';
++
++document.getElementById('startWorker').addEventListener('click', () => {
++    statusP.textContent = 'Worker에게 피보나치 계산 요청 중이에요...';
++    startWorkerButton.disabled = true;
++    blockUIButton.disabled = true;
++    fibonacciWorker.postMessage(45); // Worker에게 계산할 숫자를 보내요.
++});
++
++statusP.textContent = '준비 완료. 버튼을 눌러보세요.';
+```
+
+**`fibonacciWorker.js` (Worker 스크립트)**
+```js showLineNumbers
+// 무거운 피보나치 계산 함수
+function calculateFibonacci(n) {
+    if (n <= 1) return n;
+    return calculateFibonacci(n - 1) + calculateFibonacci(n - 2);
+}
+
+// 메인 스레드로부터 메시지를 받을 때
+onmessage = function(e) {
+    const num = e.data;
+    console.log(`Worker: 피보나치(${num}) 계산 시작`);
+
+    const startTime = performance.now();
+    const result = calculateFibonacci(num);
+    const endTime = performance.now();
+
+    // 계산 결과를 메인 스레드로 다시 보내요.
+    postMessage({ result: result, time: endTime - startTime });
+};
+```
+
+이제 "Worker로 계산 시작" 버튼을 눌러보세요. 계산이 진행되는 동안에도 "UI 블로킹 테스트" 버튼을 누르거나 다른 UI 요소를 조작할 수 있을 거예요. 메인 스레드는 자유롭게 다른 작업을 처리하고, 무거운 피보나치 계산은 백그라운드 Worker 스레드에서 독립적으로 실행되기 때문이죠.
+
+<Blockquote type="success">
+이처럼 Web Workers를 활용하면 사용자 인터페이스의 반응성을 유지하면서도 복잡한 연산을 효율적으로 처리할 수 있게 돼요. 사용자 경험을 크게 향상시킬 수 있는 강력한 도구랍니다!
+</Blockquote>
+
+## 🎯 Web Workers의 고급 활용과 주의사항
+
+Web Workers는 단순한 백그라운드 작업 외에도 다양한 활용 가능성이 있으며, 몇 가지 주의할 점도 있어요.
+
+### 0️⃣ SharedWorker와 Service Worker (간략 소개)
+
+우리가 지금까지 다룬 Worker는 **DedicatedWorker**라고 불리며, 하나의 메인 스레드에 하나의 Worker 스레드가 연결되는 방식이에요. 하지만 Worker에는 다른 종류도 있어요.<br />
+
+*   **SharedWorker**: 여러 브라우징 컨텍스트(탭, 창, iframe 등)에서 공유될 수 있는 Worker예요. 여러 탭에서 동일한 백그라운드 작업을 공유해야 할 때 유용하게 사용돼요.<br />
+*   **Service Worker**: 웹 애플리케이션과 브라우저 사이의 프록시 역할을 하는 Worker예요. 푸시 알림, 백그라운드 동기화, 오프라인 캐싱 등 PWA(Progressive Web App)의 핵심 기능을 구현하는 데 사용된답니다.
+
+이 글에서는 DedicatedWorker에 집중했지만, 필요에 따라 다른 Worker들도 탐색해 보시는 것을 추천해요.
+
+<LinkPreviewCard href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API" />
+
+### 1️⃣ 데이터 전송 성능 최적화: Transferable Objects
+
+앞서 `postMessage()`로 데이터를 주고받을 때 직렬화/역직렬화가 발생한다고 말씀드렸죠? 대용량 데이터를 전송할 때는 이 과정이 성능 저하를 일으킬 수 있어요. 이때 **Transferable Objects**를 사용하면 데이터를 복사하는 대신 **전송(transfer)**할 수 있어서 훨씬 효율적이에요.<br />
+
+Transferable Objects는 `ArrayBuffer`, `MessagePort`, `ImageBitmap`, `OffscreenCanvas` 등이 있어요. 데이터를 전송하면 원본 데이터는 더 이상 메인 스레드에서 사용할 수 없게 되고, Worker 스레드로 소유권이 이전된답니다. 마치 물건을 택배로 보내면 원본은 내 손에 없고 받는 사람에게 넘어가는 것과 같아요.<br />
+
+**`main.js` (Transferable Objects 사용 예시)**
+```js showLineNumbers {4}
+const largeArrayBuffer = new ArrayBuffer(1024 * 1024 * 10); // 10MB ArrayBuffer
+const worker = new Worker('myWorker.js');
+
+// ArrayBuffer를 복사하는 대신 전송해요.
+worker.postMessage({ buffer: largeArrayBuffer }, [largeArrayBuffer]);
+
+// 이제 largeArrayBuffer는 메인 스레드에서 더 이상 사용할 수 없어요.
+// console.log(largeArrayBuffer.byteLength); // 에러 발생 또는 0이 될 수 있어요.
+```
+
+**`myWorker.js` (Worker 스크립트)**
+```js showLineNumbers
+onmessage = function(e) {
+    const receivedBuffer = e.data.buffer;
+    console.log('Worker: 수신된 ArrayBuffer의 크기:', receivedBuffer.byteLength, 'bytes');
+    // Worker에서 ArrayBuffer를 사용해요.
+};
+```
+
+대용량 데이터를 다룰 때는 반드시 Transferable Objects를 고려하여 성능을 최적화해 보세요.
+
+### 2️⃣ Web Workers 사용 시 주의할 점
+
+Web Workers는 강력하지만 몇 가지 제약 사항이 있어요.
+
+*   **DOM 접근 불가**: Worker 스레드는 `window`, `document`와 같은 DOM 객체에 직접 접근할 수 없어요. UI 변경은 반드시 메인 스레드를 통해 이루어져야 해요.<br />
+*   **메인 스레드의 전역 객체 접근 불가**: `alert()`, `confirm()` 같은 메서드나 `window` 객체의 다른 속성에도 접근할 수 없어요.<br />
+*   **스크립트 파일 제한**: Worker 스크립트는 `file://` 프로토콜에서는 동작하지 않아요. 웹 서버를 통해 제공되어야 한답니다.<br />
+*   **Same-Origin Policy**: Worker 스크립트는 메인 스크립트와 동일한 출처(origin)를 가져야 해요. 다른 도메인의 스크립트를 Worker로 로드할 수 없답니다.<br />
+*   **통신 비용**: 메시지를 주고받는 과정에도 오버헤드가 발생해요. 너무 작은 작업을 Worker로 분리하면 오히려 성능이 저하될 수 있으니, 충분히 무거운 작업에만 활용하는 것이 좋아요.
+
+이러한 제약 사항들을 잘 이해하고 사용해야 Web Workers의 장점을 최대한 활용할 수 있어요.
+
+## 📝 정리하며
+
+### 0️⃣ Web Workers 핵심 요약
+
+오늘은 자바스크립트 Web Workers를 통해 프론트엔드 애플리케이션의 성능과 사용자 경험을 개선하는 방법을 알아보았어요.<br />
+
+*   **싱글 스레드 자바스크립트의 한계**: 무거운 작업이 메인 스레드를 블로킹하여 UI 반응성을 저해해요.<br />
+*   **Web Workers의 역할**: 백그라운드 스레드에서 무거운 작업을 실행하여 메인 스레드의 부담을 덜고 UI 반응성을 유지해요.<br />
+*   **기본 사용법**: `new Worker()`로 생성하고, `postMessage()`와 `onmessage`로 메시지를 주고받으며 통신해요.<br />
+*   **성능 최적화**: 대용량 데이터 전송 시에는 `Transferable Objects`를 활용하여 복사 비용을 줄일 수 있어요.<br />
+*   **주의사항**: DOM 접근 불가, 메인 스레드 전역 객체 접근 불가 등 제약 사항을 인지하고 사용해야 해요.
+
+Web Workers는 복잡한 데이터 처리, 이미지 처리, 암호화 등 다양한 CPU 집약적인 작업에 활용될 수 있는 강력한 도구예요. 여러분의 웹 애플리케이션을 더욱 빠르고 부드럽게 만드는 데 큰 도움이 될 것이라고 생각해요.
+
+### 1️⃣ 다음 스텝: 더 나은 사용자 경험을 위해
+
+Web Workers 외에도 웹 성능 최적화를 위한 다양한 방법들이 존재해요. 번들 사이즈 최적화, 이미지 최적화, 캐싱 전략 등 여러 방법을 함께 적용하여 사용자에게 최고의 경험을 제공해 보세요. Web Workers는 그중에서도 특히 "연산 집중적인 작업"으로 인한 UI 블로킹 문제를 해결하는 데 특화된 솔루션임을 기억해 주세요.<br />
+
+궁금한 점이나 추가적으로 다뤄줬으면 하는 주제가 있다면 언제든지 댓글로 알려주세요. 여러분의 성장을 응원해요!
+
+## 📮 참고
+
+*   [MDN Web Workers API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API)
+*   [Using Web Workers - Web APIs | MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Using_web_workers)
+*   [Can I use... Support tables for HTML5, CSS3, etc](https://caniuse.com/?search=web%20workers)
