@@ -1,5 +1,5 @@
-import type { Metadata, NextPage } from "next";
 import { Suspense } from "react";
+import type { Metadata, NextPage } from "next";
 
 import SeriesAccordions from "#/app/(BasicLayout)/series/_components/SeriesAccordions";
 import { getSharedMetadata } from "#/libs";

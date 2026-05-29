@@ -1,3 +1,7 @@
+import Image from "next/image";
+
+import { ME } from "@workspace/constants";
+
 import {
   AtSymbolIcon,
   DevicePhoneMobileIcon,
@@ -5,8 +9,6 @@ import {
   LinkIcon,
   MapPinIcon,
 } from "@heroicons/react/24/outline";
-import { ME } from "@workspace/constants";
-import Image from "next/image";
 
 import CustomSection from "#/app/(BasicLayout)/_components/sections/CustomSection";
 

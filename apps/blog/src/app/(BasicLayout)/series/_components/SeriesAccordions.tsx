@@ -1,5 +1,9 @@
 "use client";
 
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+
 import {
   Accordion,
   AccordionContent,
@@ -12,10 +16,8 @@ import {
   BreadcrumbList,
   BreadcrumbSeparator,
 } from "@workspace/ui/components/Breadcrumb";
+
 import { FileCodeIcon, FolderClosedIcon, FolderOpenIcon } from "lucide-react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
 
 import { IPost } from "#/types";
 
@@ -82,14 +84,19 @@ const SeriesAccordions: React.FC<IProps> = ({ allPosts }) => {
                       .split("/")
                       .map((v) => (
                         <>
-                          <BreadcrumbItem key={v}>{v}</BreadcrumbItem>
+                          <BreadcrumbItem
+                            key={v}
+                            className="line-clamp-1 max-w-xs"
+                          >
+                            {v}
+                          </BreadcrumbItem>
                           <BreadcrumbSeparator />
                         </>
                       ))}
                   </BreadcrumbList>
                 </Breadcrumb>
-                <FileCodeIcon className="size-5" />
-                <span className="text-base">{post.title}</span>
+                <FileCodeIcon className="size-5 flex-shrink-0" />
+                <span className="line-clamp-1 text-base">{post.title}</span>
               </Link>
             ))}
           </AccordionContent>
