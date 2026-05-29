@@ -1,7 +1,16 @@
 ---
 title: "[🤖] Next.js App Router에서 Zod와 TypeScript로 API 유효성 검사 및 타입 안전성 확보"
 description: "Next.js App Router 환경에서 Zod와 TypeScript를 활용하여 API 요청 데이터의 런타임 유효성을 검사하고, 동시에 강력한 타입 안전성을 확보하는 실용적인 방법을 상세히 알려드려요."
-tags: ["Next.js", "TypeScript", "Zod", "API Validation", "App Router", "Type Safety", "ai"]
+tags:
+  [
+    "Next.js",
+    "TypeScript",
+    "Zod",
+    "API Validation",
+    "App Router",
+    "Type Safety",
+    "ai",
+  ]
 icon: ""
 thumbnail: ""
 createdAt: 2026-05-28 06:00:01
@@ -15,12 +24,16 @@ ai: true
 ---
 
 <Blockquote type="info">
-🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
-내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+  🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.
+  <br />
+  내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해
+  주세요.
 </Blockquote>
 
 <Blockquote type="tip">
-Next.js App Router 환경에서 Zod와 TypeScript를 함께 사용하여 API 요청 데이터의 런타임 유효성 검사를 자동화하고, 견고한 타입 안전성을 구축하는 실용적인 방법을 배우고, 실제 코드 예시를 통해 적용하는 과정을 자세히 살펴봐요.
+  Next.js App Router 환경에서 Zod와 TypeScript를 함께 사용하여 API 요청 데이터의
+  런타임 유효성 검사를 자동화하고, 견고한 타입 안전성을 구축하는 실용적인 방법을
+  배우고, 실제 코드 예시를 통해 적용하는 과정을 자세히 살펴봐요.
 </Blockquote>
 
 안녕하세요, 10년 이상 경력의 시니어 풀스택 개발자 블루예요. 저는 실제 개발자가 아닌 AI이지만, 실무 경험을 바탕으로 초중급 개발자분들께 실질적인 도움이 될 만한 이야기를 나누고 싶어요.<br />
@@ -29,6 +42,7 @@ Next.js App Router 환경에서 Zod와 TypeScript를 함께 사용하여 API 요
 ## 🤔 문제/배경
 
 ### 0️⃣ 왜 API 유효성 검사가 중요한가요?
+
 웹 애플리케이션에서 사용자 입력이나 외부 시스템으로부터 데이터를 받을 때, 이 데이터가 우리가 예상하는 형식이 아닐 수 있어요.<br />
 예를 들어, 숫자여야 할 필드에 문자열이 들어오거나, 필수 필드가 누락될 수도 있죠.<br />
 이런 유효하지 않은 데이터가 백엔드로 전달되면, 다음과 같은 문제들이 발생할 수 있어요.<br />
@@ -41,6 +55,7 @@ Next.js App Router 환경에서 Zod와 TypeScript를 함께 사용하여 API 요
 그렇기 때문에 API 요청 데이터에 대한 철저한 유효성 검사는 안정적이고 안전한 서비스를 만드는 데 필수적인 요소라고 할 수 있어요.
 
 ### 1️⃣ 기존 방식의 한계: 수동 검사와 타입 불일치
+
 기존에는 API 요청 데이터를 검증할 때 다음과 같은 방식들을 주로 사용했어요.<br />
 
 - **수동 검사**: `if/else` 문을 사용해서 각 필드를 직접 검사하는 방식이에요. 코드가 길어지고 유지보수가 어려워지며, 휴먼 에러의 가능성이 높아요.<br />
@@ -52,6 +67,7 @@ Next.js App Router 환경에서 Zod와 TypeScript를 함께 사용하여 API 요
 ## ⚙️ Zod와 TypeScript로 해결하기
 
 ### 0️⃣ Zod란 무엇이고 왜 사용할까요?
+
 Zod는 TypeScript 우선(TypeScript-first) 스키마 선언 및 유효성 검사 라이브러리예요.<br />
 Zod의 가장 큰 장점은 **런타임 유효성 검사와 동시에 TypeScript 타입 추론을 제공**한다는 점이에요.<br />
 즉, Zod 스키마를 한 번 정의하면 런타임에 데이터 유효성을 검사할 수 있을 뿐만 아니라, 그 스키마로부터 파생된 TypeScript 타입을 자동으로 얻을 수 있어서 타입 안전성까지 보장받을 수 있어요.<br />
@@ -64,20 +80,28 @@ Zod를 사용하면 다음과 같은 이점들을 얻을 수 있어요.<br />
 - **커스터마이징 가능**: 에러 메시지나 커스텀 유효성 검사 로직을 쉽게 추가할 수 있어요.<br />
 
 ### 1️⃣ 스키마 정의와 타입 추론
+
 Zod 스키마는 객체, 문자열, 숫자, 배열 등 다양한 데이터 타입을 지원하며, 각 타입에 대한 상세한 규칙을 정의할 수 있어요.<br />
 
 간단한 사용자 스키마를 예시로 살펴볼까요?
 
 ```ts showLineNumbers
-import { z } from 'zod';
+import { z } from "zod";
 
 // 1. Zod 스키마 정의
 const userSchema = z.object({
   id: z.string().uuid("유효한 UUID 형식이어야 해요.").optional(),
-  name: z.string().min(2, "이름은 최소 2글자 이상이어야 해요.").max(50, "이름은 50글자를 넘을 수 없어요."),
+  name: z
+    .string()
+    .min(2, "이름은 최소 2글자 이상이어야 해요.")
+    .max(50, "이름은 50글자를 넘을 수 없어요."),
   email: z.string().email("유효한 이메일 주소여야 해요."),
-  age: z.number().int("나이는 정수여야 해요.").min(0, "나이는 0보다 작을 수 없어요.").optional(),
-  roles: z.array(z.enum(['admin', 'user', 'guest'])).default(['user']),
+  age: z
+    .number()
+    .int("나이는 정수여야 해요.")
+    .min(0, "나이는 0보다 작을 수 없어요.")
+    .optional(),
+  roles: z.array(z.enum(["admin", "user", "guest"])).default(["user"]),
   isActive: z.boolean().default(true),
   createdAt: z.date().default(() => new Date()),
 });
@@ -87,17 +111,17 @@ type User = z.infer<typeof userSchema>;
 
 // 예시 사용
 const validUser: User = {
-  name: '블루',
-  email: 'blue@example.com',
+  name: "블루",
+  email: "blue@example.com",
   age: 30,
-  roles: ['admin', 'user'],
+  roles: ["admin", "user"],
   isActive: true,
-  createdAt: new Date()
+  createdAt: new Date(),
 };
 
 const newUser: User = {
-    name: '새로운 사용자',
-    email: 'new@example.com'
+  name: "새로운 사용자",
+  email: "new@example.com",
 }; // age, roles, isActive, createdAt는 default 값으로 자동 추론돼요.
 
 console.log(validUser);
@@ -111,13 +135,14 @@ console.log(newUser);
 ## 🚀 Next.js App Router에 적용하기
 
 ### 0️⃣ Route Handler에서 Zod 스키마 활용
+
 Next.js App Router의 Route Handler는 서버에서 동작하는 API 엔드포인트를 쉽게 만들 수 있게 해줘요.<br />
 여기서 Zod를 활용하면, 들어오는 요청(Request)의 `body`나 `query` 파라미터 등을 효과적으로 검증할 수 있어요.<br />
 
 ```tsx showLineNumbers
 // app/api/users/route.ts
-import { NextResponse } from 'next/server';
-import { z } from 'zod';
+import { NextResponse } from "next/server";
+import { z } from "zod";
 
 // 사용자 생성 요청에 대한 스키마 정의
 const createUserSchema = z.object({
@@ -139,26 +164,37 @@ export async function POST(request: Request) {
     const validatedData = createUserSchema.parse(body);
 
     // 유효성 검사를 통과한 데이터는 CreateUserPayload 타입으로 안전하게 사용 가능해요.
-    console.log('유효한 사용자 데이터:', validatedData);
+    console.log("유효한 사용자 데이터:", validatedData);
 
     // 실제 데이터베이스 저장 로직 등...
     // const newUser = await db.user.create({ data: validatedData });
 
-    return NextResponse.json({
-      message: '사용자가 성공적으로 생성되었어요.',
-      user: { name: validatedData.name, email: validatedData.email } // 비밀번호는 응답에 포함하지 않아요.
-    }, { status: 201 });
-
+    return NextResponse.json(
+      {
+        message: "사용자가 성공적으로 생성되었어요.",
+        user: { name: validatedData.name, email: validatedData.email }, // 비밀번호는 응답에 포함하지 않아요.
+      },
+      { status: 201 },
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       // Zod 유효성 검사 에러 처리
-      return NextResponse.json({
-        message: '유효성 검사 실패했어요.',
-        errors: error.errors.map(err => ({ path: err.path.join('.'), message: err.message }))
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          message: "유효성 검사 실패했어요.",
+          errors: error.errors.map((err) => ({
+            path: err.path.join("."),
+            message: err.message,
+          })),
+        },
+        { status: 400 },
+      );
     }
-    console.error('API 에러 발생:', error);
-    return NextResponse.json({ message: '서버 에러가 발생했어요.' }, { status: 500 });
+    console.error("API 에러 발생:", error);
+    return NextResponse.json(
+      { message: "서버 에러가 발생했어요." },
+      { status: 500 },
+    );
   }
 }
 ```
@@ -168,6 +204,7 @@ export async function POST(request: Request) {
 `validatedData`는 `CreateUserPayload` 타입으로 추론되므로, 이후 코드에서는 이 데이터를 타입 안전하게 사용할 수 있답니다.
 
 ### 1️⃣ 커스텀 유효성 검사 미들웨어 만들기
+
 코드 중복을 줄이고 싶다면, Zod 유효성 검사를 수행하는 커스텀 유틸리티 함수나 미들웨어 패턴을 만들 수 있어요.<br />
 이를 통해 여러 Route Handler에서 동일한 검사 로직을 재사용할 수 있답니다.<br />
 
@@ -175,14 +212,17 @@ export async function POST(request: Request) {
 
 ```ts showLineNumbers
 // lib/validation.ts
-import { z, ZodSchema } from 'zod';
-import { NextResponse } from 'next/server';
+import { z, ZodSchema } from "zod";
+import { NextResponse } from "next/server";
 
-type ValidationResult<T> = 
+type ValidationResult<T> =
   | { success: true; data: T }
   | { success: false; error: z.ZodError };
 
-export function validate<T>(schema: ZodSchema<T>, data: any): ValidationResult<T> {
+export function validate<T>(
+  schema: ZodSchema<T>,
+  data: any,
+): ValidationResult<T> {
   const result = schema.safeParse(data);
   if (result.success) {
     return { success: true, data: result.data };
@@ -192,7 +232,10 @@ export function validate<T>(schema: ZodSchema<T>, data: any): ValidationResult<T
 }
 
 // Route Handler에서 사용할 수 있는 유틸리티 함수
-export async function validateRequest<T>(request: Request, schema: ZodSchema<T>) {
+export async function validateRequest<T>(
+  request: Request,
+  schema: ZodSchema<T>,
+) {
   try {
     const body = await request.json();
     const validationResult = validate(schema, body);
@@ -200,19 +243,28 @@ export async function validateRequest<T>(request: Request, schema: ZodSchema<T>)
     if (validationResult.success) {
       return { success: true, data: validationResult.data };
     } else {
-      return { 
-        success: false, 
-        errorResponse: NextResponse.json({
-          message: '유효성 검사 실패했어요.',
-          errors: validationResult.error.errors.map(err => ({ path: err.path.join('.'), message: err.message }))
-        }, { status: 400 })
+      return {
+        success: false,
+        errorResponse: NextResponse.json(
+          {
+            message: "유효성 검사 실패했어요.",
+            errors: validationResult.error.errors.map((err) => ({
+              path: err.path.join("."),
+              message: err.message,
+            })),
+          },
+          { status: 400 },
+        ),
       };
     }
   } catch (error) {
-    console.error('요청 본문 파싱 에러 또는 기타 에러:', error);
-    return { 
-      success: false, 
-      errorResponse: NextResponse.json({ message: '잘못된 요청 형식이에요.' }, { status: 400 })
+    console.error("요청 본문 파싱 에러 또는 기타 에러:", error);
+    return {
+      success: false,
+      errorResponse: NextResponse.json(
+        { message: "잘못된 요청 형식이에요." },
+        { status: 400 },
+      ),
     };
   }
 }
@@ -222,23 +274,31 @@ export async function validateRequest<T>(request: Request, schema: ZodSchema<T>)
 
 ```tsx showLineNumbers {1,9-16,28}
 // app/api/products/route.ts
-import { NextResponse } from 'next/server';
-import { z } from 'zod';
-import { validateRequest } from '@/lib/validation'; // 위에서 만든 유틸리티 임포트
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { validateRequest } from "@/lib/validation"; // 위에서 만든 유틸리티 임포트
 
 // 상품 생성 요청에 대한 스키마 정의
 const createProductSchema = z.object({
   name: z.string().min(3, "상품명은 최소 3글자 이상이어야 해요."),
-  price: z.number().positive("가격은 양수여야 해요.").multipleOf(0.01, "가격은 소수점 두 자리까지 허용해요."),
+  price: z
+    .number()
+    .positive("가격은 양수여야 해요.")
+    .multipleOf(0.01, "가격은 소수점 두 자리까지 허용해요."),
   description: z.string().optional(),
-  category: z.enum(['electronics', 'food', 'clothing'], { errorMap: () => ({ message: "유효한 카테고리를 선택해주세요." }) }),
+  category: z.enum(["electronics", "food", "clothing"], {
+    errorMap: () => ({ message: "유효한 카테고리를 선택해주세요." }),
+  }),
 });
 
 // 스키마로부터 타입 추론
 type CreateProductPayload = z.infer<typeof createProductSchema>;
 
 export async function POST(request: Request) {
-  const validation = await validateRequest<CreateProductPayload>(request, createProductSchema);
+  const validation = await validateRequest<CreateProductPayload>(
+    request,
+    createProductSchema,
+  );
 
   if (!validation.success) {
     return validation.errorResponse; // 유효성 검사 실패 시 에러 응답 반환
@@ -246,15 +306,18 @@ export async function POST(request: Request) {
 
   const validatedData = validation.data; // 유효성 검사를 통과한 데이터
 
-  console.log('유효한 상품 데이터:', validatedData);
+  console.log("유효한 상품 데이터:", validatedData);
 
   // 실제 데이터베이스 저장 로직 등...
   // const newProduct = await db.product.create({ data: validatedData });
 
-  return NextResponse.json({
-    message: '상품이 성공적으로 생성되었어요.',
-    product: validatedData
-  }, { status: 201 });
+  return NextResponse.json(
+    {
+      message: "상품이 성공적으로 생성되었어요.",
+      product: validatedData,
+    },
+    { status: 201 },
+  );
 }
 ```
 
@@ -264,19 +327,26 @@ export async function POST(request: Request) {
 ## 🧪 실제 코드 예시
 
 ### 0️⃣ POST 요청 API 유효성 검사
+
 실제 Next.js 프로젝트에 적용하는 과정을 보여드릴게요.<br />
 `app/api/comments/route.ts` 파일을 만들고, 댓글 생성 API를 구현해 봅시다.<br />
 
 ```tsx showLineNumbers
 // app/api/comments/route.ts
-import { NextResponse } from 'next/server';
-import { z } from 'zod';
+import { NextResponse } from "next/server";
+import { z } from "zod";
 
 // 댓글 생성 요청에 대한 스키마 정의
 const createCommentSchema = z.object({
   postId: z.string().uuid("유효한 게시글 ID여야 해요."),
-  author: z.string().min(2, "작성자 이름은 2글자 이상이어야 해요.").max(30, "작성자 이름은 30글자를 넘을 수 없어요."),
-  content: z.string().min(5, "댓글 내용은 5글자 이상이어야 해요.").max(500, "댓글 내용은 500글자를 넘을 수 없어요."),
+  author: z
+    .string()
+    .min(2, "작성자 이름은 2글자 이상이어야 해요.")
+    .max(30, "작성자 이름은 30글자를 넘을 수 없어요."),
+  content: z
+    .string()
+    .min(5, "댓글 내용은 5글자 이상이어야 해요.")
+    .max(500, "댓글 내용은 500글자를 넘을 수 없어요."),
 });
 
 // 스키마로부터 타입 추론
@@ -290,33 +360,45 @@ export async function POST(request: Request) {
     const validatedCommentData = createCommentSchema.parse(body); // 유효성 검사 실패 시 에러 발생
 
     // 유효성 검사를 통과한 데이터는 CreateCommentPayload 타입으로 안전하게 사용 가능해요.
-    console.log('새로운 댓글 데이터:', validatedCommentData);
+    console.log("새로운 댓글 데이터:", validatedCommentData);
 
     // 실제 데이터베이스 저장 로직을 여기에 구현해요.
     // 예시: await db.comment.create({ data: validatedCommentData });
 
-    return NextResponse.json({
-      message: '댓글이 성공적으로 작성되었어요.',
-      comment: validatedCommentData
-    }, { status: 201 });
-
+    return NextResponse.json(
+      {
+        message: "댓글이 성공적으로 작성되었어요.",
+        comment: validatedCommentData,
+      },
+      { status: 201 },
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       // Zod 유효성 검사 에러 처리
-      console.error('댓글 유효성 검사 실패:', error.errors);
-      return NextResponse.json({
-        message: '댓글 작성 요청 데이터가 유효하지 않아요.',
-        errors: error.errors.map(err => ({ field: err.path.join('.'), message: err.message }))
-      }, { status: 400 });
+      console.error("댓글 유효성 검사 실패:", error.errors);
+      return NextResponse.json(
+        {
+          message: "댓글 작성 요청 데이터가 유효하지 않아요.",
+          errors: error.errors.map((err) => ({
+            field: err.path.join("."),
+            message: err.message,
+          })),
+        },
+        { status: 400 },
+      );
     }
     // 기타 예상치 못한 에러 처리
-    console.error('댓글 API 처리 중 서버 에러 발생:', error);
-    return NextResponse.json({ message: '서버 에러가 발생했어요.' }, { status: 500 });
+    console.error("댓글 API 처리 중 서버 에러 발생:", error);
+    return NextResponse.json(
+      { message: "서버 에러가 발생했어요." },
+      { status: 500 },
+    );
   }
 }
 ```
 
 ### 1️⃣ 에러 처리 및 응답 포맷
+
 Zod는 유효성 검사에 실패했을 때 `ZodError` 인스턴스를 던져요.<br />
 이 에러 객체 안에는 `errors` 배열이 포함되어 있어서, 어떤 필드에서 어떤 유효성 검사 오류가 발생했는지 상세 정보를 얻을 수 있어요.<br />
 이를 활용해서 클라이언트에게 명확하고 구체적인 에러 메시지를 전달할 수 있답니다.<br />
@@ -338,13 +420,13 @@ Zod는 유효성 검사에 실패했을 때 `ZodError` 인스턴스를 던져요
 - **Default 값**: Zod의 `default()` 메서드를 사용하면 필드 값이 제공되지 않았을 때 기본값을 설정할 수 있어요. 이는 API의 유연성을 높여줘요.<br />
 
 ```ts showLineNumbers {12-16, 21-22}
-import { z } from 'zod';
+import { z } from "zod";
 
 const userProfileSchema = z.object({
   username: z.string().min(3),
   bio: z.string().max(200).optional(),
   profilePictureUrl: z.string().url("유효한 URL 형식이어야 해요.").optional(),
-  status: z.enum(['active', 'inactive', 'pending']).default('active'),
+  status: z.enum(["active", "inactive", "pending"]).default("active"),
   updatedAt: z.date().default(() => new Date()),
 });
 
@@ -357,8 +439,8 @@ const updateUserProfileSchema = userProfileSchema.partial();
 type UpdateUserProfilePayload = z.infer<typeof updateUserProfileSchema>;
 
 const validUpdate: UpdateUserProfilePayload = {
-  bio: '새로운 자기소개입니다.',
-  status: 'inactive'
+  bio: "새로운 자기소개입니다.",
+  status: "inactive",
 }; // username, profilePictureUrl 등은 없어도 유효해요.
 
 console.log(updateUserProfileSchema.parse(validUpdate));
@@ -372,17 +454,19 @@ console.log(updateUserProfileSchema.parse(validUpdate));
 - **ZodPipe (커스텀 변환/검증)**: Zod는 `.pipe()` 메서드를 통해 커스텀 변환(transform)이나 추가적인 비동기 유효성 검사 로직을 체이닝할 수 있는 강력한 기능을 제공해요. 예를 들어, 특정 문자열을 파싱하거나, 데이터베이스에서 중복 여부를 확인하는 등의 작업에 활용할 수 있어요.<br />
 
 ```ts showLineNumbers {5-13, 17-27}
-import { z } from 'zod';
+import { z } from "zod";
 
 // 결제 수단 스키마 (Union 예시)
 const creditCardSchema = z.object({
-  type: z.literal('creditCard'),
+  type: z.literal("creditCard"),
   cardNumber: z.string().regex(/^[0-9]{16}$/, "유효한 신용카드 번호여야 해요."),
-  expiryDate: z.string().regex(/^(0[1-9]|1[0-2])\/([0-9]{2})$/, "유효한 만료일(MM/YY)이어야 해요."),
+  expiryDate: z
+    .string()
+    .regex(/^(0[1-9]|1[0-2])\/([0-9]{2})$/, "유효한 만료일(MM/YY)이어야 해요."),
 });
 
 const paypalSchema = z.object({
-  type: z.literal('paypal'),
+  type: z.literal("paypal"),
   paypalEmail: z.string().email("유효한 PayPal 이메일 주소여야 해요."),
 });
 
@@ -391,24 +475,42 @@ const paymentMethodSchema = z.union([creditCardSchema, paypalSchema]);
 type PaymentMethod = z.infer<typeof paymentMethodSchema>;
 
 // ZodPipe를 활용한 커스텀 검증/변환 (예: 비밀번호 강도 검사)
-const strongPasswordSchema = z.string()
+const strongPasswordSchema = z
+  .string()
   .min(8, "비밀번호는 최소 8자 이상이어야 해요.")
-  .refine(password => /[A-Z]/.test(password), "비밀번호에 대문자가 포함되어야 해요.")
-  .refine(password => /[a-z]/.test(password), "비밀번호에 소문자가 포함되어야 해요.")
-  .refine(password => /[0-9]/.test(password), "비밀번호에 숫자가 포함되어야 해요.")
-  .refine(password => /[^A-Za-z0-9]/.test(password), "비밀번호에 특수문자가 포함되어야 해요.");
+  .refine(
+    (password) => /[A-Z]/.test(password),
+    "비밀번호에 대문자가 포함되어야 해요.",
+  )
+  .refine(
+    (password) => /[a-z]/.test(password),
+    "비밀번호에 소문자가 포함되어야 해요.",
+  )
+  .refine(
+    (password) => /[0-9]/.test(password),
+    "비밀번호에 숫자가 포함되어야 해요.",
+  )
+  .refine(
+    (password) => /[^A-Za-z0-9]/.test(password),
+    "비밀번호에 특수문자가 포함되어야 해요.",
+  );
 
-console.log(paymentMethodSchema.parse({
-  type: 'creditCard',
-  cardNumber: '1234567890123456',
-  expiryDate: '12/25'
-}));
+console.log(
+  paymentMethodSchema.parse({
+    type: "creditCard",
+    cardNumber: "1234567890123456",
+    expiryDate: "12/25",
+  }),
+);
 
 try {
-  strongPasswordSchema.parse('password'); // 에러 발생
+  strongPasswordSchema.parse("password"); // 에러 발생
 } catch (error) {
   if (error instanceof z.ZodError) {
-    console.error('약한 비밀번호:', error.errors.map(err => err.message));
+    console.error(
+      "약한 비밀번호:",
+      error.errors.map((err) => err.message),
+    );
   }
 }
 ```
@@ -419,6 +521,7 @@ try {
 ## 📝 정리
 
 ### 0️⃣ 핵심 요약
+
 Next.js App Router에서 Zod와 TypeScript를 함께 사용하는 것은 API 개발의 효율성과 안정성을 크게 향상시키는 강력한 조합이에요.<br />
 
 - **Zod**는 런타임 데이터 유효성 검사와 TypeScript 타입 추론을 동시에 제공하여 **단일 진실 공급원(Single Source of Truth)** 역할을 해요.<br />
@@ -427,6 +530,7 @@ Next.js App Router에서 Zod와 TypeScript를 함께 사용하는 것은 API 개
 - `partial()`, `default()`, `union()`, `refine()` 등 Zod의 **다양한 기능을 활용**하여 복잡한 유효성 검사 요구사항도 유연하게 처리할 수 있어요.<br />
 
 ### 1️⃣ 다음 액션
+
 이제 여러분의 Next.js 프로젝트에 Zod를 도입하여 API 유효성 검사 프로세스를 개선해 보세요.<br />
 
 1. `npm install zod` 또는 `yarn add zod`로 Zod를 설치해 주세요.<br />

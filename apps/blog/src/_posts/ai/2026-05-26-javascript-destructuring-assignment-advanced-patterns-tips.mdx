@@ -15,12 +15,17 @@ ai: true
 ---
 
 <Blockquote type="info">
-🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
-내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+  🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.
+  <br />
+  내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해
+  주세요.
 </Blockquote>
 
 <Blockquote type="tip">
-이 글에서는 JavaScript 구조 분해 할당(Destructuring Assignment)의 기본적인 사용법을 넘어, 중첩 구조 처리, 기본값 설정, Rest 문법 활용, 함수 인자로의 적용 등 실전에서 유용한 고급 패턴과 팁들을 깊이 있게 다루고, 이를 통해 더 간결하고 유지보수하기 쉬운 코드를 작성하는 방법을 알려드려요.
+  이 글에서는 JavaScript 구조 분해 할당(Destructuring Assignment)의 기본적인
+  사용법을 넘어, 중첩 구조 처리, 기본값 설정, Rest 문법 활용, 함수 인자로의 적용
+  등 실전에서 유용한 고급 패턴과 팁들을 깊이 있게 다루고, 이를 통해 더 간결하고
+  유지보수하기 쉬운 코드를 작성하는 방법을 알려드려요.
 </Blockquote>
 
 안녕하세요, 10년 이상 실무 경험을 가진 시니어 풀스택 개발자이자 기술 블로그 SEO 전문가 블루예요.<br />
@@ -56,20 +61,20 @@ ai: true
 ```javascript showLineNumbers
 const user = {
   id: 1,
-  name: '블루',
-  email: 'blue@example.com'
+  name: "블루",
+  email: "blue@example.com",
 };
 
 // 객체 구조 분해
 const { name, email } = user;
-console.log(name);  // '블루'
+console.log(name); // '블루'
 console.log(email); // 'blue@example.com'
 
-const colors = ['red', 'green', 'blue'];
+const colors = ["red", "green", "blue"];
 
 // 배열 구조 분해
 const [firstColor, secondColor] = colors;
-console.log(firstColor);  // 'red'
+console.log(firstColor); // 'red'
 console.log(secondColor); // 'green'
 ```
 
@@ -82,21 +87,21 @@ console.log(secondColor); // 'green'
 
 ```javascript showLineNumbers {7,14-15}
 const product = {
-  id: 'p001',
-  name: '노트북',
-  price: 1200000
+  id: "p001",
+  name: "노트북",
+  price: 1200000,
 };
 
 // 객체: name을 productName으로 변경, stock이 없으면 0으로 기본값 설정
 const { name: productName, price, stock = 0 } = product;
 console.log(productName); // '노트북'
-console.log(price);       // 1200000
-console.log(stock);       // 0 (product 객체에 stock이 없으므로 기본값 사용)
+console.log(price); // 1200000
+console.log(stock); // 0 (product 객체에 stock이 없으므로 기본값 사용)
 
-const items = ['apple'];
+const items = ["apple"];
 
 // 배열: 두 번째 요소가 없으면 'banana'로 기본값 설정
-const [item1, item2 = 'banana'] = items;
+const [item1, item2 = "banana"] = items;
 console.log(item1); // 'apple'
 console.log(item2); // 'banana' (items 배열에 두 번째 요소가 없으므로 기본값 사용)
 ```
@@ -111,19 +116,19 @@ console.log(item2); // 'banana' (items 배열에 두 번째 요소가 없으므�
 
 ```javascript showLineNumbers {7-10, 26-29}
 const order = {
-  orderId: 'ORD-001',
+  orderId: "ORD-001",
   customer: {
-    customerId: 'C-001',
-    name: '김철수',
+    customerId: "C-001",
+    name: "김철수",
     contact: {
-      email: 'chulsoo@example.com',
-      phone: '010-1234-5678'
-    }
+      email: "chulsoo@example.com",
+      phone: "010-1234-5678",
+    },
   },
   items: [
-    { itemId: 'I-001', itemName: '키보드', quantity: 1 },
-    { itemId: 'I-002', itemName: '마우스', quantity: 2 }
-  ]
+    { itemId: "I-001", itemName: "키보드", quantity: 1 },
+    { itemId: "I-002", itemName: "마우스", quantity: 2 },
+  ],
 };
 
 // 중첩된 객체 구조 분해
@@ -131,15 +136,15 @@ const {
   orderId,
   customer: {
     name: customerName,
-    contact: { email: customerEmail }
+    contact: { email: customerEmail },
   },
-  items: [firstItem]
+  items: [firstItem],
 } = order;
 
-console.log(orderId);       // 'ORD-001'
-console.log(customerName);  // '김철수'
+console.log(orderId); // 'ORD-001'
+console.log(customerName); // '김철수'
 console.log(customerEmail); // 'chulsoo@example.com'
-console.log(firstItem);     // { itemId: 'I-001', itemName: '키보드', quantity: 1 }
+console.log(firstItem); // { itemId: 'I-001', itemName: '키보드', quantity: 1 }
 ```
 
 위 예시처럼 객체 구조 분해 문법 `{}` 안에 다시 객체 구조 분해 문법을 사용하여 중첩된 속성에 접근할 수 있어요.<br />
@@ -152,24 +157,24 @@ Rest 문법(`...`)은 구조 분해 할당 시 나머지 요소들을 새로운 
 
 ```javascript showLineNumbers {7,14}
 const settings = {
-  theme: 'dark',
+  theme: "dark",
   fontSize: 16,
-  language: 'ko',
-  notifications: true
+  language: "ko",
+  notifications: true,
 };
 
 // theme와 fontSize를 제외한 나머지 속성들을 restSettings 객체로 모으기
 const { theme, fontSize, ...restSettings } = settings;
 
-console.log(theme);         // 'dark'
-console.log(fontSize);      // 16
-console.log(restSettings);  // { language: 'ko', notifications: true }
+console.log(theme); // 'dark'
+console.log(fontSize); // 16
+console.log(restSettings); // { language: 'ko', notifications: true }
 
-const tags = ['react', 'nextjs', 'typescript', 'javascript', 'css'];
+const tags = ["react", "nextjs", "typescript", "javascript", "css"];
 const [mainTech, subTech, ...otherTags] = tags;
 
-console.log(mainTech);  // 'react'
-console.log(subTech);   // 'nextjs'
+console.log(mainTech); // 'react'
+console.log(subTech); // 'nextjs'
 console.log(otherTags); // ['typescript', 'javascript', 'css']
 ```
 
@@ -183,16 +188,12 @@ console.log(otherTags); // ['typescript', 'javascript', 'css']
 
 ```tsx showLineNumbers {3-4,13-14}
 // 사용자 정보를 출력하는 함수
-function displayUserInfo({
-  name,
-  age,
-  address = '주소 미입력'
-}) {
+function displayUserInfo({ name, age, address = "주소 미입력" }) {
   console.log(`이름: ${name}, 나이: ${age}, 주소: ${address}`);
 }
 
 displayUserInfo({
-  name: '박영희',
+  name: "박영희",
   age: 30,
   // address 속성은 없으므로 기본값 '주소 미입력'이 사용돼요.
 }); // 출력: 이름: 박영희, 나이: 30, 주소: 주소 미입력
@@ -215,16 +216,16 @@ processCoordinates([10, 20]); // 출력: X: 10, Y: 20, Z: 0
 
 ```javascript showLineNumbers {4-5}
 const userProfile = {
-  userName: 'john.doe',
-  userRole: 'admin'
+  userName: "john.doe",
+  userRole: "admin",
 };
 
-const keyToExtract = 'userName';
+const keyToExtract = "userName";
 const { [keyToExtract]: username } = userProfile;
 
 console.log(username); // 'john.doe'
 
-const anotherKey = 'userRole';
+const anotherKey = "userRole";
 const { [anotherKey]: role } = userProfile;
 
 console.log(role); // 'admin'
@@ -244,22 +245,22 @@ console.log(role); // 'admin'
 const users = [
   {
     id: 1,
-    info: { name: 'Alice', age: 25 },
-    roles: ['admin', 'editor']
+    info: { name: "Alice", age: 25 },
+    roles: ["admin", "editor"],
   },
   {
     id: 2,
-    info: { name: 'Bob', age: 30 },
-    roles: ['viewer']
-  }
+    info: { name: "Bob", age: 30 },
+    roles: ["viewer"],
+  },
 ];
 
 // 첫 번째 사용자(Alice)의 이름과 첫 번째 역할(admin) 추출
 const [
   {
     info: { name: aliceName },
-    roles: [firstRole]
-  }
+    roles: [firstRole],
+  },
 ] = users;
 
 console.log(aliceName); // 'Alice'
@@ -292,27 +293,27 @@ console.log(e); // 50
 
 ```typescript showLineNumbers {4-6}
 interface UserConfig {
-  theme?: 'dark' | 'light';
+  theme?: "dark" | "light";
   language: string;
   notifications?: boolean; // 선택적 속성
 }
 
 const defaultConfig: UserConfig = {
-  language: 'en',
+  language: "en",
   // theme와 notifications는 기본값이 없으므로 undefined 가능성 있어요.
 };
 
 // 구조 분해 할당 시 기본값 설정으로 안전하게 사용
-const { theme = 'light', language, notifications = true } = defaultConfig;
+const { theme = "light", language, notifications = true } = defaultConfig;
 
-console.log(theme);         // 'light'
-console.log(language);      // 'en'
+console.log(theme); // 'light'
+console.log(language); // 'en'
 console.log(notifications); // true
 
 // 만약 defaultConfig에 notifications가 있었다면 그 값이 사용돼요.
 const userConfigWithNoti: UserConfig = {
-  language: 'ko',
-  notifications: false
+  language: "ko",
+  notifications: false,
 };
 
 const { notifications: userNotifications = true } = userConfigWithNoti;
@@ -328,13 +329,13 @@ console.log(userNotifications); // false
 
 오늘 우리는 JavaScript 구조 분해 할당의 다양한 고급 패턴들을 살펴보았어요.<br />
 
-*   **이름 변경 (Alias)**: `name: newName`으로 변수 이름을 바꿀 수 있어요.
-*   **기본값 (Default Values)**: `prop = defaultValue`로 값이 없을 때 기본값을 설정할 수 있어요.
-*   **중첩 구조 분해**: `{ a: { b } }`나 `[a, [b]]`처럼 복잡한 구조에서 원하는 값만 추출할 수 있어요.
-*   **Rest 문법**: `...rest`를 사용하여 나머지 요소들을 한데 모을 수 있어요.
-*   **함수 인자 활용**: 함수의 매개변수에서 구조 분해를 사용하여 코드를 간결하게 만들 수 있어요.
-*   **동적 속성 이름**: `{[variableKey]: value}` 형태로 동적으로 속성을 추출할 수 있어요.
-*   **실전 팁**: 배열에서 쉼표로 요소 건너뛰기, 타입스크립트와 함께 사용할 때의 주의점 등을 알아보았어요.
+- **이름 변경 (Alias)**: `name: newName`으로 변수 이름을 바꿀 수 있어요.
+- **기본값 (Default Values)**: `prop = defaultValue`로 값이 없을 때 기본값을 설정할 수 있어요.
+- **중첩 구조 분해**: `{ a: { b } }`나 `[a, [b]]`처럼 복잡한 구조에서 원하는 값만 추출할 수 있어요.
+- **Rest 문법**: `...rest`를 사용하여 나머지 요소들을 한데 모을 수 있어요.
+- **함수 인자 활용**: 함수의 매개변수에서 구조 분해를 사용하여 코드를 간결하게 만들 수 있어요.
+- **동적 속성 이름**: `{[variableKey]: value}` 형태로 동적으로 속성을 추출할 수 있어요.
+- **실전 팁**: 배열에서 쉼표로 요소 건너뛰기, 타입스크립트와 함께 사용할 때의 주의점 등을 알아보았어요.
 
 구조 분해 할당은 단순히 코드를 줄이는 것을 넘어, 데이터의 형태를 명확히 하고 가독성을 높여주는 강력한 도구예요.<br />
 이 패턴들을 잘 익히시면 여러분의 JavaScript 코드가 훨씬 더 우아하고 효율적으로 변할 거예요.
@@ -352,6 +353,6 @@ console.log(userNotifications); // false
 
 ## 📮 참고
 
-*   [MDN Web Docs: Destructuring assignment](https://developer.mozilla.org/ko/docs/Web/JavaScript/Reference/Operators/Destructuring_assignment)
-*   [JavaScript.info: Destructuring assignment](https://javascript.info/destructuring-assignment)
-*   [TypeScript Handbook: Destructuring](https://www.typescriptlang.org/docs/handbook/variable-declarations.html#destructuring)
+- [MDN Web Docs: Destructuring assignment](https://developer.mozilla.org/ko/docs/Web/JavaScript/Reference/Operators/Destructuring_assignment)
+- [JavaScript.info: Destructuring assignment](https://javascript.info/destructuring-assignment)
+- [TypeScript Handbook: Destructuring](https://www.typescriptlang.org/docs/handbook/variable-declarations.html#destructuring)

@@ -1,7 +1,17 @@
 ---
 title: "[🤖] Feature-Sliced Design (FSD)으로 확장 가능한 프론트엔드 아키텍처 구축하기"
 description: "Feature-Sliced Design (FSD)은 대규모 프론트엔드 애플리케이션의 확장성과 유지보수성을 높이는 강력한 아키텍처 패턴이에요. FSD의 핵심 원칙, 레이어 구조, 실무 적용 방법을 코드 예시와 함께 자세히 알아봐요."
-tags: ["Feature-Sliced Design", "FSD", "프론트엔드 아키텍처", "모듈화", "확장성", "유지보수성", "아키텍처", "ai"]
+tags:
+  [
+    "Feature-Sliced Design",
+    "FSD",
+    "프론트엔드 아키텍처",
+    "모듈화",
+    "확장성",
+    "유지보수성",
+    "아키텍처",
+    "ai",
+  ]
 icon: ""
 thumbnail: ""
 createdAt: 2026-05-06 08:00:38
@@ -15,12 +25,16 @@ ai: true
 ---
 
 <Blockquote type="info">
-🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
-내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+  🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.
+  <br />
+  내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해
+  주세요.
 </Blockquote>
 
 <Blockquote type="tip">
-이 글에서는 Feature-Sliced Design (FSD)의 기본 개념, 레이어 구조, 그리고 실제 프로젝트에 적용하는 방법을 예시 코드를 통해 자세히 설명하여 확장성 높고 유지보수하기 쉬운 프론트엔드 아키텍처를 구축하는 데 도움을 드려요.
+  이 글에서는 Feature-Sliced Design (FSD)의 기본 개념, 레이어 구조, 그리고 실제
+  프로젝트에 적용하는 방법을 예시 코드를 통해 자세히 설명하여 확장성 높고
+  유지보수하기 쉬운 프론트엔드 아키텍처를 구축하는 데 도움을 드려요.
 </Blockquote>
 
 안녕하세요, 10년 이상 프론트엔드와 백엔드를 넘나들며 개발해 온 시니어 풀스택 개발자 블루예요. 저는 실제 존재하는 개발자는 아니고, AI랍니다.<br />
@@ -29,17 +43,19 @@ ai: true
 ## 🤔 왜 FSD가 필요한가요?
 
 ### 0️⃣ 대규모 프로젝트의 고통스러운 현실 😭
+
 프로젝트가 커질수록 프론트엔드 애플리케이션은 점점 더 복잡해지고 관리하기 어려워져요.<br />
 새로운 기능을 추가하거나 기존 코드를 수정할 때마다 예상치 못한 사이드 이펙트가 발생하고, 팀원 간의 협업도 점점 더 힘들어지는 경험, 다들 한 번쯤 해보셨을 거예요.
 
 이런 문제들은 주로 다음과 같은 원인에서 비롯돼요.<br />
 
-*   **강한 결합도:** 컴포넌트나 모듈 간의 의존성이 너무 강해서 작은 변경이 시스템 전체에 영향을 미쳐요.<br />
-*   **낮은 응집도:** 하나의 모듈이 너무 많은 책임을 지거나, 관련 없는 기능들이 한곳에 섞여 있어요.<br />
-*   **일관성 없는 구조:** 프로젝트 초반에는 괜찮지만, 시간이 지나면서 개발자마다 다른 방식으로 코드를 작성하여 구조가 무너지기 시작해요.<br />
-*   **확장성의 부재:** 새로운 기능을 추가하기 위해 기존 코드를 대대적으로 수정해야 하거나, 기능 확장이 어려워져요.
+- **강한 결합도:** 컴포넌트나 모듈 간의 의존성이 너무 강해서 작은 변경이 시스템 전체에 영향을 미쳐요.<br />
+- **낮은 응집도:** 하나의 모듈이 너무 많은 책임을 지거나, 관련 없는 기능들이 한곳에 섞여 있어요.<br />
+- **일관성 없는 구조:** 프로젝트 초반에는 괜찮지만, 시간이 지나면서 개발자마다 다른 방식으로 코드를 작성하여 구조가 무너지기 시작해요.<br />
+- **확장성의 부재:** 새로운 기능을 추가하기 위해 기존 코드를 대대적으로 수정해야 하거나, 기능 확장이 어려워져요.
 
 ### 1️⃣ 기존 아키텍처 패턴의 한계 🚧
+
 Atomic Design, Ducks 패턴, 또는 단순히 `components`, `containers`, `utils` 같은 폴더 구조만으로는 대규모 애플리케이션의 복잡성을 완전히 해결하기 어려울 때가 많아요.<br />
 특히 비즈니스 로직과 UI 컴포넌트가 뒤섞이거나, 특정 기능이 여러 계층에 분산되어 있어 코드 추적이 어렵다는 한계가 있었어요.<br />
 FSD는 이러한 문제들을 해결하기 위해 체계적이고 명확한 규칙을 제시하는 아키텍처 접근 방식이랍니다.
@@ -47,40 +63,42 @@ FSD는 이러한 문제들을 해결하기 위해 체계적이고 명확한 규�
 ## ⚙️ Feature-Sliced Design (FSD) 핵심 개념 파헤치기 🏗️
 
 ### 0️⃣ FSD란 무엇인가요? 🧠
+
 Feature-Sliced Design (FSD)은 프론트엔드 애플리케이션을 "레이어(Layers)", "슬라이스(Slices)", "세그먼트(Segments)"라는 세 가지 주요 개념으로 구조화하는 방법론이에요.<br />
 각 개념은 특정 목적을 가지며, 엄격한 의존성 규칙을 통해 코드의 응집도를 높이고 결합도를 낮추는 것을 목표로 해요.
 
 FSD의 핵심은 다음과 같아요.<br />
 
-*   **단방향 의존성:** 상위 레이어는 하위 레이어를 의존할 수 있지만, 하위 레이어는 상위 레이어를 의존할 수 없어요.<br />
-*   **고립성:** 각 "슬라이스"는 가능한 한 독립적으로 작동하며, 다른 슬라이스에 직접적인 영향을 주지 않도록 설계해요.<br />
-*   **재사용성:** 잘 정의된 하위 레이어의 모듈은 여러 상위 레이어에서 재사용될 수 있도록 해요.
+- **단방향 의존성:** 상위 레이어는 하위 레이어를 의존할 수 있지만, 하위 레이어는 상위 레이어를 의존할 수 없어요.<br />
+- **고립성:** 각 "슬라이스"는 가능한 한 독립적으로 작동하며, 다른 슬라이스에 직접적인 영향을 주지 않도록 설계해요.<br />
+- **재사용성:** 잘 정의된 하위 레이어의 모듈은 여러 상위 레이어에서 재사용될 수 있도록 해요.
 
 ### 1️⃣ FSD의 7가지 레이어 깊이 보기 📚
+
 FSD는 애플리케이션을 7가지 레이어로 나뉘어요. 각 레이어는 특정 책임과 의존성 규칙을 가지고 있어요. 아래로 갈수록 추상적이고 범용적인 코드가 위치하며, 위로 갈수록 구체적이고 애플리케이션에 특화된 코드가 위치한다고 생각하시면 돼요.<br />
 
-*   **`app` (앱):** 애플리케이션의 진입점 역할을 해요.<br />
-    *   전역 스타일, 라우터 설정, 전역 상태 관리 프로바이더 등 애플리케이션 전체에 영향을 주는 설정을 담당해요.<br />
-    *   다른 모든 레이어를 의존하지만, 그 어떤 레이어도 `app` 레이어를 의존하지 않아요.
-*   **`processes` (프로세스):** 여러 Feature나 Widget을 조합하여 복잡한 사용자 시나리오나 워크플로우를 구현해요.<br />
-    *   예를 들어, 결제 프로세스, 회원 가입 플로우 등이 여기에 해당해요.<br />
-    *   `pages`, `widgets`, `features`, `entities`, `shared`를 의존할 수 있어요.
-*   **`pages` (페이지):** 특정 라우트에 매핑되는 페이지 컴포넌트를 담아요.<br />
-    *   페이지는 주로 `widgets`와 `features`를 조합하여 구성되며, 자체적인 비즈니스 로직은 최소화하는 것이 좋아요.<br />
-    *   `widgets`, `features`, `entities`, `shared`를 의존할 수 있어요.
-*   **`widgets` (위젯):** 독립적인 UI 컴포넌트로, 비즈니스 로직을 포함할 수 있어요.<br />
-    *   예를 들어, 로그인 폼, 장바구니 요약, 댓글 목록 등이 있어요.<br />
-    *   `features`, `entities`, `shared`를 의존할 수 있어요.
-*   **`features` (피처):** 사용자가 상호작용할 수 있는 최소 단위의 기능을 정의해요.<br />
-    *   예를 들어, 게시물 좋아요 버튼, 사용자 팔로우 버튼, 검색 필터 등이 있어요.<br />
-    *   주로 `entities`와 `shared`를 의존하며, `widgets`에 포함될 수 있어요.<br />
-    *   `entities`, `shared`를 의존할 수 있어요.
-*   **`entities` (엔티티):** 도메인 엔티티(예: 사용자, 게시물, 상품)의 데이터 구조, 타입, 기본적인 비즈니스 로직 및 API 인터페이스를 정의해요.<br />
-    *   프리젠테이션 로직(UI)과는 분리되어 순수한 비즈니스 규칙을 담당해요.<br />
-    *   `shared`를 의존할 수 있어요.
-*   **`shared` (공유):** 애플리케이션 전반에서 재사용되는 범용적인 코드들을 모아두는 곳이에요.<br />
-    *   UI 키트 (버튼, 인풋 등), 유틸리티 함수, API 클라이언트, 상수, 훅 등이 포함돼요.<br />
-    *   다른 어떤 레이어도 의존하지 않으며, 모든 상위 레이어에서 의존될 수 있어요. (가장 하위 레이어)
+- **`app` (앱):** 애플리케이션의 진입점 역할을 해요.<br />
+  - 전역 스타일, 라우터 설정, 전역 상태 관리 프로바이더 등 애플리케이션 전체에 영향을 주는 설정을 담당해요.<br />
+  - 다른 모든 레이어를 의존하지만, 그 어떤 레이어도 `app` 레이어를 의존하지 않아요.
+- **`processes` (프로세스):** 여러 Feature나 Widget을 조합하여 복잡한 사용자 시나리오나 워크플로우를 구현해요.<br />
+  - 예를 들어, 결제 프로세스, 회원 가입 플로우 등이 여기에 해당해요.<br />
+  - `pages`, `widgets`, `features`, `entities`, `shared`를 의존할 수 있어요.
+- **`pages` (페이지):** 특정 라우트에 매핑되는 페이지 컴포넌트를 담아요.<br />
+  - 페이지는 주로 `widgets`와 `features`를 조합하여 구성되며, 자체적인 비즈니스 로직은 최소화하는 것이 좋아요.<br />
+  - `widgets`, `features`, `entities`, `shared`를 의존할 수 있어요.
+- **`widgets` (위젯):** 독립적인 UI 컴포넌트로, 비즈니스 로직을 포함할 수 있어요.<br />
+  - 예를 들어, 로그인 폼, 장바구니 요약, 댓글 목록 등이 있어요.<br />
+  - `features`, `entities`, `shared`를 의존할 수 있어요.
+- **`features` (피처):** 사용자가 상호작용할 수 있는 최소 단위의 기능을 정의해요.<br />
+  - 예를 들어, 게시물 좋아요 버튼, 사용자 팔로우 버튼, 검색 필터 등이 있어요.<br />
+  - 주로 `entities`와 `shared`를 의존하며, `widgets`에 포함될 수 있어요.<br />
+  - `entities`, `shared`를 의존할 수 있어요.
+- **`entities` (엔티티):** 도메인 엔티티(예: 사용자, 게시물, 상품)의 데이터 구조, 타입, 기본적인 비즈니스 로직 및 API 인터페이스를 정의해요.<br />
+  - 프리젠테이션 로직(UI)과는 분리되어 순수한 비즈니스 규칙을 담당해요.<br />
+  - `shared`를 의존할 수 있어요.
+- **`shared` (공유):** 애플리케이션 전반에서 재사용되는 범용적인 코드들을 모아두는 곳이에요.<br />
+  - UI 키트 (버튼, 인풋 등), 유틸리티 함수, API 클라이언트, 상수, 훅 등이 포함돼요.<br />
+  - 다른 어떤 레이어도 의존하지 않으며, 모든 상위 레이어에서 의존될 수 있어요. (가장 하위 레이어)
 
 ### 2️⃣ 슬라이스 (Slices)와 세그먼트 (Segments) ✂️
 
@@ -99,11 +117,11 @@ src/
 각 슬라이스 내부는 다시 "세그먼트"로 나뉘어요.<br />
 세그먼트는 슬라이스 내에서 코드를 역할별로 구분하는 가장 작은 단위예요. 대표적인 세그먼트들은 다음과 같아요.<br />
 
-*   `ui`: UI 컴포넌트<br />
-*   `model`: 상태 관리 로직 (스토어, 리듀서, 훅 등)<br />
-*   `lib`: 슬라이스 내부에서만 사용되는 유틸리티 함수<br />
-*   `api`: 슬라이스 관련 API 호출 로직<br />
-*   `config`: 슬라이스 관련 설정값<br />
+- `ui`: UI 컴포넌트<br />
+- `model`: 상태 관리 로직 (스토어, 리듀서, 훅 등)<br />
+- `lib`: 슬라이스 내부에서만 사용되는 유틸리티 함수<br />
+- `api`: 슬라이스 관련 API 호출 로직<br />
+- `config`: 슬라이스 관련 설정값<br />
 
 ```
 src/
@@ -174,17 +192,24 @@ src/
 
 ```tsx showLineNumbers
 // src/shared/ui/button/index.tsx
-import React from 'react';
+import React from "react";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
-  variant?: 'primary' | 'secondary';
+  variant?: "primary" | "secondary";
 }
 
-export const Button = ({ children, variant = 'primary', ...props }: ButtonProps) => {
-  const baseStyle = 'px-4 py-2 rounded-md font-semibold';
-  const variantStyle = variant === 'primary' ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300';
-  
+export const Button = ({
+  children,
+  variant = "primary",
+  ...props
+}: ButtonProps) => {
+  const baseStyle = "px-4 py-2 rounded-md font-semibold";
+  const variantStyle =
+    variant === "primary"
+      ? "bg-blue-500 text-white hover:bg-blue-600"
+      : "bg-gray-200 text-gray-800 hover:bg-gray-300";
+
   return (
     <button className={`${baseStyle} ${variantStyle}`} {...props}>
       {children}
@@ -204,9 +229,9 @@ export type User = {
 };
 
 export const initialUser: User = {
-  id: '',
-  email: '',
-  name: '',
+  id: "",
+  email: "",
+  name: "",
 };
 
 // 사용자 관련 기본적인 비즈니스 로직이나 상태 관리 훅 (예: Zustand 스토어)이 여기에 올 수 있어요.
@@ -217,25 +242,35 @@ export const initialUser: User = {
 
 ```ts showLineNumbers
 // src/entities/user/api.ts
-import { User } from './model';
+import { User } from "./model";
 
 // 실제 API 호출 로직은 shared/api/client.ts 등을 활용할 수 있어요.
-export const signIn = async (credentials: { email: string; password: string }): Promise<User> => {
+export const signIn = async (credentials: {
+  email: string;
+  password: string;
+}): Promise<User> => {
   // 실제 백엔드 API 호출 로직 (fetch, axios 등)
-  console.log('Attempting sign-in with:', credentials);
+  console.log("Attempting sign-in with:", credentials);
   return new Promise((resolve) => {
     setTimeout(() => {
-      if (credentials.email === 'test@example.com' && credentials.password === 'password') {
-        resolve({ id: 'user-123', email: 'test@example.com', name: 'Test User' });
+      if (
+        credentials.email === "test@example.com" &&
+        credentials.password === "password"
+      ) {
+        resolve({
+          id: "user-123",
+          email: "test@example.com",
+          name: "Test User",
+        });
       } else {
-        throw new Error('Invalid credentials');
+        throw new Error("Invalid credentials");
       }
     }, 1000);
   });
 };
 
 export const signOut = async (): Promise<void> => {
-  console.log('Signing out...');
+  console.log("Signing out...");
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve();
@@ -248,9 +283,9 @@ export const signOut = async (): Promise<void> => {
 
 ```tsx showLineNumbers
 // src/features/auth/sign-out/ui.tsx
-import React from 'react';
-import { Button } from '@/shared/ui/button'; // shared 레이어 의존
-import { signOut } from '@/entities/user/api'; // entities 레이어 의존
+import React from "react";
+import { Button } from "@/shared/ui/button"; // shared 레이어 의존
+import { signOut } from "@/entities/user/api"; // entities 레이어 의존
 
 interface SignOutButtonProps {
   onSignOutSuccess?: () => void;
@@ -261,11 +296,11 @@ export const SignOutButton = ({ onSignOutSuccess }: SignOutButtonProps) => {
     try {
       await signOut();
       onSignOutSuccess?.();
-      alert('로그아웃 성공!');
+      alert("로그아웃 성공!");
     } catch (error) {
-      console.error('로그아웃 실패:', error);
-      alert('로그아웃 실패했어요.');
-    } 
+      console.error("로그아웃 실패:", error);
+      alert("로그아웃 실패했어요.");
+    }
   };
 
   return (
@@ -280,17 +315,17 @@ export const SignOutButton = ({ onSignOutSuccess }: SignOutButtonProps) => {
 
 ```tsx showLineNumbers
 // src/widgets/auth/sign-in-form/ui.tsx
-import React, { useState } from 'react';
-import { Button } from '@/shared/ui/button'; // shared 레이어 의존
-import { signIn } from '@/entities/user/api'; // entities 레이어 의존
+import React, { useState } from "react";
+import { Button } from "@/shared/ui/button"; // shared 레이어 의존
+import { signIn } from "@/entities/user/api"; // entities 레이어 의존
 
 interface SignInFormProps {
   onSignInSuccess?: (user: { id: string; email: string; name: string }) => void;
 }
 
 export const SignInForm = ({ onSignInSuccess }: SignInFormProps) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -299,9 +334,9 @@ export const SignInForm = ({ onSignInSuccess }: SignInFormProps) => {
     try {
       const user = await signIn({ email, password });
       onSignInSuccess?.(user);
-      alert('로그인 성공!');
+      alert("로그인 성공!");
     } catch (error: any) {
-      console.error('로그인 실패:', error);
+      console.error("로그인 실패:", error);
       alert(`로그인 실패했어요: ${error.message}`);
     } finally {
       setIsLoading(false);
@@ -309,13 +344,16 @@ export const SignInForm = ({ onSignInSuccess }: SignInFormProps) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-6 border rounded-lg shadow-md">
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-4 rounded-lg border p-6 shadow-md"
+    >
       <input
         type="email"
         placeholder="이메일"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        className="p-2 border rounded-md"
+        className="rounded-md border p-2"
         required
       />
       <input
@@ -323,11 +361,11 @@ export const SignInForm = ({ onSignInSuccess }: SignInFormProps) => {
         placeholder="비밀번호"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        className="p-2 border rounded-md"
+        className="rounded-md border p-2"
         required
       />
       <Button type="submit" disabled={isLoading}>
-        {isLoading ? '로그인 중...' : '로그인'}
+        {isLoading ? "로그인 중..." : "로그인"}
       </Button>
     </form>
   );
@@ -338,19 +376,19 @@ export const SignInForm = ({ onSignInSuccess }: SignInFormProps) => {
 
 ```tsx showLineNumbers
 // src/pages/auth/sign-in/index.tsx
-import React from 'react';
-import { useRouter } from 'next/router'; // Next.js 라우터 (app 레이어에 설정된 라우터 사용)
-import { SignInForm } from '@/widgets/auth/sign-in-form/ui'; // widgets 레이어 의존
+import React from "react";
+import { useRouter } from "next/router"; // Next.js 라우터 (app 레이어에 설정된 라우터 사용)
+import { SignInForm } from "@/widgets/auth/sign-in-form/ui"; // widgets 레이어 의존
 
 const SignInPage = () => {
   const router = useRouter();
 
   const handleSignInSuccess = () => {
-    router.push('/'); // 로그인 성공 시 메인 페이지로 이동
+    router.push("/"); // 로그인 성공 시 메인 페이지로 이동
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100">
+    <div className="flex min-h-screen items-center justify-center bg-gray-100">
       <SignInForm onSignInSuccess={handleSignInSuccess} />
     </div>
   );
@@ -363,11 +401,11 @@ export default SignInPage;
 
 위 예시에서 보듯이, FSD의 핵심은 **단방향 의존성**이에요.<br />
 
-*   `pages`는 `widgets`를 의존해요.<br />
-*   `widgets`는 `entities`와 `shared`를 의존해요.<br />
-*   `features`도 `entities`와 `shared`를 의존해요.<br />
-*   `entities`는 `shared`를 의존해요.<br />
-*   `shared`는 어떤 레이어도 의존하지 않아요.<br />
+- `pages`는 `widgets`를 의존해요.<br />
+- `widgets`는 `entities`와 `shared`를 의존해요.<br />
+- `features`도 `entities`와 `shared`를 의존해요.<br />
+- `entities`는 `shared`를 의존해요.<br />
+- `shared`는 어떤 레이어도 의존하지 않아요.<br />
 
 이러한 엄격한 규칙 덕분에 코드 변경의 파급 효과를 예측하기 쉬워지고, 각 모듈의 독립성이 보장되어 유지보수가 훨씬 수월해져요.
 
@@ -375,17 +413,17 @@ export default SignInPage;
 
 ### 0️⃣ FSD의 강력한 장점 💪
 
-*   **확장성:** 새로운 기능 추가 시 기존 코드에 미치는 영향을 최소화하면서 독립적으로 개발할 수 있어요.<br />
-*   **유지보수성:** 명확한 구조와 단방향 의존성 덕분에 코드의 위치를 쉽게 파악하고, 버그를 수정하거나 리팩토링하기 용이해요.<br />
-*   **팀 협업:** 각 레이어와 슬라이스가 명확하게 분리되어 있어, 여러 개발자가 동시에 다른 부분을 작업해도 충돌을 줄이고 효율적으로 협업할 수 있어요.<br />
-*   **코드 재사용성:** `shared`나 `entities`, `features` 레이어의 컴포넌트나 로직은 다양한 상위 레이어에서 재사용될 수 있도록 설계돼요.<br />
-*   **테스트 용이성:** 각 슬라이스와 세그먼트가 고립되어 있어, 특정 기능이나 로직을 독립적으로 테스트하기 좋아요.
+- **확장성:** 새로운 기능 추가 시 기존 코드에 미치는 영향을 최소화하면서 독립적으로 개발할 수 있어요.<br />
+- **유지보수성:** 명확한 구조와 단방향 의존성 덕분에 코드의 위치를 쉽게 파악하고, 버그를 수정하거나 리팩토링하기 용이해요.<br />
+- **팀 협업:** 각 레이어와 슬라이스가 명확하게 분리되어 있어, 여러 개발자가 동시에 다른 부분을 작업해도 충돌을 줄이고 효율적으로 협업할 수 있어요.<br />
+- **코드 재사용성:** `shared`나 `entities`, `features` 레이어의 컴포넌트나 로직은 다양한 상위 레이어에서 재사용될 수 있도록 설계돼요.<br />
+- **테스트 용이성:** 각 슬라이스와 세그먼트가 고립되어 있어, 특정 기능이나 로직을 독립적으로 테스트하기 좋아요.
 
 ### 1️⃣ FSD 적용 시 고려할 점 🧐
 
-*   **초기 학습 곡선:** FSD의 개념과 규칙이 처음에는 다소 복잡하게 느껴질 수 있어요. 팀원들이 FSD에 익숙해지는 데 시간이 필요해요.<br />
-*   **작은 프로젝트에는 오버헤드:** 매우 작은 규모의 프로젝트에서는 FSD의 엄격한 구조가 오히려 과도한 복잡성을 초래할 수 있어요. 프로젝트의 규모와 팀의 니즈에 맞춰 적용 여부를 신중하게 결정해야 해요.<br />
-*   **엄격한 규칙 준수:** FSD의 효과를 얻으려면 단방향 의존성 등의 규칙을 꾸준히 지키는 것이 중요해요. 규칙이 무너지면 FSD의 장점이 희석될 수 있어요.
+- **초기 학습 곡선:** FSD의 개념과 규칙이 처음에는 다소 복잡하게 느껴질 수 있어요. 팀원들이 FSD에 익숙해지는 데 시간이 필요해요.<br />
+- **작은 프로젝트에는 오버헤드:** 매우 작은 규모의 프로젝트에서는 FSD의 엄격한 구조가 오히려 과도한 복잡성을 초래할 수 있어요. 프로젝트의 규모와 팀의 니즈에 맞춰 적용 여부를 신중하게 결정해야 해요.<br />
+- **엄격한 규칙 준수:** FSD의 효과를 얻으려면 단방향 의존성 등의 규칙을 꾸준히 지키는 것이 중요해요. 규칙이 무너지면 FSD의 장점이 희석될 수 있어요.
 
 ## 🚀 마무리하며
 
@@ -397,7 +435,7 @@ Feature-Sliced Design은 대규모 프론트엔드 애플리케이션의 고질�
 
 ## 📮 참고
 
-*   [Feature-Sliced Design 공식 문서](https://feature-sliced.design/docs/get-started/overview)
-<LinkPreviewCard href="https://feature-sliced.design/docs/get-started/overview" />
-*   [FSD in Next.js App Router](https://feature-sliced.design/docs/guides/nextjs/app-router)
-<LinkPreviewCard href="https://feature-sliced.design/docs/guides/nextjs/app-router" />
+- [Feature-Sliced Design 공식 문서](https://feature-sliced.design/docs/get-started/overview)
+  <LinkPreviewCard href="https://feature-sliced.design/docs/get-started/overview" />
+- [FSD in Next.js App Router](https://feature-sliced.design/docs/guides/nextjs/app-router)
+  <LinkPreviewCard href="https://feature-sliced.design/docs/guides/nextjs/app-router" />

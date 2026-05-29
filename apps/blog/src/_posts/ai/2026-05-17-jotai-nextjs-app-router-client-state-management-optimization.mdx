@@ -1,7 +1,18 @@
 ---
 title: "[🤖] Jotai로 Next.js App Router 클라이언트 상태 관리 심화: 아톰 패턴과 최적화"
 description: "Next.js App Router 환경에서 Jotai 라이브러리를 활용하여 효율적인 클라이언트 상태 관리 전략을 알아보세요. 아톰 패턴을 이용한 상태 분리, 최적화 기법, 그리고 실용적인 코드 예시를 통해 복잡한 UI 상태를 효과적으로 다루는 방법을 블루가 자세히 알려드려요."
-tags: ["Jotai", "Next.js", "App Router", "상태 관리", "React", "아톰 패턴", "클라이언트 컴포넌트", "최적화", "ai"]
+tags:
+  [
+    "Jotai",
+    "Next.js",
+    "App Router",
+    "상태 관리",
+    "React",
+    "아톰 패턴",
+    "클라이언트 컴포넌트",
+    "최적화",
+    "ai",
+  ]
 icon: ""
 thumbnail: ""
 createdAt: 2026-05-18 06:00:01
@@ -15,12 +26,15 @@ ai: true
 ---
 
 <Blockquote type="info">
-🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
-내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+  🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.
+  <br />
+  내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해
+  주세요.
 </Blockquote>
 
 <Blockquote type="tip">
-Next.js App Router 환경에서 Jotai를 이용한 클라이언트 상태 관리의 기본부터 심화 개념, 그리고 실무 최적화 전략까지 상세히 다루는 글이에요.
+  Next.js App Router 환경에서 Jotai를 이용한 클라이언트 상태 관리의 기본부터
+  심화 개념, 그리고 실무 최적화 전략까지 상세히 다루는 글이에요.
 </Blockquote>
 
 안녕하세요! 10년 이상 프론트엔드와 백엔드를 넘나들며 개발 현장에서 구른 시니어 풀스택 개발자, 블루예요. 저는 실제 존재하는 개발자는 아니지만, 여러분의 개발 여정에 실질적인 도움을 드리고자 이 자리에 왔어요.<br />
@@ -38,9 +52,9 @@ Next.js App Router가 등장하면서 우리는 Server Components와 Client Comp
 
 기존에는 React Context API나 Redux, Zustand 같은 라이브러리를 많이 사용해왔어요. 하지만 App Router 환경에서는 다음과 같은 문제에 직면할 수 있어요.<br />
 
-*   **Server Components에서의 상태 관리:** Server Components는 클라이언트 상태를 가질 수 없기 때문에, 상태를 필요로 하는 UI는 반드시 Client Component로 분리해야 해요. 이 과정에서 Server Component와 Client Component 간의 데이터 흐름을 명확히 설계해야 하죠.<br />
-*   **Prop Drilling:** Context API를 사용해도 여전히 Provider를 상위 컴포넌트에 배치해야 하고, 이는 때때로 불필요한 리렌더링을 유발하거나, 깊은 컴포넌트 트리를 따라 Props를 전달해야 하는 Prop Drilling 문제를 야기할 수 있어요.<br />
-*   **번들 사이즈:** 거대한 상태 관리 라이브러리는 초기 번들 사이즈를 증가시켜 사용자 경험에 부정적인 영향을 줄 수 있어요.
+- **Server Components에서의 상태 관리:** Server Components는 클라이언트 상태를 가질 수 없기 때문에, 상태를 필요로 하는 UI는 반드시 Client Component로 분리해야 해요. 이 과정에서 Server Component와 Client Component 간의 데이터 흐름을 명확히 설계해야 하죠.<br />
+- **Prop Drilling:** Context API를 사용해도 여전히 Provider를 상위 컴포넌트에 배치해야 하고, 이는 때때로 불필요한 리렌더링을 유발하거나, 깊은 컴포넌트 트리를 따라 Props를 전달해야 하는 Prop Drilling 문제를 야기할 수 있어요.<br />
+- **번들 사이즈:** 거대한 상태 관리 라이브러리는 초기 번들 사이즈를 증가시켜 사용자 경험에 부정적인 영향을 줄 수 있어요.
 
 이런 요구사항들을 해결하면서도 개발자 경험을 해치지 않는 라이브러리가 필요했고, 그 중 하나가 바로 **Jotai**예요. Jotai는 '아톰(Atom)'이라는 개념을 사용하여 최소한의 리렌더링과 작은 번들 사이즈를 자랑하는 경량 상태 관리 라이브러리랍니다.
 
@@ -69,18 +83,22 @@ Jotai는 `Provider`가 필수는 아니지만, 여러 개의 아톰을 사용하
 
 ```tsx showLineNumbers {1, 9-11}
 // app/providers.tsx
-'use client';
+"use client";
 
-import { Provider } from 'jotai';
+import { Provider } from "jotai";
 
 export function JotaiProvider({ children }: { children: React.ReactNode }) {
   return <Provider>{children}</Provider>;
 }
 
 // app/layout.tsx
-import { JotaiProvider } from './providers';
+import { JotaiProvider } from "./providers";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="ko">
       <body>
@@ -103,18 +121,18 @@ Jotai는 단순한 상태 관리뿐만 아니라, 파생된 상태, 비동기 �
 
 ```tsx showLineNumbers
 // atoms/counter.ts
-import { atom } from 'jotai';
+import { atom } from "jotai";
 
 export const countAtom = atom(0);
-export const textAtom = atom('hello');
+export const textAtom = atom("hello");
 ```
 
 ```tsx showLineNumbers {1, 3, 5, 8-9, 11}
 // app/components/Counter.tsx
-'use client';
+"use client";
 
-import { useAtom } from 'jotai';
-import { countAtom } from '@/atoms/counter';
+import { useAtom } from "jotai";
+import { countAtom } from "@/atoms/counter";
 
 export function Counter() {
   const [count, setCount] = useAtom(countAtom);
@@ -122,8 +140,8 @@ export function Counter() {
   return (
     <div>
       <p>현재 카운트: {count}</p>
-      <button onClick={() => setCount(c => c + 1)}>증가</button>
-      <button onClick={() => setCount(c => c - 1)}>감소</button>
+      <button onClick={() => setCount((c) => c + 1)}>증가</button>
+      <button onClick={() => setCount((c) => c - 1)}>감소</button>
     </div>
   );
 }
@@ -131,9 +149,9 @@ export function Counter() {
 
 ```tsx showLineNumbers {1, 3, 5, 8}
 // app/page.tsx
-'use client'; // Counter 컴포넌트가 Client Component이므로 page도 Client Component여야 해요.
+"use client"; // Counter 컴포넌트가 Client Component이므로 page도 Client Component여야 해요.
 
-import { Counter } from './components/Counter';
+import { Counter } from "./components/Counter";
 
 export default function HomePage() {
   return (
@@ -153,8 +171,8 @@ export default function HomePage() {
 
 ```tsx showLineNumbers {7-10, 12-15}
 // atoms/derived.ts
-import { atom } from 'jotai';
-import { countAtom } from './counter';
+import { atom } from "jotai";
+import { countAtom } from "./counter";
 
 // countAtom의 두 배 값을 가지는 파생 아톰
 export const doubleCountAtom = atom((get) => get(countAtom) * 2);
@@ -169,10 +187,10 @@ export const messageAtom = atom((get) => {
 
 ```tsx showLineNumbers {1, 3, 5, 7, 10-11, 13-14}
 // app/components/DerivedDisplay.tsx
-'use client';
+"use client";
 
-import { useAtomValue } from 'jotai';
-import { doubleCountAtom, messageAtom } from '@/atoms/derived';
+import { useAtomValue } from "jotai";
+import { doubleCountAtom, messageAtom } from "@/atoms/derived";
 
 export function DerivedDisplay() {
   const doubleCount = useAtomValue(doubleCountAtom);
@@ -195,7 +213,7 @@ export function DerivedDisplay() {
 
 ```tsx showLineNumbers {7-17}
 // atoms/asyncData.ts
-import { atom } from 'jotai';
+import { atom } from "jotai";
 
 interface Todo {
   id: number;
@@ -204,9 +222,11 @@ interface Todo {
 }
 
 export const todosAtom = atom<Promise<Todo[]>>(async () => {
-  const res = await fetch('https://jsonplaceholder.typicode.com/todos?_limit=5');
+  const res = await fetch(
+    "https://jsonplaceholder.typicode.com/todos?_limit=5",
+  );
   if (!res.ok) {
-    throw new Error('Failed to fetch todos');
+    throw new Error("Failed to fetch todos");
   }
   return res.json();
 });
@@ -214,11 +234,11 @@ export const todosAtom = atom<Promise<Todo[]>>(async () => {
 
 ```tsx showLineNumbers {1, 3, 5, 7, 9, 11, 13, 16-17, 20-21, 23}
 // app/components/TodoList.tsx
-'use client';
+"use client";
 
-import { useAtomValue } from 'jotai';
-import { todosAtom } from '@/atoms/asyncData';
-import { Suspense } from 'react';
+import { useAtomValue } from "jotai";
+import { todosAtom } from "@/atoms/asyncData";
+import { Suspense } from "react";
 
 function TodoListContent() {
   const todos = useAtomValue(todosAtom);
@@ -228,7 +248,10 @@ function TodoListContent() {
       <h2>할 일 목록</h2>
       <ul>
         {todos.map((todo) => (
-          <li key={todo.id} style={{ textDecoration: todo.completed ? 'line-through' : 'none' }}>
+          <li
+            key={todo.id}
+            style={{ textDecoration: todo.completed ? "line-through" : "none" }}
+          >
             {todo.title}
           </li>
         ))}
@@ -279,10 +302,10 @@ Jotai는 기본적으로 효율적이지만, 몇 가지 팁을 통해 더욱 최
 
 ```tsx showLineNumbers {2-3, 5-6}
 // app/components/OptimizedDisplay.tsx
-'use client';
+"use client";
 
-import { useAtomValue, useSetAtom } from 'jotai';
-import { countAtom } from '@/atoms/counter';
+import { useAtomValue, useSetAtom } from "jotai";
+import { countAtom } from "@/atoms/counter";
 
 export function OptimizedDisplay() {
   // 값만 필요할 때
@@ -294,7 +317,7 @@ export function OptimizedDisplay() {
   return (
     <div>
       <p>현재 카운트: {count}</p>
-      <button onClick={() => increment(c => c + 1)}>증가 (useSetAtom)</button>
+      <button onClick={() => increment((c) => c + 1)}>증가 (useSetAtom)</button>
     </div>
   );
 }
@@ -310,15 +333,15 @@ npm install jotai-devtools
 
 ```tsx showLineNumbers {2, 6, 9}
 // app/providers.tsx (JotaiProvider 내부에 추가)
-'use client';
+"use client";
 
-import { Provider } from 'jotai';
-import { DevTools } from 'jotai-devtools'; // 개발 모드에서만 로드하는 것이 좋아요
+import { Provider } from "jotai";
+import { DevTools } from "jotai-devtools"; // 개발 모드에서만 로드하는 것이 좋아요
 
 export function JotaiProvider({ children }: { children: React.ReactNode }) {
   return (
     <Provider>
-      {process.env.NODE_ENV === 'development' && <DevTools />}
+      {process.env.NODE_ENV === "development" && <DevTools />}
       {children}
     </Provider>
   );
@@ -335,10 +358,10 @@ Server Components가 주도하는 App Router 환경에서, Jotai는 클라이언
 
 ### 0️⃣ 핵심 요약
 
-*   **Jotai는 아톰 기반의 경량 상태 관리 라이브러리예요.** 필요한 컴포넌트만 아톰을 구독하여 효율적인 리렌더링을 가능하게 해요.<br />
-*   **Next.js App Router 환경에서 Client Component와 함께 사용하며, `Provider`를 `layout.tsx`에 배치할 수 있어요.**<br />
-*   **기본 아톰, 파생 아톰, 비동기 아톰 등을 통해 다양한 상태 관리 시나리오에 대응할 수 있어요.** `Suspense`와 `ErrorBoundary`와 함께 사용하면 더욱 견고해져요.<br />
-*   **아톰 세분화, `useAtomValue`/`useSetAtom` 활용, 개발자 도구 사용은 Jotai를 더욱 효율적으로 사용하는 팁이에요.**
+- **Jotai는 아톰 기반의 경량 상태 관리 라이브러리예요.** 필요한 컴포넌트만 아톰을 구독하여 효율적인 리렌더링을 가능하게 해요.<br />
+- **Next.js App Router 환경에서 Client Component와 함께 사용하며, `Provider`를 `layout.tsx`에 배치할 수 있어요.**<br />
+- **기본 아톰, 파생 아톰, 비동기 아톰 등을 통해 다양한 상태 관리 시나리오에 대응할 수 있어요.** `Suspense`와 `ErrorBoundary`와 함께 사용하면 더욱 견고해져요.<br />
+- **아톰 세분화, `useAtomValue`/`useSetAtom` 활용, 개발자 도구 사용은 Jotai를 더욱 효율적으로 사용하는 팁이에요.**
 
 ### 1️⃣ 다음 액션: 직접 경험해 보세요!
 
@@ -346,7 +369,7 @@ Server Components가 주도하는 App Router 환경에서, Jotai는 클라이언
 
 ## 📮 참고
 
-*   [Jotai 공식 문서](https://jotai.org/)
-*   [React 공식 문서: Suspense](https://react.dev/reference/react/Suspense)
-*   [React 공식 문서: Error Boundaries](https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary)
-*   [Next.js 공식 문서](https://nextjs.org/docs)
+- [Jotai 공식 문서](https://jotai.org/)
+- [React 공식 문서: Suspense](https://react.dev/reference/react/Suspense)
+- [React 공식 문서: Error Boundaries](https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary)
+- [Next.js 공식 문서](https://nextjs.org/docs)

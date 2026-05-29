@@ -1,7 +1,18 @@
---- 
+---
 title: "[🤖] Next.js App Router와 Auth.js (NextAuth.js) 연동 가이드: 서버 및 클라이언트 컴포넌트 세션 관리"
 description: "Next.js 14+ App Router 환경에서 Auth.js (구 NextAuth.js)를 사용하여 안전하고 효율적인 인증 시스템을 구축하는 방법을 자세히 알아봐요. 서버 컴포넌트와 클라이언트 컴포넌트에서 세션을 관리하고 보호하는 실용적인 팁과 코드 예시를 제공해요."
-tags: ["Next.js", "Auth.js", "NextAuth.js", "App Router", "인증", "세션", "Server Components", "Client Components", "ai"]
+tags:
+  [
+    "Next.js",
+    "Auth.js",
+    "NextAuth.js",
+    "App Router",
+    "인증",
+    "세션",
+    "Server Components",
+    "Client Components",
+    "ai",
+  ]
 icon: ""
 thumbnail: ""
 createdAt: 2026-05-29 06:00:01
@@ -15,12 +26,16 @@ ai: true
 ---
 
 <Blockquote type="info">
-🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
-내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+  🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.
+  <br />
+  내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해
+  주세요.
 </Blockquote>
 
 <Blockquote type="tip">
-Next.js 14+ App Router 환경에서 Auth.js (구 NextAuth.js)를 활용하여 서버 및 클라이언트 컴포넌트에서 안전하고 효율적인 사용자 인증 및 세션 관리 시스템을 구축하는 실질적인 방법을 배워요.
+  Next.js 14+ App Router 환경에서 Auth.js (구 NextAuth.js)를 활용하여 서버 및
+  클라이언트 컴포넌트에서 안전하고 효율적인 사용자 인증 및 세션 관리 시스템을
+  구축하는 실질적인 방법을 배워요.
 </Blockquote>
 
 안녕하세요, 10년 이상 실무 경험을 쌓아온 시니어 풀스택 개발자이자 기술 블로그 SEO 전문가 "블루"입니다. 저는 실제 존재하는 개발자는 아니지만, 여러분께 실질적인 도움이 되는 고품질 기술 콘텐츠를 제공하고자 해요.<br />
@@ -75,7 +90,7 @@ openssl rand -base64 32
 
 생성된 값을 `.env.local` 파일에 다음과 같이 추가해 주세요.<br />
 
-```env showLineNumbers
+```txt showLineNumbers
 AUTH_SECRET="YOUR_GENERATED_SECRET"
 AUTH_URL="http://localhost:3000" # 개발 환경 URL
 GITHUB_ID="YOUR_GITHUB_CLIENT_ID"
@@ -83,8 +98,10 @@ GITHUB_SECRET="YOUR_GITHUB_CLIENT_SECRET"
 ```
 
 <Blockquote type="warning">
-`AUTH_SECRET`은 절대로 외부에 노출되어서는 안 돼요. 프로덕션 환경에서는 더욱 강력한 보안 관리가 필요해요.<br />
-`AUTH_URL`은 배포 환경에 맞춰 변경해야 해요. (예: `https://your-domain.com`)
+  `AUTH_SECRET`은 절대로 외부에 노출되어서는 안 돼요. 프로덕션 환경에서는 더욱
+  강력한 보안 관리가 필요해요.
+  <br />
+  `AUTH_URL`은 배포 환경에 맞춰 변경해야 해요. (예: `https://your-domain.com`)
 </Blockquote>
 
 ### 2️⃣ Auth.js 핸들러 (`[...nextauth]`) 구성
@@ -151,14 +168,22 @@ Auth.js는 클라이언트 컴포넌트에서 세션에 접근할 수 있도록 
 import { SessionProvider } from "next-auth/react";
 import React from "react";
 
-export default function AuthProvider({ children }: { children: React.ReactNode }) {
+export default function AuthProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return <SessionProvider>{children}</SessionProvider>;
 }
 
 // app/layout.tsx (서버 컴포넌트)
 import AuthProvider from "./providers";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="ko">
       <body>
@@ -216,14 +241,20 @@ export default function AuthButtons() {
 
   if (session) {
     return (
-      <button onClick={() => signOut()} className="p-2 bg-red-500 text-white rounded">
+      <button
+        onClick={() => signOut()}
+        className="rounded bg-red-500 p-2 text-white"
+      >
         로그아웃
       </button>
     );
   }
 
   return (
-    <button onClick={() => signIn("github")} className="p-2 bg-blue-500 text-white rounded">
+    <button
+      onClick={() => signIn("github")}
+      className="rounded bg-blue-500 p-2 text-white"
+    >
       GitHub로 로그인
     </button>
   );
@@ -241,7 +272,11 @@ export default function AuthButtons() {
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
-export default function ProtectedRouteClient({ children }: { children: React.ReactNode }) {
+export default function ProtectedRouteClient({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { status } = useSession();
   const router = useRouter();
 
@@ -288,7 +323,8 @@ export default async function DashboardPage() {
 ```
 
 <Blockquote type="tip">
-`auth()` 함수는 서버 컴포넌트나 Route Handler에서만 호출해야 해요. 클라이언트 컴포넌트에서는 `useSession` 훅을 사용해야 해요.
+  `auth()` 함수는 서버 컴포넌트나 Route Handler에서만 호출해야 해요. 클라이언트
+  컴포넌트에서는 `useSession` 훅을 사용해야 해요.
 </Blockquote>
 
 ### 1️⃣ 서버 컴포넌트에서 세션 정보 활용 예시
@@ -319,7 +355,8 @@ export const config = {
 위 `middleware.ts` 파일은 `/dashboard` 경로로 접근하는 요청에 대해 사용자가 인증되었는지(`req.auth`) 확인해요. 인증되지 않았다면 로그인 페이지로 리다이렉트 시키는 역할을 해요.<br />
 
 <Blockquote type="info">
-`middleware.ts` 파일은 `app/` 디렉토리와 같은 레벨에 위치해야 해요. (예: `src/middleware.ts` 또는 `middleware.ts`)
+  `middleware.ts` 파일은 `app/` 디렉토리와 같은 레벨에 위치해야 해요. (예:
+  `src/middleware.ts` 또는 `middleware.ts`)
 </Blockquote>
 
 ## 🚦 실전 예시: 로그인/로그아웃 페이지 및 보호된 대시보드
@@ -336,8 +373,8 @@ import AuthButtons from "@/app/components/AuthButtons";
 
 export default function SignInPage() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen">
-      <h1 className="text-2xl font-bold mb-4">로그인이 필요해요</h1>
+    <div className="flex min-h-screen flex-col items-center justify-center">
+      <h1 className="mb-4 text-2xl font-bold">로그인이 필요해요</h1>
       <AuthButtons />
     </div>
   );
@@ -362,10 +399,12 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-4">
-      <h1 className="text-3xl font-bold mb-6">대시보드</h1>
-      <p className="text-lg mb-2">환영합니다, {session.user?.name}님!</p>
-      <p className="text-md text-gray-600 mb-8">이메일: {session.user?.email}</p>
+    <main className="flex min-h-screen flex-col items-center justify-center p-4">
+      <h1 className="mb-6 text-3xl font-bold">대시보드</h1>
+      <p className="mb-2 text-lg">환영합니다, {session.user?.name}님!</p>
+      <p className="text-md mb-8 text-gray-600">
+        이메일: {session.user?.email}
+      </p>
       <AuthButtons />
     </main>
   );
@@ -416,11 +455,11 @@ Auth.js는 CSRF(Cross-Site Request Forgery) 공격에 대한 보호 기능을 �
 
 ### 0️⃣ 핵심 요약
 
-*   **App Router의 인증 변화**: 서버 컴포넌트의 도입으로 세션 관리에 새로운 접근 방식이 필요해요.<br />
-*   **Auth.js (NextAuth.js)**: Next.js에 최적화된 강력한 인증 라이브러리로, 다양한 Provider와 유연한 설정이 가능해요.<br />
-*   **클라이언트 컴포넌트**: `SessionProvider`로 감싸고 `useSession` 훅을 사용하여 세션 정보에 접근하고 `signIn`/`signOut` 함수로 인증 흐름을 제어해요.<br />
-*   **서버 컴포넌트**: `app/api/auth/[...nextauth]/route.ts`에서 내보낸 `auth()` 함수를 `await`하여 서버 사이드에서 안전하게 세션 정보를 가져와요.<br />
-*   **미들웨어**: `middleware.ts` 파일에서 `auth()` 함수를 사용하여 특정 경로에 대한 접근을 인증 여부에 따라 제어할 수 있어요.<br />
+- **App Router의 인증 변화**: 서버 컴포넌트의 도입으로 세션 관리에 새로운 접근 방식이 필요해요.<br />
+- **Auth.js (NextAuth.js)**: Next.js에 최적화된 강력한 인증 라이브러리로, 다양한 Provider와 유연한 설정이 가능해요.<br />
+- **클라이언트 컴포넌트**: `SessionProvider`로 감싸고 `useSession` 훅을 사용하여 세션 정보에 접근하고 `signIn`/`signOut` 함수로 인증 흐름을 제어해요.<br />
+- **서버 컴포넌트**: `app/api/auth/[...nextauth]/route.ts`에서 내보낸 `auth()` 함수를 `await`하여 서버 사이드에서 안전하게 세션 정보를 가져와요.<br />
+- **미들웨어**: `middleware.ts` 파일에서 `auth()` 함수를 사용하여 특정 경로에 대한 접근을 인증 여부에 따라 제어할 수 있어요.<br />
 
 ### 1️⃣ 다음 단계
 
@@ -430,6 +469,6 @@ Auth.js는 CSRF(Cross-Site Request Forgery) 공격에 대한 보호 기능을 �
 
 ## 📮 참고
 
-*   [Auth.js (NextAuth.js) 공식 문서](https://authjs.dev/)
-*   [Next.js 공식 문서 - Middleware](https://nextjs.org/docs/app/building-your-application/routing/middleware)
-*   [GitHub OAuth Apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app)
+- [Auth.js (NextAuth.js) 공식 문서](https://authjs.dev/)
+- [Next.js 공식 문서 - Middleware](https://nextjs.org/docs/app/building-your-application/routing/middleware)
+- [GitHub OAuth Apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app)

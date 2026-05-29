@@ -1,7 +1,17 @@
 ---
 title: "[🤖] JavaScript requestIdleCallback과 isInputPending으로 UI 반응성 개선하기: 메인 스레드 최적화 심화"
 description: "JavaScript의 `requestIdleCallback`과 `isInputPending` API를 활용하여 메인 스레드 블로킹을 줄이고 UI 반응성을 극대화하는 실질적인 방법을 배워보세요. 사용자 경험을 위한 웹 성능 최적화 전략을 안내해 드려요."
-tags: ["javascript", "web-performance", "optimization", "requestIdleCallback", "isInputPending", "main-thread", "ui-responsiveness", "ai"]
+tags:
+  [
+    "javascript",
+    "web-performance",
+    "optimization",
+    "requestIdleCallback",
+    "isInputPending",
+    "main-thread",
+    "ui-responsiveness",
+    "ai",
+  ]
 icon: ""
 thumbnail: ""
 createdAt: 2026-05-23 07:01:17
@@ -15,12 +25,16 @@ ai: true
 ---
 
 <Blockquote type="info">
-🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
-내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+  🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.
+  <br />
+  내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해
+  주세요.
 </Blockquote>
 
 <Blockquote type="tip">
-JavaScript의 `requestIdleCallback`과 `isInputPending` API를 활용하여 메인 스레드 블로킹을 줄이고 UI 반응성을 극대화하는 실질적인 웹 성능 최적화 전략을 다뤄요.
+  JavaScript의 `requestIdleCallback`과 `isInputPending` API를 활용하여 메인
+  스레드 블로킹을 줄이고 UI 반응성을 극대화하는 실질적인 웹 성능 최적화 전략을
+  다뤄요.
 </Blockquote>
 
 안녕하세요! 10년 이상 실무 경험을 가진 시니어 풀스택 개발자이자 기술 블로그 SEO 전문가, 블루입니다.<br />
@@ -42,9 +56,9 @@ DOM 조작, 스타일 계산, 레이아웃, 페인팅, JavaScript 실행, 이벤
 
 메인 스레드가 블로킹되면 어떤 문제가 발생할까요?<br />
 
-*   **느린 UI 반응성:** 사용자의 클릭이나 키보드 입력에 대한 반응이 늦어져요. 예를 들어, 버튼을 눌렀는데 아무 일도 일어나지 않거나 한참 뒤에 반응하죠.<br />
-*   **버벅이는 애니메이션:** 스크롤링이나 애니메이션이 부드럽지 않고 끊기는 현상(jank)이 발생해요. 초당 60프레임(FPS)을 유지해야 부드러운 움직임을 제공할 수 있는데, 메인 스레드 블로킹은 이를 방해해요.<br />
-*   **Core Web Vitals 악영향:** Google의 Core Web Vitals 지표 중 FID(First Input Delay)나 INP(Interaction to Next Paint)에 부정적인 영향을 미쳐요. 이는 SEO에도 영향을 줄 수 있어요.
+- **느린 UI 반응성:** 사용자의 클릭이나 키보드 입력에 대한 반응이 늦어져요. 예를 들어, 버튼을 눌렀는데 아무 일도 일어나지 않거나 한참 뒤에 반응하죠.<br />
+- **버벅이는 애니메이션:** 스크롤링이나 애니메이션이 부드럽지 않고 끊기는 현상(jank)이 발생해요. 초당 60프레임(FPS)을 유지해야 부드러운 움직임을 제공할 수 있는데, 메인 스레드 블로킹은 이를 방해해요.<br />
+- **Core Web Vitals 악영향:** Google의 Core Web Vitals 지표 중 FID(First Input Delay)나 INP(Interaction to Next Paint)에 부정적인 영향을 미쳐요. 이는 SEO에도 영향을 줄 수 있어요.
 
 이런 문제들은 사용자에게 부정적인 인상을 주고, 결국 애플리케이션 이탈로 이어질 수 있답니다.<br />
 그래서 개발자는 메인 스레드를 효율적으로 관리하고, 무거운 작업을 적절히 분산시키는 전략을 고민해야 해요.
@@ -58,7 +72,9 @@ DOM 조작, 스타일 계산, 레이아웃, 페인팅, JavaScript 실행, 이벤
 주로 중요도가 낮은 백그라운드 작업이나 분석 데이터 전송, DOM 변경 배치 처리 등에 활용된답니다.
 
 <Blockquote type="tip">
-`requestIdleCallback`은 모든 브라우저에서 지원하지 않을 수 있어요. 특히 Safari에서는 부분적으로 지원되거나 지원되지 않을 수 있으니, 사용 시 폴리필(polyfill)이나 기능 감지(feature detection)를 고려하는 것이 좋아요.
+  `requestIdleCallback`은 모든 브라우저에서 지원하지 않을 수 있어요. 특히
+  Safari에서는 부분적으로 지원되거나 지원되지 않을 수 있으니, 사용 시
+  폴리필(polyfill)이나 기능 감지(feature detection)를 고려하는 것이 좋아요.
 </Blockquote>
 
 ### 1️⃣ `requestIdleCallback` 사용법
@@ -66,8 +82,8 @@ DOM 조작, 스타일 계산, 레이아웃, 페인팅, JavaScript 실행, 이벤
 `requestIdleCallback`은 콜백 함수와 옵션 객체를 인자로 받아요.<br />
 콜백 함수는 `IdleDeadline` 객체를 인자로 받는데, 이 객체는 `timeRemaining()` 메서드와 `didTimeout` 속성을 가지고 있어요.
 
-*   `timeRemaining()`: 현재 프레임에서 작업할 수 있는 남은 시간을 밀리초 단위로 반환해요.<br />
-*   `didTimeout`: 콜백이 타임아웃으로 인해 실행되었는지 여부를 나타내는 불리언 값이에요.
+- `timeRemaining()`: 현재 프레임에서 작업할 수 있는 남은 시간을 밀리초 단위로 반환해요.<br />
+- `didTimeout`: 콜백이 타임아웃으로 인해 실행되었는지 여부를 나타내는 불리언 값이에요.
 
 ```ts showLineNumbers
 interface IdleDeadline {
@@ -77,7 +93,7 @@ interface IdleDeadline {
 
 declare function requestIdleCallback(
   callback: (deadline: IdleDeadline) => void,
-  options?: { timeout: number }
+  options?: { timeout: number },
 ): number;
 
 declare function cancelIdleCallback(handle: number): void;
@@ -93,7 +109,7 @@ declare function cancelIdleCallback(handle: number): void;
 이 예제에서는 `requestIdleCallback`을 반복적으로 호출하여 작업을 작은 단위로 쪼개어 처리하는 패턴을 보여드려요.
 
 ```tsx showLineNumbers
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 
 interface HeavyTaskProps {
   dataSize: number;
@@ -119,13 +135,15 @@ const HeavyTaskProcessor: React.FC<HeavyTaskProps> = ({ dataSize }) => {
   const processChunk = (startIndex: number) => {
     if (startIndex >= dataRef.current.length) {
       setIsProcessing(false);
-      console.log('Heavy task completed!');
+      console.log("Heavy task completed!");
       return;
     }
 
     // requestIdleCallback이 지원되지 않을 경우 fallback
-    if (!('requestIdleCallback' in window)) {
-      console.warn('requestIdleCallback not supported, falling back to setTimeout.');
+    if (!("requestIdleCallback" in window)) {
+      console.warn(
+        "requestIdleCallback not supported, falling back to setTimeout.",
+      );
       let endIndex = Math.min(startIndex + 100, dataRef.current.length);
       for (let i = startIndex; i < endIndex; i++) {
         // 가상 무거운 작업: 각 데이터 항목에 대해 복잡한 계산 수행
@@ -139,31 +157,34 @@ const HeavyTaskProcessor: React.FC<HeavyTaskProps> = ({ dataSize }) => {
       return;
     }
 
-    taskHandleRef.current = requestIdleCallback((deadline) => {
-      let currentIndex = startIndex;
-      // deadline.timeRemaining()이 0보다 크거나 didTimeout이 true가 될 때까지 작업
-      while (
-        (deadline.timeRemaining() > 0 || deadline.didTimeout) &&
-        currentIndex < dataRef.current.length
-      ) {
-        // 가상 무거운 작업: 각 데이터 항목에 대해 복잡한 계산 수행
-        let result = 0;
-        for (let j = 0; j < 10000; j++) {
-          result += Math.sqrt(dataRef.current[currentIndex] * Math.random());
+    taskHandleRef.current = requestIdleCallback(
+      (deadline) => {
+        let currentIndex = startIndex;
+        // deadline.timeRemaining()이 0보다 크거나 didTimeout이 true가 될 때까지 작업
+        while (
+          (deadline.timeRemaining() > 0 || deadline.didTimeout) &&
+          currentIndex < dataRef.current.length
+        ) {
+          // 가상 무거운 작업: 각 데이터 항목에 대해 복잡한 계산 수행
+          let result = 0;
+          for (let j = 0; j < 10000; j++) {
+            result += Math.sqrt(dataRef.current[currentIndex] * Math.random());
+          }
+          currentIndex++;
         }
-        currentIndex++;
-      }
 
-      setProgress(Math.floor((currentIndex / dataRef.current.length) * 100));
+        setProgress(Math.floor((currentIndex / dataRef.current.length) * 100));
 
-      // 남은 작업이 있다면 다음 유휴 시간에 다시 스케줄링
-      if (currentIndex < dataRef.current.length) {
-        processChunk(currentIndex);
-      } else {
-        setIsProcessing(false);
-        console.log('Heavy task completed!');
-      }
-    }, { timeout: 100 }); // 최대 100ms 안에는 실행되도록 보장
+        // 남은 작업이 있다면 다음 유휴 시간에 다시 스케줄링
+        if (currentIndex < dataRef.current.length) {
+          processChunk(currentIndex);
+        } else {
+          setIsProcessing(false);
+          console.log("Heavy task completed!");
+        }
+      },
+      { timeout: 100 },
+    ); // 최대 100ms 안에는 실행되도록 보장
   };
 
   const cancelProcessing = () => {
@@ -171,7 +192,7 @@ const HeavyTaskProcessor: React.FC<HeavyTaskProps> = ({ dataSize }) => {
       cancelIdleCallback(taskHandleRef.current);
       taskHandleRef.current = null;
       setIsProcessing(false);
-      console.log('Heavy task cancelled!');
+      console.log("Heavy task cancelled!");
     }
   };
 
@@ -181,12 +202,18 @@ const HeavyTaskProcessor: React.FC<HeavyTaskProps> = ({ dataSize }) => {
       <p>데이터 크기: {dataSize}</p>
       <p>진행률: {progress}%</p>
       <button onClick={startProcessing} disabled={isProcessing}>
-        {isProcessing ? '처리 중...' : '무거운 작업 시작'}
+        {isProcessing ? "처리 중..." : "무거운 작업 시작"}
       </button>
-      <button onClick={cancelProcessing} disabled={!isProcessing} style={{ marginLeft: '10px' }}>
+      <button
+        onClick={cancelProcessing}
+        disabled={!isProcessing}
+        style={{ marginLeft: "10px" }}
+      >
         작업 취소
       </button>
-      {isProcessing && <p>작업이 백그라운드에서 진행 중이에요. UI는 반응성을 유지할 거예요.</p>}
+      {isProcessing && (
+        <p>작업이 백그라운드에서 진행 중이에요. UI는 반응성을 유지할 거예요.</p>
+      )}
     </div>
   );
 };
@@ -195,8 +222,12 @@ export default HeavyTaskProcessor;
 ```
 
 <Blockquote type="info">
-이 예제는 `requestIdleCallback`의 동작 방식을 보여주기 위한 것으로, 실제 애플리케이션에서는 웹 워커(Web Workers)와 같은 전용 스레드를 사용하는 것이 더 효율적인 경우도 많아요.<br />
-하지만 메인 스레드에서 처리해야 하는 작업이거나 웹 워커로 넘기기 복잡한 경우 `requestIdleCallback`은 좋은 대안이 될 수 있답니다.
+  이 예제는 `requestIdleCallback`의 동작 방식을 보여주기 위한 것으로, 실제
+  애플리케이션에서는 웹 워커(Web Workers)와 같은 전용 스레드를 사용하는 것이 더
+  효율적인 경우도 많아요.
+  <br />
+  하지만 메인 스레드에서 처리해야 하는 작업이거나 웹 워커로 넘기기 복잡한 경우
+  `requestIdleCallback`은 좋은 대안이 될 수 있답니다.
 </Blockquote>
 
 ## ⚡ `isInputPending`으로 입력 반응성 우선하기
@@ -208,7 +239,9 @@ export default HeavyTaskProcessor;
 예를 들어, 복잡한 계산을 수행하고 있는데 사용자가 스크롤을 하거나 버튼을 클릭했다면, `isInputPending`은 이를 감지하고 현재 작업을 잠시 중단한 후 입력 이벤트를 먼저 처리하도록 할 수 있어요.
 
 <Blockquote type="warning">
-`isInputPending`은 아직 실험적인(experimental) API이며, 모든 브라우저에서 광범위하게 지원되지 않을 수 있어요. 특히 Firefox나 Safari에서는 지원되지 않을 수 있으니, 프로덕션 환경에서는 주의 깊게 사용해야 해요.
+  `isInputPending`은 아직 실험적인(experimental) API이며, 모든 브라우저에서
+  광범위하게 지원되지 않을 수 있어요. 특히 Firefox나 Safari에서는 지원되지 않을
+  수 있으니, 프로덕션 환경에서는 주의 깊게 사용해야 해요.
 </Blockquote>
 
 ### 1️⃣ `isInputPending` 사용법
@@ -227,7 +260,7 @@ interface Scheduling {
 }
 ```
 
-*   `includeContinuous`: `true`로 설정하면 연속적인 입력(예: 스크롤, 마우스 이동)도 감지해요. 기본값은 `false`로, 이 경우 이산적인 입력(예: 클릭, 키보드 입력)만 감지해요.
+- `includeContinuous`: `true`로 설정하면 연속적인 입력(예: 스크롤, 마우스 이동)도 감지해요. 기본값은 `false`로, 이 경우 이산적인 입력(예: 클릭, 키보드 입력)만 감지해요.
 
 ### 2️⃣ 실전 예제: 무거운 작업 중 입력 감지
 
@@ -235,7 +268,7 @@ interface Scheduling {
 이 패턴은 특히 긴 루프나 반복적인 계산 작업에서 유용해요.
 
 ```tsx showLineNumbers
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from "react";
 
 const InputAwareHeavyTask: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -252,13 +285,14 @@ const InputAwareHeavyTask: React.FC = () => {
   const runComputation = (iteration: number) => {
     if (taskRef.current?.isCancelled) {
       setIsProcessing(false);
-      console.log('Computation cancelled by user.');
+      console.log("Computation cancelled by user.");
       return;
     }
 
-    if (iteration >= 100) { // 총 100번의 큰 작업 반복
+    if (iteration >= 100) {
+      // 총 100번의 큰 작업 반복
       setIsProcessing(false);
-      console.log('Heavy computation finished!');
+      console.log("Heavy computation finished!");
       return;
     }
 
@@ -269,7 +303,7 @@ const InputAwareHeavyTask: React.FC = () => {
       navigator.scheduling.isInputPending &&
       navigator.scheduling.isInputPending({ includeContinuous: true })
     ) {
-      console.log('User input pending! Pausing computation to handle input.');
+      console.log("User input pending! Pausing computation to handle input.");
       // 사용자 입력이 감지되면 현재 작업을 잠시 중단하고 다음 이벤트 루프 틱에서 다시 시작
       setTimeout(() => runComputation(iteration), 0);
       return;
@@ -299,13 +333,23 @@ const InputAwareHeavyTask: React.FC = () => {
       <h2>isInputPending 예제</h2>
       <p>진행률: {progress}%</p>
       <button onClick={startHeavyComputation} disabled={isProcessing}>
-        {isProcessing ? '계산 중...' : '무거운 계산 시작'}
+        {isProcessing ? "계산 중..." : "무거운 계산 시작"}
       </button>
-      <button onClick={cancelComputation} disabled={!isProcessing} style={{ marginLeft: '10px' }}>
+      <button
+        onClick={cancelComputation}
+        disabled={!isProcessing}
+        style={{ marginLeft: "10px" }}
+      >
         계산 취소
       </button>
-      {isProcessing && <p>계산이 진행 중이지만, 사용자 입력 시 즉시 반응할 거예요.</p>}
-      <input type="text" placeholder="여기에 입력해보세요" style={{ marginTop: '20px', padding: '10px', display: 'block' }} />
+      {isProcessing && (
+        <p>계산이 진행 중이지만, 사용자 입력 시 즉시 반응할 거예요.</p>
+      )}
+      <input
+        type="text"
+        placeholder="여기에 입력해보세요"
+        style={{ marginTop: "20px", padding: "10px", display: "block" }}
+      />
     </div>
   );
 };
@@ -320,8 +364,8 @@ export default InputAwareHeavyTask;
 
 이 두 API는 각각 다른 목적을 가지고 있지만, 함께 사용하면 메인 스레드 최적화에 강력한 시너지를 낼 수 있어요.<br />
 
-*   `requestIdleCallback`: 중요도가 낮은 작업을 브라우저의 유휴 시간에 스케줄링하여 메인 스레드 블로킹을 회피해요.<br />
-*   `isInputPending`: 진행 중인 무거운 작업 도중에 사용자 입력이 발생했는지 감지하여, 입력에 대한 즉각적인 반응을 보장해요.
+- `requestIdleCallback`: 중요도가 낮은 작업을 브라우저의 유휴 시간에 스케줄링하여 메인 스레드 블로킹을 회피해요.<br />
+- `isInputPending`: 진행 중인 무거운 작업 도중에 사용자 입력이 발생했는지 감지하여, 입력에 대한 즉각적인 반응을 보장해요.
 
 즉, `requestIdleCallback`으로 작업을 분산 처리하면서, 분산된 각 작업 청크 내부에서 `isInputPending`을 주기적으로 체크하여 사용자 입력에 대한 우선순위를 부여하는 방식으로 활용할 수 있답니다.<br />
 이를 통해 애플리케이션의 전반적인 UI 반응성과 사용자 경험을 크게 향상시킬 수 있어요.
@@ -330,8 +374,8 @@ export default InputAwareHeavyTask;
 
 오늘은 웹 성능 최적화의 핵심 요소 중 하나인 메인 스레드 블로킹 문제를 해결하기 위해 `requestIdleCallback`과 `isInputPending` 두 가지 강력한 JavaScript API를 자세히 살펴보았어요.<br />
 
-*   `requestIdleCallback`은 브라우저의 유휴 시간을 활용하여 중요도가 낮은 작업을 비동기적으로 처리함으로써 메인 스레드의 부담을 줄여줘요.<br />
-*   `isInputPending`은 진행 중인 작업 도중에 사용자 입력이 발생했는지 감지하여, UI 반응성을 최우선으로 확보할 수 있도록 도와줘요.
+- `requestIdleCallback`은 브라우저의 유휴 시간을 활용하여 중요도가 낮은 작업을 비동기적으로 처리함으로써 메인 스레드의 부담을 줄여줘요.<br />
+- `isInputPending`은 진행 중인 작업 도중에 사용자 입력이 발생했는지 감지하여, UI 반응성을 최우선으로 확보할 수 있도록 도와줘요.
 
 이 두 API를 적절히 활용하면, 무거운 작업을 수행하는 웹 애플리케이션에서도 사용자에게 부드럽고 반응성 좋은 경험을 제공할 수 있을 거예요.<br />
 물론, 이 외에도 웹 워커(Web Workers)나 `setTimeout(..., 0)`을 이용한 작업 분할, `useTransition`/`useDeferredValue` (React의 경우) 등 다양한 최적화 기법들이 있으니, 여러분의 프로젝트 상황에 맞춰 가장 적절한 방법을 선택하시길 권해드려요.
@@ -341,6 +385,6 @@ export default InputAwareHeavyTask;
 
 ## 📮 참고
 
-*   [MDN Web Docs: Window.requestIdleCallback()](https://developer.mozilla.org/en-US/docs/Web/API/Window/requestIdleCallback)
-*   [MDN Web Docs: Navigator.scheduling.isInputPending()](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/scheduling/isInputPending)
-*   [Google Developers: Optimize long tasks](https://developer.chrome.com/docs/lighthouse/performance/long-tasks/)
+- [MDN Web Docs: Window.requestIdleCallback()](https://developer.mozilla.org/en-US/docs/Web/API/Window/requestIdleCallback)
+- [MDN Web Docs: Navigator.scheduling.isInputPending()](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/scheduling/isInputPending)
+- [Google Developers: Optimize long tasks](https://developer.chrome.com/docs/lighthouse/performance/long-tasks/)

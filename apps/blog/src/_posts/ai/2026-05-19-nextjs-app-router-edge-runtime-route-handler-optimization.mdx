@@ -1,7 +1,19 @@
 ---
 title: "[🤖] Next.js App Router Edge Runtime: 글로벌 성능과 비용 효율성 극대화 전략"
 description: "Next.js App Router에서 Edge Runtime을 활용해 Route Handler 성능을 극대화하고, 글로벌 사용자에게 빠른 응답 속도를 제공하며, 비용 효율적으로 애플리케이션을 운영하는 실전 전략을 자세히 다뤄요. Edge Runtime의 장점과 제한사항, 그리고 실제 코드 예시를 통해 효과적인 적용 방법을 배워보세요."
-tags: ["Next.js", "App Router", "Edge Runtime", "Route Handler", "Web Performance", "Serverless", "Vercel", "JavaScript", "TypeScript", "ai"]
+tags:
+  [
+    "Next.js",
+    "App Router",
+    "Edge Runtime",
+    "Route Handler",
+    "Web Performance",
+    "Serverless",
+    "Vercel",
+    "JavaScript",
+    "TypeScript",
+    "ai",
+  ]
 icon: ""
 thumbnail: ""
 createdAt: 2026-05-20 06:00:01
@@ -15,12 +27,16 @@ ai: true
 ---
 
 <Blockquote type="info">
-🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.<br />
-내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해 주세요.
+  🤖 이 포스팅은 Gemini 2.5 Flash AI가 작성했어요.
+  <br />
+  내용의 정확성을 위해 검토를 거쳤지만, 실무 적용 전 공식 문서를 함께 참고해
+  주세요.
 </Blockquote>
 
 <Blockquote type="tip">
-Next.js App Router에서 Edge Runtime을 활용해 Route Handler의 글로벌 성능을 극대화하고 비용 효율성을 높이는 방법을 실전 코드 예시와 함께 자세히 알려드려요.
+  Next.js App Router에서 Edge Runtime을 활용해 Route Handler의 글로벌 성능을
+  극대화하고 비용 효율성을 높이는 방법을 실전 코드 예시와 함께 자세히
+  알려드려요.
 </Blockquote>
 
 안녕하세요, 10년 이상 실무 경험을 가진 시니어 풀스택 개발자이자 기술 블로그 SEO 전문가 블루예요.<br />
@@ -51,15 +67,17 @@ Edge Runtime은 Node.js 대신 웹 브라우저의 JavaScript 엔진인 **V8 런
 V8 엔진은 Chrome, Edge 같은 웹 브라우저에 내장되어 있어서 매우 빠르게 JavaScript 코드를 실행할 수 있도록 설계되었어요.<br />
 이러한 특성 덕분에 Edge Runtime은 다음과 같은 장점을 가져요.
 
-*   ⚡️ 낮은 콜드 스타트: Node.js 런타임에 비해 훨씬 빠르게 함수를 시작할 수 있어요.<br />
-    이는 사용자가 API를 호출했을 때 즉각적인 응답을 받을 수 있다는 의미예요.<br />
-*   🌍 글로벌 분산 배치: CDN(Content Delivery Network) 엣지 로케이션에 가까운 곳에 함수가 배포되어 사용자와 가장 가까운 서버에서 응답할 수 있어요.<br />
-    덕분에 네트워크 지연 시간이 획기적으로 줄어들어 글로벌 사용자에게 일관된 고성능을 제공할 수 있답니다.<br />
-*   💸 비용 효율성: 일반적으로 Node.js 런타임보다 저렴한 비용으로 운영할 수 있어요.<br />
-    이는 짧은 실행 시간과 효율적인 리소스 사용 덕분이죠.
+- ⚡️ 낮은 콜드 스타트: Node.js 런타임에 비해 훨씬 빠르게 함수를 시작할 수 있어요.<br />
+  이는 사용자가 API를 호출했을 때 즉각적인 응답을 받을 수 있다는 의미예요.<br />
+- 🌍 글로벌 분산 배치: CDN(Content Delivery Network) 엣지 로케이션에 가까운 곳에 함수가 배포되어 사용자와 가장 가까운 서버에서 응답할 수 있어요.<br />
+  덕분에 네트워크 지연 시간이 획기적으로 줄어들어 글로벌 사용자에게 일관된 고성능을 제공할 수 있답니다.<br />
+- 💸 비용 효율성: 일반적으로 Node.js 런타임보다 저렴한 비용으로 운영할 수 있어요.<br />
+  이는 짧은 실행 시간과 효율적인 리소스 사용 덕분이죠.
 
 <Blockquote type="info">
-Edge Runtime은 Vercel의 Edge Functions, Cloudflare Workers, Deno Deploy 등 다양한 플랫폼에서 제공하는 서버리스 기술과 유사한 개념이라고 생각하시면 이해하기 쉬울 거예요.
+  Edge Runtime은 Vercel의 Edge Functions, Cloudflare Workers, Deno Deploy 등
+  다양한 플랫폼에서 제공하는 서버리스 기술과 유사한 개념이라고 생각하시면
+  이해하기 쉬울 거예요.
 </Blockquote>
 
 ### 1️⃣ Edge Runtime의 주요 제한사항
@@ -68,13 +86,13 @@ Edge Runtime은 Vercel의 Edge Functions, Cloudflare Workers, Deno Deploy 등 �
 빠른 속도와 효율성을 위해 일부 기능은 제한될 수밖에 없어요.<br />
 주요 제한사항은 다음과 같아요.
 
-*   📦 Node.js API 제한: 파일 시스템(fs), `child_process`, `net`, `tls` 등 Node.js 고유의 API를 사용할 수 없어요.<br />
-    따라서 이러한 기능을 사용하는 라이브러리는 Edge Runtime에서 동작하지 않아요.<br />
-*   📏 번들 크기 제한: 배포 환경에 따라 번들 크기에 엄격한 제한이 있을 수 있어요.<br />
-    (Vercel Edge Functions의 경우 1MB 이하를 권장해요.)<br />
-*   ⏳ 짧은 실행 시간: 복잡하고 긴 연산을 수행하는 작업에는 적합하지 않아요.<br />
-    주로 가볍고 빠른 응답이 필요한 API에 활용하는 것이 좋아요.
-*   🌐 Web API 기반: Node.js API 대신 `fetch`, `Request`, `Response`와 같은 Web API 표준을 사용해야 해요.
+- 📦 Node.js API 제한: 파일 시스템(fs), `child_process`, `net`, `tls` 등 Node.js 고유의 API를 사용할 수 없어요.<br />
+  따라서 이러한 기능을 사용하는 라이브러리는 Edge Runtime에서 동작하지 않아요.<br />
+- 📏 번들 크기 제한: 배포 환경에 따라 번들 크기에 엄격한 제한이 있을 수 있어요.<br />
+  (Vercel Edge Functions의 경우 1MB 이하를 권장해요.)<br />
+- ⏳ 짧은 실행 시간: 복잡하고 긴 연산을 수행하는 작업에는 적합하지 않아요.<br />
+  주로 가볍고 빠른 응답이 필요한 API에 활용하는 것이 좋아요.
+- 🌐 Web API 기반: Node.js API 대신 `fetch`, `Request`, `Response`와 같은 Web API 표준을 사용해야 해요.
 
 ## 🛠️ Next.js App Router에서 Edge Runtime 적용하기
 
@@ -89,26 +107,32 @@ Next.js App Router에서 Route Handler에 Edge Runtime을 적용하는 방법은
 ```tsx showLineNumbers
 // app/api/hello-edge/route.ts
 
-export const runtime = 'edge'; // ✨ 이 한 줄이 Edge Runtime을 활성화해요.
+export const runtime = "edge"; // ✨ 이 한 줄이 Edge Runtime을 활성화해요.
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const name = searchParams.get('name') || 'World';
+  const name = searchParams.get("name") || "World";
 
-  return new Response(JSON.stringify({ message: `Hello, ${name} from the Edge!` }), {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  });
+  return new Response(
+    JSON.stringify({ message: `Hello, ${name} from the Edge!` }),
+    {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    },
+  );
 }
 
 export async function POST(request: Request) {
   const data = await request.json();
-  const name = data.name || 'Anonymous';
+  const name = data.name || "Anonymous";
 
-  return new Response(JSON.stringify({ message: `Welcome, ${name} to the Edge POST API!` }), {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  });
+  return new Response(
+    JSON.stringify({ message: `Welcome, ${name} to the Edge POST API!` }),
+    {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    },
+  );
 }
 ```
 
@@ -125,10 +149,10 @@ export async function POST(request: Request) {
 
 ```ts showLineNumbers
 // Node.js 런타임에서만 동작해요.
-import crypto from 'crypto';
+import crypto from "crypto";
 
 function generateRandomStringNode() {
-  return crypto.randomBytes(16).toString('hex');
+  return crypto.randomBytes(16).toString("hex");
 }
 ```
 
@@ -139,7 +163,9 @@ function generateRandomStringNode() {
 function generateRandomStringWeb() {
   const array = new Uint8Array(16);
   crypto.getRandomValues(array);
-  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join(
+    "",
+  );
 }
 ```
 
@@ -157,32 +183,35 @@ Edge Runtime은 인증/인가 로직과 같은 미들웨어 역할에 아주 적
 ```tsx showLineNumbers {5-6, 11-12, 17-20}
 // app/api/auth-protected-edge/route.ts
 
-export const runtime = 'edge';
+export const runtime = "edge";
 
 // 실제 환경에서는 환경 변수나 KMS 등 안전한 방식으로 비밀 키를 관리해야 해요.
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || "your-super-secret-key";
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('Authorization');
+  const authHeader = request.headers.get("Authorization");
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return new Response('Unauthorized: No token provided', { status: 401 });
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return new Response("Unauthorized: No token provided", { status: 401 });
   }
 
-  const token = authHeader.split(' ')[1];
+  const token = authHeader.split(" ")[1];
 
   try {
     // 실제 JWT 검증 라이브러리 (예: jose)를 사용하면 더욱 견고해요.
     // 여기서는 간단하게 토큰이 'valid-token'인지 확인하는 예시로 대체해요.
-    if (token !== 'valid-token') {
-      throw new Error('Invalid token');
+    if (token !== "valid-token") {
+      throw new Error("Invalid token");
     }
 
     // 토큰이 유효하면 다음 로직을 진행해요.
-    return new Response(JSON.stringify({ message: 'Access granted!', user: 'edge-user' }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ message: "Access granted!", user: "edge-user" }),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      },
+    );
   } catch (error) {
     return new Response(`Unauthorized: ${error.message}`, { status: 401 });
   }
@@ -201,10 +230,10 @@ export async function GET(request: Request) {
 Next.js App Router에서 Edge Runtime을 Route Handler에 적용하는 것은 글로벌 서비스를 위한 성능과 비용 효율성을 동시에 잡을 수 있는 강력한 전략이에요.<br />
 Node.js 런타임의 한계를 극복하고, 사용자에게 더 빠르고 안정적인 경험을 제공하는 데 큰 도움이 된답니다.<br />
 
-*   **Edge Runtime의 장점:** 낮은 콜드 스타트, 글로벌 분산 배치, 비용 효율성.<br />
-*   **Edge Runtime의 제한사항:** Node.js API 제한, 번들 크기 제한, 짧은 실행 시간.<br />
-*   **적용 방법:** `export const runtime = 'edge';` 한 줄 추가.<br />
-*   **활용 분야:** 가벼운 API, 인증/인가 미들웨어 등 빠른 응답이 필요한 작업.
+- **Edge Runtime의 장점:** 낮은 콜드 스타트, 글로벌 분산 배치, 비용 효율성.<br />
+- **Edge Runtime의 제한사항:** Node.js API 제한, 번들 크기 제한, 짧은 실행 시간.<br />
+- **적용 방법:** `export const runtime = 'edge';` 한 줄 추가.<br />
+- **활용 분야:** 가벼운 API, 인증/인가 미들웨어 등 빠른 응답이 필요한 작업.
 
 ### 1️⃣ 다음 액션: 여러분의 프로젝트에 적용해 보세요!
 
@@ -215,6 +244,6 @@ Node.js 런타임의 한계를 극복하고, 사용자에게 더 빠르고 안�
 
 ## 📮 참고
 
-*   [Next.js Docs: Edge and Node.js Runtimes](https://nextjs.org/docs/app/api-reference/file-conventions/route#edge-and-nodejs-runtimes)
-*   [Vercel Docs: Edge Functions](https://vercel.com/docs/functions/edge-functions/overview)
-*   [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
+- [Next.js Docs: Edge and Node.js Runtimes](https://nextjs.org/docs/app/api-reference/file-conventions/route#edge-and-nodejs-runtimes)
+- [Vercel Docs: Edge Functions](https://vercel.com/docs/functions/edge-functions/overview)
+- [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
