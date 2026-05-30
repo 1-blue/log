@@ -1,0 +1,292 @@
+---
+title: "SSOT(Single Source of Truth) 패턴"
+description: "하나의 원본 타입에서\n화면·API 타입을 파생하는 TypeScript SSOT 패턴"
+tags: [SSOT, Single Source of Truth, 패턴, typescript, Pick, Omit, extends, DRY]
+icon: ""
+thumbnail: ""
+createdAt: 2026-05-30 10:58:00
+publishedAt: 2026-05-30 10:58:00
+sitemap:
+  lastmod: 2026-05-30 10:58:00
+  changefreq: weekly
+  priority: 0.5
+draft: false
+---
+
+> 같은 데이터를 타입으로 두 번 정의하지 말고, **원본 타입 하나**에서 `Pick`·`Omit`·`extends`로 필요한 형태만 파생해서 쓰는 게 TypeScript에서의 SSOT예요.
+
+## 🤔 시작하기 전에
+
+`User`랑 `Post`를 프론트에서 새로 짜고, 목록용·상세용·폼용으로 또 따로 만든 적 있나요?<br />
+처음엔 빠른데, API가 바뀌거나 `id`가 `number`에서 `string`으로 바뀌면 손댈 파일이 한꺼번에 늘어나요.<br />
+
+이 글에서 말하는 **SSOT(Single Source of Truth, 단일 진실 공급원)** 는 타입 버전으로 이렇게 이해하면 돼요.<br />
+**`User`, `Post` 같은 원본은 한 곳에만 두고**, 목록 카드·상세 화면·API 응답·폼 입력 타입은 전부 그걸로부터 **파생**한다는 뜻이에요.<br />
+원본이 Prisma나 OpenAPI에서 **생성**됐든, `types/schema`에 **수동**으로 한 번 적어뒀든, 이후 패턴은 같아요.<br />
+
+## 🤔 문제/배경
+
+### 0️⃣ 왜 이 주제를 다루는가
+
+타입은 자동완성용 장식이 아니라 백엔드랑 맞춰 둔 **계약**에 가깝다고 봐요.<br />
+`name`이 optional인지, `userId`가 있는지가 파일마다 다르면 컴파일은 통과해도 런타임에서 깨지기 쉬워요.<br />
+프론트·BFF·백이 나뉘면 “프론트만의 User”가 생기고, 필드 하나 바꿀 때 grep 지옥이 되기도 하고요.<br />
+
+원래 SSOT는 데이터 쪽 말이에요. [위키의 SSOT](https://en.wikipedia.org/wiki/Single_source_of_truth)처럼 **같은 사실은 한 곳에서만 정의**하고 나머지는 읽거나 파생하는 구조죠.<br />
+*The Pragmatic Programmer*의 **DRY**—“지식은 한 번, 명확하게”—와도 방향이 같아요. 타입도 지식의 일부라서, `interface Post`를 여러 파일에 복붙하는 건 DRY를 깨는 셈이에요.<br />
+
+### 1️⃣ 기존 방식의 한계
+
+화면마다 비슷한 interface를 새로 쓰는 경우가 대표적이에요.
+
+```ts
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  passwordHash: string;
+}
+
+interface Post {
+  id: number;
+  title: string;
+  authorId: number;
+}
+
+interface PostDetail {
+  id: number;
+  title: string;
+  authorName: string;
+}
+```
+
+`authorName`은 결국 `User.name`인데 이름도 다르고, `Post`랑 `PostDetail`의 `title`도 따로 놀아요.<br />
+
+API 문서 보고 `IUser`, `IGetStoriesAPIResponse`를 각각 손으로 쓰는 것도 비슷해요. [openapi-typescript 글](/posts/tli/01-openapi-typescript)처럼 도구로 타입을 받아와도, 받아온 `User` 옆에 또 `interface MyUser { ... }`를 두면 **원본이 둘**이 돼요.<br />
+
+백엔드에 이미 `User` 타입이 있는데 프론트 `types/user.ts`에 비슷한 interface를 또 두는 경우도 있어요. 마이그레이션 후 한쪽만 고치는 실수가 나오죠.<br />
+
+정리하면 이런 일이 반복돼요.
+
+1. **중복**: 같은 필드를 여러 interface에 복붙
+2. **불일치**: `authorName` vs `name`처럼 의미는 같은데 이름·타입이 다름
+3. **동기화 비용**: 바뀔 때 “진짜 타입이 어디지?”부터 찾음
+
+이번 글은 타입을 **어떻게 만드는 도구** 이야기가 아니라, **원본 하나를 정한 뒤 어떻게 파생할지**예요.<br />
+
+## ⚙️ 해결 방법
+
+### 0️⃣ 핵심 아이디어
+
+> **엔티티(`User`, `Post` …)는 한 번만 정의하고, 화면·API·폼 타입은 `extends`, `Pick`, `Omit`, `Partial`로만 만든다.**
+
+흐름은 단순해요.
+
+1. **원본 타입** — `User`, `Post` (SSOT)
+2. **파생 타입** — `PostListItem`, `PostWithUser`, `PublicUser` …
+
+새 화면이 생길 때마다 `interface PostCard { id; title }`를 쓰지 말고, `interface PostCard extends Pick<Post, "id" | "title"> {}`처럼 **원본에서만** 만드는 게 목표예요.<br />
+
+### 1️⃣ 원본 타입은 어디에 두나
+
+원본은 “내가 직접 필드를 나열한 **딱 한 벌**”이면 돼요. 보통은 아래 둘 중 하나예요.
+
+1. **백엔드·스키마에서 생성된 타입을 import** — Prisma `prisma generate`, [openapi-typescript](/posts/tli/01-openapi-typescript)로 OpenAPI 스펙에서 뽑은 `User` 등. 도구는 **원본을 만들어 주는** 역할이고, 이 글의 핵심은 그다음 **파생**이에요.
+2. **생성이 없을 때** — `src/types/schema/index.ts`처럼 프로젝트 안 **한 파일**에만 `interface User`를 두기
+
+OpenAPI 쪽은 orval 같은 생성기도 있지만, 저는 쓰지 않아서 여기서는 깊게 다루지 않을게요. 원본만 `import`해서 아래 패턴을 쓰면 동일해요.<br />
+
+```ts
+// 원본 — import이거나 schema 한 파일
+// import type { User, Post } from '@prisma/client'
+// import type { components } from '@/generated/openapi'
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  passwordHash: string;
+}
+
+interface Post {
+  id: number;
+  title: string;
+  authorId: number;
+}
+```
+
+여러 파일에 `interface User { ... }`를 복붙하지 않는 게 1단계예요.<br />
+
+### 2️⃣ Pick·Omit·extends로 파생하기
+
+- **`Pick`**: 노출할 필드만 (목록, 공개 프로필)
+- **`Omit`**: 빼야 할 필드가 분명할 때 (`passwordHash`, `id`)
+- **`Partial`**: 수정·패치처럼 일부만 optional
+- **`extends`**: 원본에 관계·뷰 필드 붙일 때
+
+제가 자주 쓰는 형태는 이거예요.
+
+```ts
+interface PostWithUser extends Post {
+  user: Pick<User, "name">;
+}
+
+interface PostListItem extends Pick<Post, "id" | "title"> {}
+
+interface PostFormInput extends Pick<Post, "title"> {}
+
+interface PostUpdatePayload extends Partial<Pick<Post, "title">> {}
+
+interface PublicUser extends Omit<User, "passwordHash" | "email"> {}
+
+interface CreatePostInput extends Omit<Post, "id" | "authorId"> {}
+```
+
+`PostWithUser`는 `Post`를 **extends**하고, 붙는 `user`는 `User` 전체가 아니라 `Pick<User, "name">`만 써요. 상세 화면에 이름만 필요할 때 전형적인 패턴이죠.<br />
+
+`Pick`/`Omit`은 **얕은(shallow)** 연산이에요. `Post` 안에 `metadata: { tags: string[] }`가 있으면 `metadata` 통째로 가져오고, 안쪽 `tags`만 빼려면 별도 타입이 필요해요.<br />
+
+`extends`랑 `&` 둘 다 쓰이는데, 엔티티 확장은 `interface X extends Post`가 읽기 편해서 interface를 선호해요.<br />
+
+### 3️⃣ 유틸 타입 조합
+
+한 타입에서 “일부만 optional”이면 `Partial<Pick<...>>` 조합이 편해요.
+
+```ts
+interface UpdateUserPayload extends Partial<Pick<User, "name" | "email">> {}
+
+interface AdminUserUpdate
+  extends Partial<Pick<Omit<User, "passwordHash">, "name" | "email">> {
+  role: "admin" | "member";
+}
+```
+
+`Omit` → `Pick` → `Partial` 순서만 익혀두면, 원본 `User`/`Post`는 그대로 두고 화면마다 다른 “뷰”만 붙일 수 있어요.<br />
+
+## 🧪 예시
+
+### 0️⃣ import한 원본에서 바로 파생
+
+원본을 백엔드 생성 타입에서 가져온 경우도 **파생 방식은 동일**해요.
+
+```ts
+import type { User, Post } from "@prisma/client";
+// 또는 import type { components } from '@/generated/openapi'
+// interface User extends components['schemas']['User'] {}
+
+interface PostWithAuthor extends Post {
+  user: Pick<User, "name">;
+}
+```
+
+생성 파일(`generated`, `@prisma/client` 출력물)은 **수정하지 않고**, `features/post/types.ts` 같은 곳에서만 `extends`/`Pick`을 씁니다.<br />
+
+### 1️⃣ React·API에서 쓰기
+
+```ts
+interface PostListItem extends Pick<Post, "id" | "title"> {}
+
+interface PostCardProps {
+  post: PostListItem;
+  onSelect: (id: PostListItem["id"]) => void;
+}
+
+interface GetPostResponse extends Post {
+  user: Pick<User, "name">;
+}
+
+async function fetchPost(id: Post["id"]): Promise<GetPostResponse> {
+  const res = await fetch(`/api/posts/${id}`);
+  return res.json();
+}
+```
+
+`Post["id"]`, `PostListItem["id"]`처럼 쓰면 `id` 타입이 바뀔 때 원본 `Post`만 고치면 props·함수 시그니처까지 따라가요.<br />
+
+### 2️⃣ 관계가 있는 도메인
+
+```ts
+interface Product {
+  id: number;
+  name: string;
+  price: number;
+}
+
+interface Order {
+  id: number;
+  userId: number;
+  lines: { productId: number; quantity: number }[];
+  createdAt: string;
+}
+
+interface OrderSummary extends Pick<Order, "id" | "createdAt"> {
+  lineCount: number;
+  totalAmount: number;
+}
+
+interface OrderDetail extends Order {
+  products: Pick<Product, "name" | "price">[];
+}
+```
+
+`Order`가 원본이고, 목록용 `OrderSummary`는 **계산 필드만 추가**해요. `lines` 구조를 또 정의하지 않아도 됩니다.<br />
+
+### 3️⃣ 반복 패턴·안티패턴
+
+여러 번 쓰는 조합은 `types/utils.ts`에 이름을 붙여두면 편해요.
+
+```ts
+interface WithoutId<T extends { id: unknown }> extends Omit<T, "id"> {}
+
+interface PartialBy<T, K extends keyof T>
+  extends Omit<T, K>,
+    Partial<Pick<T, K>> {}
+
+interface CreateUserInput extends WithoutId<User> {}
+interface PatchUserInput extends PartialBy<User, "name" | "email"> {}
+```
+
+```ts
+// ❌ 화면마다 Post 재정의
+interface PostCard {
+  id: number;
+  title: string;
+}
+
+// ✅ 원본 Post에서 파생
+interface PostCard extends Pick<Post, "id" | "title"> {}
+```
+
+```ts
+// ❌ API 응답을 매번 새로
+interface GetUsersResponse {
+  users: { id: number; name: string }[];
+}
+
+// ✅ 원본 User에서 파생
+interface GetUsersResponse {
+  users: Pick<User, "id" | "name">[];
+}
+```
+
+Zod·class-validator 같은 **런타임 검증**은 컴파일 타임 SSOT와 별개예요. Zod를 또 하나의 “진짜”로 두면 원본이 둘로 갈라질 수 있어서, 필요하면 “DB/OpenAPI 원본 → Zod 생성” 또는 “Zod → `z.infer`” 중 하나만 고르는 편이 낫다고 봐요.<br />
+
+## 📝 정리
+
+### 0️⃣ 핵심 요약
+
+1. **원본 하나**: `User`, `Post`는 한 곳(import 또는 `types/schema` 한 파일)
+2. **파생만 추가**: `interface PostWithUser extends Post { user: Pick<User, "name"> }`처럼 화면·API·폼은 유틸 타입만
+3. **도구는 부가**: Prisma·openapi-typescript는 원본을 **가져오는** 수단일 뿐, 설계의 중심은 **파생**
+4. **주의**: `Pick`/`Omit`은 shallow, 생성된 원본 파일은 직접 수정하지 않기
+
+### 1️⃣ 다음에 해볼 것
+
+- 새 `interface` 만들기 전에 “원본 `Post`에서 `Pick`/`Omit`/`extends`로 되나?”
+- 파생 타입은 `features/.../types.ts`처럼 **원본 옆 레이어**에만 두기
+- 팀에서 원본 위치(import 경로 vs `types/schema`)만 합의하기
+
+### 2️⃣ 관련 글
+
+- [openapi-typescript: OpenAPI 스펙으로 TypeScript 타입 자동 생성하기](/posts/tli/01-openapi-typescript) — 원본 타입을 **만드는** 예시
+- [Single source of truth (Wikipedia)](https://en.wikipedia.org/wiki/Single_source_of_truth)
