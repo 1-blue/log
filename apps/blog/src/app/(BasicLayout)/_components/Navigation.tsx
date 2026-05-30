@@ -1,11 +1,13 @@
 "use client";
 
-import { HomeIcon as HomeOutlineIcon } from "@heroicons/react/24/outline";
-import { HomeIcon as HomeSolidIcon } from "@heroicons/react/24/solid";
-import { cn } from "@workspace/ui/lib/utils";
-import { motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+
+import { cn } from "@workspace/ui/lib/utils";
+
+import { HomeIcon as HomeOutlineIcon } from "@heroicons/react/24/outline";
+import { HomeIcon as HomeSolidIcon } from "@heroicons/react/24/solid";
+import { motion } from "motion/react";
 
 import { ROUTES } from "#/constants";
 

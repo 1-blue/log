@@ -1,9 +1,10 @@
+import { cache } from "react";
+
 import fs from "fs";
 import { sync } from "glob";
 import matter from "gray-matter";
 import yaml from "js-yaml";
 import path from "path";
-import { cache } from "react";
 import readingTime from "reading-time";
 
 import { makeThumbnailPath, toKoreaDate } from "#/libs";
@@ -69,6 +70,21 @@ export const getAllPosts = cache((publishedOnly = true): IPostWithETC[] => {
   if (publishedOnly) return allPosts.filter(({ draft }) => !draft);
   return allPosts;
 });
+
+/** AI 작성 포스트 여부 */
+export const isAiPost = (post: IPost): boolean =>
+  post.ai === true || post.breadcrumbs[0] === "ai";
+
+/** AI 포스트를 제외한 게시글 목록 */
+export const getPostsExcludingAi = cache(
+  (publishedOnly = true): IPostWithETC[] =>
+    getAllPosts(publishedOnly).filter((post) => !isAiPost(post)),
+);
+
+/** AI 포스트만 포함한 게시글 목록 */
+export const getAiPostsOnly = cache((publishedOnly = true): IPostWithETC[] =>
+  getAllPosts(publishedOnly).filter(isAiPost),
+);
 
 export const getPostTOC = cache((postURL: string) => {
   const post = getAllPosts().find(({ path }) => path.includes(postURL));

@@ -20,6 +20,8 @@ export interface IPost {
   sitemap: ISitemap;
   /** 게시글 게시 여부 */
   draft: boolean;
+  /** AI 작성 포스트 여부 (frontmatter `ai: true`) */
+  ai?: boolean;
   /** 게시글 경로 */
   path: string;
   /** 게시글 경로 (`/`단위 배열) */

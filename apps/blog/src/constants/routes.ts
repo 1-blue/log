@@ -1,19 +1,30 @@
+import { DEFAULT_SITEMAP } from "@workspace/constants";
+
 import {
+  LightBulbIcon as OLightBulbIcon,
   MapIcon as OMapIcon,
   NewspaperIcon as ONewspaperIcon,
   TagIcon as OTagIcon,
 } from "@heroicons/react/24/outline";
 import {
+  LightBulbIcon as SLightBulbIcon,
   MapIcon as SMapIcon,
   NewspaperIcon as SNewspaperIcon,
   TagIcon as STagIcon,
 } from "@heroicons/react/24/solid";
-import { DEFAULT_SITEMAP } from "@workspace/constants";
 
 import type { IRoute } from "#/types";
 
 /** 전체 경로 */
 export const ROUTES: IRoute[] = [
+  {
+    path: "/ai",
+    Outline: OLightBulbIcon,
+    Solid: SLightBulbIcon,
+    label: "AI 포스팅",
+    isDraft: false,
+    sitemap: DEFAULT_SITEMAP,
+  },
   {
     path: "/series",
     Outline: ONewspaperIcon,
