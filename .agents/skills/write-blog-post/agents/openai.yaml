@@ -1,0 +1,4 @@
+interface:
+  display_name: "블로그 글 작성"
+  short_description: "블로그 MDX 글을 일관된 형식으로 작성하고 검증합니다."
+  default_prompt: "$write-blog-post를 사용해 이 블로그의 한국어 MDX 글을 작성하거나 수정해 주세요."
