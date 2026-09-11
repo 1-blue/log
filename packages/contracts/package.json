@@ -1,0 +1,29 @@
+{
+  "name": "@workspace/contracts",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./schemas/*": "./schemas/*.json"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "check-schemas": "tsx scripts/generate-schemas.ts --check",
+    "generate-schemas": "tsx scripts/generate-schemas.ts",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "zod": "^4.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "tsx": "^4.20.3",
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.9"
+  }
+}

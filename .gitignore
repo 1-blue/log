@@ -11,12 +11,17 @@ node_modules
 .env.development.local
 .env.test.local
 .env.production.local
+.dev.vars
+.dev.vars.*
 
 # Testing
 coverage
 
 # Turbo
 .turbo
+
+# Cloudflare Wrangler
+.wrangler
 
 # Vercel
 .vercel

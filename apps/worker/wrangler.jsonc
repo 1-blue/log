@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bluelog-career-ops-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-11",
+  "workers_dev": true,
+  "dev": {
+    "port": 8787
+  },
+  "secrets": {
+    "required": [
+      "APP_BASE_URL",
+      "SUPABASE_URL",
+      "SUPABASE_SECRET_KEY",
+      "ADMIN_USER_ID",
+      "N8N_WEBHOOK_URL",
+      "N8N_WEBHOOK_SECRET",
+      "N8N_CALLBACK_SECRET",
+      "SLACK_ERROR_WEBHOOK_URL"
+    ]
+  }
+}

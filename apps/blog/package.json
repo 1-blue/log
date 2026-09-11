@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check-types": "pnpm typecheck"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

@@ -1,0 +1,30 @@
+{
+  "name": "worker",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "check-generated-types": "wrangler types --env-interface CloudflareBindings --check",
+    "check-types": "tsc --noEmit",
+    "dev": "wrangler dev --port 8787",
+    "deploy": "wrangler deploy",
+    "generate-types": "wrangler types --env-interface CloudflareBindings",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@workspace/contracts": "workspace:*",
+    "hono": "^4.13.2",
+    "zod": "^4.6.1"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.1.7",
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "typescript": "^5.7.3",
+    "vitest": "^4.1.9",
+    "wrangler": "^4.131.0"
+  }
+}

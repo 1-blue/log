@@ -1,0 +1,139 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "requestId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "analysisJobId": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+    },
+    "jobPosting": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "wanted"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "manualContent": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 100000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "url",
+        "manualContent"
+      ],
+      "additionalProperties": false
+    },
+    "profile": {
+      "type": "object",
+      "properties": {
+        "resume": {
+          "type": "object",
+          "properties": {
+            "versionId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "contentHash": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "extractedText": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200000
+            }
+          },
+          "required": [
+            "versionId",
+            "contentHash",
+            "extractedText"
+          ],
+          "additionalProperties": false
+        },
+        "portfolio": {
+          "type": "object",
+          "properties": {
+            "versionId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "contentHash": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "extractedText": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200000
+            }
+          },
+          "required": [
+            "versionId",
+            "contentHash",
+            "extractedText"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "resume",
+        "portfolio"
+      ],
+      "additionalProperties": false
+    },
+    "callbackUrl": {
+      "type": "string",
+      "format": "uri"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "eventId",
+    "requestId",
+    "analysisJobId",
+    "jobPosting",
+    "profile",
+    "callbackUrl"
+  ],
+  "additionalProperties": false
+}
