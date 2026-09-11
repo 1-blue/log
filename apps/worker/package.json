@@ -17,6 +17,7 @@
   "dependencies": {
     "@workspace/contracts": "workspace:*",
     "hono": "^4.13.2",
+    "jose": "6.2.3",
     "zod": "^4.6.1"
   },
   "devDependencies": {

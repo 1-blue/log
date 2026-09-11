@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "check-types": "pnpm typecheck"
   },
@@ -16,13 +18,16 @@
     "@heroicons/react": "^2.2.0",
     "@mdx-js/loader": "^3.1.0",
     "@next/mdx": "^15.5.10",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.116.0",
     "@workspace/constants": "workspace:*",
+    "@workspace/contracts": "workspace:^",
     "@workspace/ui": "workspace:*",
     "cheerio": "^1.0.0",
     "dayjs": "^1.11.13",
     "glob": "^11.0.1",
-    "js-yaml": "^4.1.0",
     "gray-matter": "^4.0.3",
+    "js-yaml": "^4.1.0",
     "lucide-react": "^0.475.0",
     "motion": "^12.4.10",
     "next": "^15.5.10",
@@ -48,6 +53,7 @@
     "@workspace/typescript-config": "workspace:*",
     "prettier": "^3.5.1",
     "prettier-plugin-tailwindcss": "^0.6.11",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "4.1.11"
   }
 }

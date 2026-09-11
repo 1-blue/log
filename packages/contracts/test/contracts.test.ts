@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
+  AdminLoginInputSchema,
+  AdminSessionResponseSchema,
   AnalysisResultSchema,
   CreateJobPostingRequestSchema,
   DocumentExtractionStatusSchema,
@@ -63,6 +65,34 @@ const validAnalysisResult = {
 };
 
 describe("career operations contracts", () => {
+  it("validates administrator login inputs and session responses", () => {
+    expect(
+      AdminLoginInputSchema.safeParse({
+        email: "admin@example.com",
+        password: "strong-password",
+      }).success,
+    ).toBe(true);
+    expect(
+      AdminLoginInputSchema.safeParse({
+        email: "not-an-email",
+        password: "strong-password",
+      }).success,
+    ).toBe(false);
+
+    expect(
+      AdminSessionResponseSchema.safeParse({
+        data: { userId: validUuid },
+        meta: { requestId: validUuid },
+      }).success,
+    ).toBe(true);
+    expect(
+      AdminSessionResponseSchema.safeParse({
+        data: { userId: validUuid, email: "admin@example.com" },
+        meta: { requestId: validUuid },
+      }).success,
+    ).toBe(false);
+  });
+
   it("accepts a Wanted URL and nullable manual content", () => {
     expect(
       CreateJobPostingRequestSchema.safeParse({

@@ -2,7 +2,7 @@
 
 > 기준일: 2026-09-11
 > 작업 브랜치: `codex/career-ops-foundation`  
-> 현재 범위: 3단계(Supabase 문서 저장 기반) 완료
+> 현재 범위: 4단계(관리자 인증과 관리자 셸) 완료
 
 ## 1. 프로젝트 정의
 
@@ -206,15 +206,27 @@
 
 목표: 브라우저 코드에 비밀번호를 넣지 않고 `/admin` 전체를 보호한다.
 
-- [ ] Supabase SSR 인증 클라이언트 구성
-- [ ] 로그인, 로그아웃, 세션 갱신 구현
-- [ ] `/admin` 레이아웃과 기존 블로그 디자인 토큰 재사용
-- [ ] 미인증 사용자의 관리자 Route 접근 차단
-- [ ] 로그인 사용자의 UUID가 `ADMIN_USER_ID`와 일치하는지 서버/Worker 양쪽에서 확인
-- [ ] 로그인 오류, 만료, 네트워크 장애 UI 구현
-- [ ] 관리자 페이지와 민감 응답에 `noindex`, 적절한 cache-control 적용
+- [x] Supabase SSR 인증 클라이언트 구성
+- [x] 로그인, 로그아웃, 세션 갱신 구현
+- [x] `/admin` 레이아웃과 기존 블로그 디자인 토큰 재사용
+- [x] 미인증 사용자의 관리자 Route 접근 차단
+- [x] 로그인 사용자의 UUID가 `ADMIN_USER_ID`와 일치하는지 서버/Worker 양쪽에서 확인
+- [x] 로그인 오류, 만료, 네트워크 장애 UI 구현
+- [x] 관리자 페이지와 민감 응답에 `noindex`, 적절한 cache-control 적용
 
 종료 기준: 허용된 한 계정만 관리자 화면과 Worker API를 사용할 수 있다.
+
+검증 결과:
+
+- Next.js는 `@supabase/ssr` 기반 브라우저·서버·middleware 클라이언트를 분리하고 `getClaims()`로 관리자 UUID를 재검증한다.
+- `/admin` middleware와 보호 레이아웃을 함께 적용하고 로그인·로그아웃 Server Action, 안전한 `next` 경로, 세션 갱신 흐름을 구현했다.
+- 관리자 페이지는 `noindex`, `nofollow`, `nocache`와 `private, no-store` 응답 정책을 적용했다.
+- Worker의 공개 `/health`는 유지하고 `/v1/auth/me`에는 Supabase JWKS 서명·issuer·audience·role·subject 검증을 적용했다.
+- 실제 관리자 비밀번호나 토큰을 fixture에 저장하지 않고 임시 ES256 키로 인증 성공·실패·JWKS 장애를 자동 검증한다.
+- contracts 7개, Next.js 인증 16개, Worker 17개 테스트와 전체 타입 검사·lint·production build가 통과했다.
+- 로컬 HTTP에서 `/health` 200, 미인증 `/v1/auth/me` 401, 보호 API preflight 204, 미인증 `/admin` 로그인 redirect와 보안 헤더를 확인했다.
+- 실제 브라우저에서 로그인 폼의 접근성 구조와 다크모드 렌더링을 확인하고 기존 `next-themes` hydration 경고를 제거했다.
+- Turnstile·MFA는 15단계로 미루고 비밀번호 복구는 Supabase Dashboard에서만 수행한다.
 
 ### 5단계 — 이력서·포트폴리오 업로드 및 버전 관리
 
@@ -625,6 +637,7 @@ Cloudflare Pages는 이 프로젝트에서 사용하지 않는다. 공식 참고
 | `NEXT_PUBLIC_SUPABASE_URL`             | 공개      | 인증 단계   | Supabase 프로젝트 URL         |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | 공개      | 인증 단계   | 브라우저용 Publishable key    |
 | `NEXT_PUBLIC_WORKER_API_URL`           | 공개      | Worker 연동 | Cloudflare Worker base URL    |
+| `ADMIN_USER_ID`                        | 서버 전용 | 인증 단계   | 허용할 Supabase 사용자 UUID   |
 
 브라우저 번들에 포함되므로 `NEXT_PUBLIC_*`에는 Secret key, OpenAI key, Slack URL을 절대 넣지 않는다.
 
@@ -726,4 +739,4 @@ Vercel은 기존 Git Integration 배포를 유지하므로 별도 CLI token, org
 
 ## 14. 다음 작업
 
-다음 구현은 **4단계 — 관리자 인증과 관리자 셸**이다. Supabase Auth 세션을 Next.js SSR 흐름에 연결하고 `/admin` 경로를 보호한 뒤, 5단계에서 현재 PDF를 비공개 Storage의 첫 문서 버전으로 등록한다.
+다음 구현은 **5단계 — 이력서·포트폴리오 업로드 및 버전 관리**다. 관리자 화면에서 비공개 PDF를 새 불변 버전으로 등록하고 기본·공개 버전을 구분해 선택하며, 기존 지원과 분석의 문서 참조가 바뀌지 않게 한다.

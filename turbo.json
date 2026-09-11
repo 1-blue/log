@@ -4,20 +4,24 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "env": ["ADMIN_USER_ID"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": ["^lint"],
+      "env": ["ADMIN_USER_ID"]
     },
     "check-types": {
       "dependsOn": ["^check-types"]
     },
     "test": {
-      "dependsOn": ["^test"]
+      "dependsOn": ["^test"],
+      "env": ["ADMIN_USER_ID"]
     },
     "dev": {
       "cache": false,
+      "env": ["ADMIN_USER_ID"],
       "persistent": true
     }
   }

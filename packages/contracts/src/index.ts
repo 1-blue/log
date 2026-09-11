@@ -124,6 +124,18 @@ export const ApiErrorResponseSchema = z.strictObject({
 });
 export type ApiErrorResponse = z.infer<typeof ApiErrorResponseSchema>;
 
+export const AdminLoginInputSchema = z.strictObject({
+  email: z.email().max(254),
+  password: z.string().min(1).max(1_024),
+});
+export type AdminLoginInput = z.infer<typeof AdminLoginInputSchema>;
+
+export const AdminSessionResponseSchema = z.strictObject({
+  data: z.strictObject({ userId: UuidSchema }),
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type AdminSessionResponse = z.infer<typeof AdminSessionResponseSchema>;
+
 export const CreateJobPostingRequestSchema = z.strictObject({
   source: JobPostingSourceSchema,
   url: WantedJobPostingUrlSchema,

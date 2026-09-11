@@ -1,12 +1,20 @@
 import { ApiErrorCodeSchema } from "@workspace/contracts";
 
 import type { Context } from "hono";
+import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import * as z from "zod";
+
+import {
+  type JwtVerificationKey,
+  verifySupabaseAdminToken,
+  WorkerAuthError,
+} from "./auth.js";
 
 type WorkerAppEnv = {
   Bindings: CloudflareBindings;
   Variables: {
+    adminUserId: string;
     requestId: string;
   };
 };
@@ -19,7 +27,7 @@ function getRequestId(c: { get: (key: "requestId") => string }): string {
 
 function errorResponse(
   c: Context<WorkerAppEnv>,
-  status: 400 | 403 | 404 | 405 | 409 | 429 | 500 | 502 | 504,
+  status: 400 | 401 | 403 | 404 | 405 | 409 | 429 | 500 | 502 | 503 | 504,
   code: z.infer<typeof ApiErrorCodeSchema>,
   message: string,
   retryable = false,
@@ -43,8 +51,59 @@ function errorResponse(
   return response;
 }
 
-export function createApp() {
+type AppDependencies = {
+  jwtVerificationKey?: JwtVerificationKey;
+};
+
+function createRequireAdmin(
+  dependencies: AppDependencies,
+): MiddlewareHandler<WorkerAppEnv> {
+  return async (c, next) => {
+    const authorization = c.req.header("Authorization");
+    const match = authorization?.match(/^Bearer\s+(\S+)$/i);
+
+    if (!match?.[1]) {
+      return errorResponse(c, 401, "UNAUTHORIZED", "로그인이 필요합니다.");
+    }
+
+    try {
+      const { userId } = await verifySupabaseAdminToken(
+        match[1],
+        c.env,
+        dependencies.jwtVerificationKey,
+      );
+      c.set("adminUserId", userId);
+      await next();
+    } catch (error) {
+      if (error instanceof WorkerAuthError) {
+        if (error.kind === "forbidden") {
+          return errorResponse(c, 403, "FORBIDDEN", "관리자 권한이 없습니다.");
+        }
+
+        if (error.kind === "unavailable") {
+          return errorResponse(
+            c,
+            503,
+            "UPSTREAM_UNAVAILABLE",
+            "인증 서비스를 사용할 수 없습니다.",
+            true,
+          );
+        }
+      }
+
+      return errorResponse(
+        c,
+        401,
+        "UNAUTHORIZED",
+        "로그인 세션이 유효하지 않습니다.",
+      );
+    }
+  };
+}
+
+export function createApp(dependencies: AppDependencies = {}) {
   const app = new Hono<WorkerAppEnv>();
+  const requireAdmin = createRequireAdmin(dependencies);
 
   app.use("*", async (c, next) => {
     const requestId = crypto.randomUUID();
@@ -120,6 +179,17 @@ export function createApp() {
         service: SERVICE_NAME,
         timestamp: new Date().toISOString(),
       },
+      meta: { requestId },
+    });
+
+    response.headers.set("X-Request-Id", requestId);
+    return response;
+  });
+
+  app.get("/v1/auth/me", requireAdmin, (c) => {
+    const requestId = getRequestId(c);
+    const response = c.json({
+      data: { userId: c.get("adminUserId") },
       meta: { requestId },
     });
 
