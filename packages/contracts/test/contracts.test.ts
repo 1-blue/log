@@ -6,7 +6,9 @@ import { describe, expect, it } from "vitest";
 import {
   AnalysisResultSchema,
   CreateJobPostingRequestSchema,
-  isValidAnalysisJobTransition
+  DocumentExtractionStatusSchema,
+  DocumentTypeSchema,
+  isValidAnalysisJobTransition,
 } from "../src/index.js";
 
 const validUuid = "00000000-0000-4000-8000-000000000001";
@@ -27,13 +29,13 @@ const validAnalysisResult = {
             source: "job_posting",
             documentVersionId: null,
             section: "자격요건",
-            excerpt: "클라우드 인프라 운영 경험"
-          }
-        ]
-      }
+            excerpt: "클라우드 인프라 운영 경험",
+          },
+        ],
+      },
     ],
     technologies: [],
-    traits: []
+    traits: [],
   },
   fit: {
     score: 72,
@@ -42,21 +44,22 @@ const validAnalysisResult = {
       {
         requirementId: "requirement-1",
         status: "partial",
-        rationale: "프로젝트 운영 경험은 있으나 클라우드 운영 범위가 제한적입니다.",
+        rationale:
+          "프로젝트 운영 경험은 있으나 클라우드 운영 범위가 제한적입니다.",
         profileEvidence: [
           {
             source: "portfolio",
             documentVersionId: validUuid,
             section: "프로젝트 경험",
-            excerpt: "배포 및 모니터링 환경을 구성했습니다."
-          }
-        ]
-      }
-    ]
+            excerpt: "배포 및 모니터링 환경을 구성했습니다.",
+          },
+        ],
+      },
+    ],
   },
   gaps: [],
   interviewQuestions: [],
-  warnings: []
+  warnings: [],
 };
 
 describe("career operations contracts", () => {
@@ -65,9 +68,20 @@ describe("career operations contracts", () => {
       CreateJobPostingRequestSchema.safeParse({
         source: "wanted",
         url: validWantedUrl,
-        manualContent: null
-      }).success
+        manualContent: null,
+      }).success,
     ).toBe(true);
+  });
+
+  it("accepts only the supported document types and extraction states", () => {
+    expect(DocumentTypeSchema.safeParse("resume").success).toBe(true);
+    expect(DocumentTypeSchema.safeParse("cover-letter").success).toBe(false);
+    expect(DocumentExtractionStatusSchema.safeParse("ready").success).toBe(
+      true,
+    );
+    expect(DocumentExtractionStatusSchema.safeParse("unknown").success).toBe(
+      false,
+    );
   });
 
   it("rejects unsupported job URLs and unknown fields", () => {
@@ -75,8 +89,8 @@ describe("career operations contracts", () => {
       CreateJobPostingRequestSchema.safeParse({
         source: "wanted",
         url: "https://example.com/jobs/384409",
-        manualContent: null
-      }).success
+        manualContent: null,
+      }).success,
     ).toBe(false);
 
     expect(
@@ -84,28 +98,28 @@ describe("career operations contracts", () => {
         source: "wanted",
         url: validWantedUrl,
         manualContent: null,
-        unexpected: true
-      }).success
+        unexpected: true,
+      }).success,
     ).toBe(false);
   });
 
   it("validates the complete analysis result", () => {
     expect(AnalysisResultSchema.safeParse(validAnalysisResult).success).toBe(
-      true
+      true,
     );
 
     expect(
       AnalysisResultSchema.safeParse({
         ...validAnalysisResult,
-        fit: { ...validAnalysisResult.fit, score: 101 }
-      }).success
+        fit: { ...validAnalysisResult.fit, score: 101 },
+      }).success,
     ).toBe(false);
 
     expect(
       AnalysisResultSchema.safeParse({
         ...validAnalysisResult,
-        job: { ...validAnalysisResult.job, extra: "not allowed" }
-      }).success
+        job: { ...validAnalysisResult.job, extra: "not allowed" },
+      }).success,
     ).toBe(false);
   });
 
@@ -118,7 +132,9 @@ describe("career operations contracts", () => {
 
   it("keeps generated schemas synchronized with the source schemas", async () => {
     const schemaPath = join(
-      fileURLToPath(new URL("../schemas/analysis-result.schema.json", import.meta.url))
+      fileURLToPath(
+        new URL("../schemas/analysis-result.schema.json", import.meta.url),
+      ),
     );
     const schema = JSON.parse(await readFile(schemaPath, "utf8")) as {
       properties: Record<string, unknown>;
@@ -128,7 +144,13 @@ describe("career operations contracts", () => {
 
     expect(schema.additionalProperties).toBe(false);
     expect(schema.required).toEqual(
-      expect.arrayContaining(["job", "fit", "gaps", "interviewQuestions", "warnings"])
+      expect.arrayContaining([
+        "job",
+        "fit",
+        "gaps",
+        "interviewQuestions",
+        "warnings",
+      ]),
     );
     expect(schema.properties).toHaveProperty("fit");
   });

@@ -2,7 +2,7 @@
 
 > 기준일: 2026-09-11
 > 작업 브랜치: `codex/career-ops-foundation`  
-> 현재 범위: 2단계(프로젝트 골격과 공통 계약 구성) 완료
+> 현재 범위: 3단계(Supabase 문서 저장 기반) 완료
 
 ## 1. 프로젝트 정의
 
@@ -36,7 +36,7 @@
 | 웹 배포         | 기존 Vercel 유지                       | 현재 배포 흐름을 보존하고 Cloudflare Pages 중복 도입 방지 |
 | API Gateway     | `apps/worker`의 Cloudflare Worker      | 관리자 인증, 검증, 멱등성, Rate Limit, n8n 은닉           |
 | 자동화          | `apps/n8n`의 Docker Compose 기반 n8n   | 로컬 무료 개발 후 운영 호스팅은 사용량을 보고 결정        |
-| 데이터베이스    | Supabase PostgreSQL                    | Auth, PostgreSQL, Storage를 한 서비스에서 시작            |
+| 데이터베이스    | Supabase PostgreSQL + Storage          | Auth, 데이터, 비공개 문서 버전을 한 서비스에서 시작       |
 | 인증            | Supabase Auth, 관리자 1명              | 브라우저에 비밀번호를 포함하지 않고 확장 가능한 세션 사용 |
 | AI              | OpenAI Responses API + `gpt-5.6-terra` | 구조화 출력과 분석 품질을 우선                            |
 | 알림            | Slack Incoming Webhook                 | 비동기 완료·실패를 기다리지 않고 확인                     |
@@ -146,7 +146,7 @@
 - `NEXT_PUBLIC_CLIENT_URL=https://blog.story-dict.com pnpm --filter blog build`: 통과, 정적 페이지 101개 생성
 - 현재 Next.js `15.5.10`, React `19`, pnpm `10.4.1`, 요구 Node.js `>=20`
 - `next lint`가 Next.js 16에서 제거된다는 기존 경고가 있어 이후 ESLint CLI 전환 작업을 별도 기술부채로 기록
-- `/apps/blog/public/pdfs`는 현재 Git 미추적 상태다. 공개 저장소에 추가하기 전에 전화번호, 주소, 이메일 등 개인정보 공개 범위를 반드시 확인한다.
+- `/apps/blog/public/pdfs`의 현재 PDF 2개는 Git에 추적되어 있다. 공개 저장소에 push하기 전에 전화번호, 주소, 이메일 등 개인정보 공개 범위를 반드시 확인하며, 버전 관리 원본은 이후 비공개 Supabase Storage로 이전한다.
 
 종료 기준: 기존 앱을 수정하지 않은 상태에서 검증 결과와 위험 요소가 문서화되어 있다.
 
@@ -175,35 +175,34 @@
 
 종료 기준: 비밀값 없이 의존성 설치, 계약 테스트, Worker 런타임 테스트, 전체 타입 검사와 build가 통과한다.
 
-### 3단계 — 공개 이력서·포트폴리오 화면
+### 3단계 — Supabase 문서 저장 기반
 
-목표: 기존 블로그 디자인을 유지하며 공개 자료를 탐색 가능한 페이지로 제공한다.
+목표: 이력서·포트폴리오를 Git의 고정 파일이 아닌 비공개 Storage의 불변 버전으로 관리할 기반을 만든다.
 
-- [ ] PDF 개인정보와 공개 범위를 직접 검토하고 공개 가능한 파일만 확정
-- [ ] 파일명을 URL 친화적인 영문 이름으로 복제 또는 교체할지 결정
-- [ ] `/resume`, `/portfolio` 페이지 구현
-- [ ] PDF 보기, 새 탭 열기, 다운로드, 모바일 fallback 제공
-- [ ] 메타데이터, sitemap, 내비게이션, 접근성 확인
-- [ ] 외부 검색 노출 여부와 PDF 캐시 정책 결정
+- [x] 현재 Supabase 프로젝트의 project ref, region, active status와 기존 migration 상태 확인
+- [x] `document_versions`, `document_publications`와 문서 유형·추출 상태 enum을 migration으로 구현
+- [x] `career-documents` 비공개 bucket을 migration으로 생성
+- [x] bucket은 PDF만 허용하고 파일당 최대 크기를 20MB로 제한
+- [x] 저장 경로를 `{owner_id}/{document_type}/{version_id}.pdf`로 고정하고 덮어쓰기 차단
+- [x] 문서 테이블과 Storage object에 소유자 기반 RLS 정책 구성
+- [x] 익명 테이블·Storage 접근을 차단하고 향후 Worker signed URL 방식으로 공개하도록 결정
+- [x] 원격 migration dry-run, 적용, migration 이력, schema lint, DB 타입 생성 완료
+- [x] 임시 사용자 기반 원격 통합 검증으로 DB·Storage 소유권과 익명 다운로드 차단 확인
+- [x] 검증 결과와 원격 migration 운영 규칙 문서화
 
-종료 기준: 데스크톱·모바일에서 두 문서를 볼 수 있고 비공개 정보가 의도치 않게 노출되지 않는다.
+이번 단계에서는 지원 공고·분석·면접 테이블, 인증 UI, PDF 업로드 UI를 만들지 않는다. 실제 PDF는 5단계에서 업로드하고 공개 페이지는 6단계에서 Worker signed URL과 연결한다.
 
-### 4단계 — Supabase 프로젝트·스키마·RLS
+종료 기준: 원격 Supabase에 문서 버전과 비공개 bucket이 migration으로 구성되고, 소유자 외의 익명·인증 사용자가 문서 데이터와 파일에 접근할 수 없다.
 
-목표: 관리자 1명의 인증과 취업 준비 데이터를 안전하게 저장한다.
+검증 결과:
 
-- [ ] Supabase 프로젝트 생성 및 개발/운영 지역 결정
-- [ ] 관리자 이메일 계정 1개 생성, 공개 회원가입 차단
-- [ ] 아래 데이터 모델을 migration으로 구현
-- [ ] 모든 공개 스키마 테이블에 RLS 활성화
-- [ ] 관리자 UUID만 읽기·쓰기 가능한 정책 작성
-- [ ] Worker 전용 Secret key 사용 범위 최소화
-- [ ] Storage 공개/비공개 bucket과 접근 정책 결정
-- [ ] migration 적용/되돌리기/로컬 seed 절차 문서화
+- 대상 프로젝트 `blog`에 migration 2개가 적용되고 local/remote 이력이 일치한다.
+- `public`, `private`, `storage` schema lint에서 신규 schema 오류가 없다. Supabase 기본 Storage 함수의 기존 warning 2건은 남아 있다.
+- 임시 Auth 사용자 2명으로 소유자 CRUD, 교차 소유자 차단, PDF 업로드·다운로드, 익명 다운로드 차단을 확인한 뒤 테스트 사용자와 파일을 삭제했다.
+- 문서 metadata 수정, 공개 지정, 공개 중 archive 차단, 공개 해제 후 archive 허용 lifecycle을 확인한 뒤 테스트 데이터를 삭제했다.
+- 원격 schema에서 `packages/contracts/src/database.types.ts`를 생성했으며 contracts, 전체 타입, lint, test, build가 통과했다.
 
-종료 기준: 익명 사용자는 관리자 데이터를 읽지 못하고, 관리자와 Worker만 허용된 작업을 수행한다.
-
-### 5단계 — 관리자 인증과 관리자 셸
+### 4단계 — 관리자 인증과 관리자 셸
 
 목표: 브라우저 코드에 비밀번호를 넣지 않고 `/admin` 전체를 보호한다.
 
@@ -217,36 +216,66 @@
 
 종료 기준: 허용된 한 계정만 관리자 화면과 Worker API를 사용할 수 있다.
 
-### 6단계 — 지원 공고 및 지원 상태 CRUD
+### 5단계 — 이력서·포트폴리오 업로드 및 버전 관리
+
+목표: 문서를 Git의 고정 파일이 아니라 외부에서 등록하는 변경 불가능한 버전으로 관리한다.
+
+- [ ] 현재 PDF의 개인정보와 공개 범위를 검토하고 최초 버전으로 이전할 파일 확정
+- [ ] `/admin/documents`에서 이력서·포트폴리오 PDF 등록, 목록, 상세, archive 기능 구현
+- [ ] 6MB를 넘는 PDF는 Supabase resumable upload를 사용하고 Storage로 직접 업로드
+- [ ] 업로드마다 UUID 기반 새 경로를 사용하고 `upsert` 또는 기존 파일 덮어쓰기 금지
+- [ ] 문서 유형, 버전명, 원본 파일명, 크기, MIME type, SHA-256 hash, 생성일 저장
+- [ ] 기본 선택 버전과 공개 버전을 별도로 지정하고 유형별 하나만 유지
+- [ ] 지원·분석에 참조된 버전은 hard delete하지 않고 archive 처리
+- [ ] PDF 텍스트 추출 상태와 사람이 수정할 분석용 텍스트 필드를 준비
+- [ ] 새 버전 등록 후 기존 지원·분석의 참조가 자동 변경되지 않게 보장
+
+종료 기준: 관리자 화면에서 새 문서를 등록하고 기본·공개 버전을 선택할 수 있으며, 이전 버전과 참조 관계가 보존된다.
+
+### 6단계 — 공개 이력서·포트폴리오 화면
+
+목표: 기존 블로그 디자인을 유지하면서 관리자가 지정한 현재 공개 버전만 제공한다.
+
+- [ ] `/resume`, `/portfolio` 페이지를 `document_publications`의 현재 버전에 연결
+- [ ] 공개 지정된 Storage object에만 Worker의 짧은 signed URL로 접근 허용
+- [ ] PDF 보기, 새 탭 열기, 다운로드, 모바일 fallback 제공
+- [ ] 공개 버전이 없거나 일시적으로 접근할 수 없을 때 안내 상태 제공
+- [ ] 메타데이터, sitemap, 내비게이션, 접근성 확인
+- [ ] 외부 검색 노출 여부와 PDF 캐시 정책 결정
+
+종료 기준: 데스크톱·모바일에서 현재 공개 버전만 볼 수 있고, 비공개 및 이전 문서가 의도치 않게 노출되지 않는다.
+
+### 7단계 — 지원 공고 및 지원 상태 CRUD
 
 목표: AI 없이도 기본 지원 관리 도구로 사용할 수 있게 한다.
 
 - [ ] 회사, 공고 URL, 제목, 지원 상태, 지원일, 면접일 입력 폼
+- [ ] 지원할 이력서·포트폴리오 버전을 명시적으로 선택
 - [ ] 목록 검색·필터·정렬 및 상세 화면
 - [ ] 상태 변경 이력 저장
 - [ ] 메모 저장 및 수정 시간 표시
 - [ ] URL 중복 경고와 동일 공고 재지원 정책 구현
 - [ ] 삭제는 기본적으로 soft delete 또는 archive 처리
 
-종료 기준: 공고 등록부터 상태 변경과 회고 기록까지 수동으로 안정적으로 사용할 수 있다.
+종료 기준: 공고 등록부터 문서 버전 선택, 상태 변경과 회고 기록까지 수동으로 안정적으로 사용할 수 있다.
 
-### 7단계 — Cloudflare Worker API Gateway
+### 8단계 — Cloudflare Worker API Gateway
 
 목표: n8n Webhook을 숨기고 외부 요청의 보안·정합성을 한곳에서 처리한다.
 
-- [ ] 허용 Origin 목록과 CORS 구현
+- [x] `APP_BASE_URL` 기준 Origin 검증과 CORS preflight 기반 구현
 - [ ] Supabase JWT를 JWKS로 검증하고 관리자 UUID 확인
 - [ ] 요청 body 크기, Content-Type, URL, UUID, enum, 날짜 검증
-- [ ] `X-Request-Id` 생성·전파 및 구조화 로그 작성
+- [x] `X-Request-Id` 생성·응답 및 기본 구조화 로그 구현
 - [ ] `Idempotency-Key` 저장과 같은 요청의 중복 실행 방지
 - [ ] Cloudflare Rate Limiting binding 또는 동등한 저장소 기반 제한 구현
 - [ ] n8n 요청에 timestamp, request ID, HMAC 서명 추가
-- [ ] 표준 오류 envelope와 upstream timeout 처리
+- [ ] upstream timeout 처리와 오류 코드 세분화
 - [ ] 공개 API와 `/v1/internal/*` 콜백 API 분리
 
 종료 기준: 인증되지 않은 요청, 재전송 공격, 중복 요청, 잘못된 입력이 차단되고 정상 요청은 추적 가능하다.
 
-### 8단계 — 로컬 n8n Docker 환경
+### 9단계 — 로컬 n8n Docker 환경
 
 목표: 클라우드 비용 없이 재현 가능한 자동화 개발 환경을 만든다.
 
@@ -262,7 +291,7 @@
 
 종료 기준: `docker compose up`으로 재시작 가능한 로컬 n8n과 영속 DB가 실행되고 샘플 Webhook이 동작한다.
 
-### 9단계 — Wanted 공고 수집과 수동 fallback
+### 10단계 — Wanted 공고 수집과 수동 fallback
 
 목표: Wanted URL에서 분석 가능한 본문을 얻되 수집 실패가 전체 기능을 막지 않게 한다.
 
@@ -277,19 +306,6 @@
 - [ ] 접근 제한 우회·CAPTCHA 해결·과도한 반복 요청은 구현하지 않음
 
 종료 기준: 지원되는 Wanted 공고는 자동 수집되고, 실패한 공고도 수동 원문으로 동일 분석 흐름을 완료한다.
-
-### 10단계 — 이력서·포트폴리오 버전 및 검색용 텍스트
-
-목표: 분석 시점에 사용한 내 자료를 고정하고 결과를 재현할 수 있게 한다.
-
-- [ ] 기존 PDF를 첫 `resume_versions`, `portfolio_versions`로 등록
-- [ ] 공개 원본과 분석용 비공개 원본의 저장 정책 결정
-- [ ] PDF 텍스트 추출 후 사람이 검수·수정할 수 있는 편집 화면 제공
-- [ ] 버전명, 생성일, 활성 여부, 파일 hash 저장
-- [ ] 분석 작업이 특정 자료 버전 ID를 참조하도록 고정
-- [ ] 새 버전 등록 후 이전 분석을 자동 변경하지 않음
-
-종료 기준: 각 분석이 어떤 이력서와 포트폴리오 버전을 사용했는지 추적 가능하다.
 
 ### 11단계 — OpenAI 구조화 분석 Workflow
 
@@ -404,22 +420,25 @@
 
 ### 핵심 엔터티
 
-| 테이블                       | 핵심 필드                                                                                                                                             | 비고                           |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `companies`                  | `name`, `website_url`, `notes`                                                                                                                        | 같은 회사의 여러 공고 연결     |
-| `job_postings`               | `company_id`, `source`, `external_id`, `canonical_url`, `title`, `status`, `slack_channel_id`, `slack_thread_ts`                                      | `(source, external_id)` unique |
-| `job_posting_snapshots`      | `job_posting_id`, `raw_content`, `normalized_content`, `content_hash`, `parser_version`, `fetched_at`                                                 | 공고 변경과 분석 재현성        |
-| `applications`               | `job_posting_id`, `status`, `applied_at`, `interview_at`, `archived_at`                                                                               | 현재 지원 상태                 |
-| `application_status_history` | `application_id`, `from_status`, `to_status`, `changed_at`, `note`                                                                                    | 상태 변경 감사 이력            |
-| `resume_versions`            | `label`, `storage_path`, `content_hash`, `extracted_text`, `is_active`                                                                                | 분석 시 특정 버전 참조         |
-| `portfolio_versions`         | `label`, `storage_path`, `content_hash`, `extracted_text`, `is_active`                                                                                | 분석 시 특정 버전 참조         |
-| `analysis_jobs`              | `job_posting_id`, `resume_version_id`, `portfolio_version_id`, `status`, `stage`, `request_id`, `idempotency_key`, `attempt_count`, `last_error_code` | 비동기 작업 기준 상태          |
-| `analysis_job_events`        | `analysis_job_id`, `event_id`, `event_type`, `payload`, `occurred_at`                                                                                 | callback 멱등성·타임라인       |
-| `analysis_results`           | `analysis_job_id`, `schema_version`, `prompt_version`, `model`, `result jsonb`, `usage jsonb`                                                         | 원본 구조화 결과 보존          |
-| `interview_questions`        | `analysis_result_id`, `category`, `question`, `intent`, `evidence`, `priority`                                                                        | 생성 질문                      |
-| `interview_answers`          | `question_id`, `answer`, `revision`, `is_current`                                                                                                     | 답변 수정 이력                 |
-| `interview_notes`            | `application_id`, `interviewed_at`, `round`, `content`, `lessons`                                                                                     | 면접 회고                      |
-| `audit_events`               | `actor_id`, `action`, `entity_type`, `entity_id`, `request_id`, `metadata`                                                                            | 민감값 제외 운영 추적          |
+3단계에서는 아래 표의 `document_versions`와 `document_publications`만 생성한다. 나머지 엔터티는 각 기능 단계에서 후속 migration으로 추가한다.
+
+| 테이블                       | 핵심 필드                                                                                                                                                                   | 비고                           |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `companies`                  | `name`, `website_url`, `notes`                                                                                                                                              | 같은 회사의 여러 공고 연결     |
+| `job_postings`               | `company_id`, `source`, `external_id`, `canonical_url`, `title`, `status`, `slack_channel_id`, `slack_thread_ts`                                                            | `(source, external_id)` unique |
+| `job_posting_snapshots`      | `job_posting_id`, `raw_content`, `normalized_content`, `content_hash`, `parser_version`, `fetched_at`                                                                       | 공고 변경과 분석 재현성        |
+| `applications`               | `job_posting_id`, `status`, `applied_at`, `interview_at`, `archived_at`                                                                                                     | 현재 지원 상태                 |
+| `application_status_history` | `application_id`, `from_status`, `to_status`, `changed_at`, `note`                                                                                                          | 상태 변경 감사 이력            |
+| `document_versions`          | `document_type`, `label`, `storage_path`, `original_filename`, `mime_type`, `file_size`, `content_hash`, `extracted_text`, `extraction_status`, `is_default`, `archived_at` | 이력서·포트폴리오 버전 통합    |
+| `document_publications`      | `document_type`, `document_version_id`, `published_at`                                                                                                                      | 유형별 현재 공개 버전 1개      |
+| `application_documents`      | `application_id`, `resume_version_id`, `portfolio_version_id`, `selected_at`                                                                                                | 공고별 제출 자료 고정          |
+| `analysis_jobs`              | `job_posting_id`, `resume_version_id`, `portfolio_version_id`, `status`, `stage`, `request_id`, `idempotency_key`, `attempt_count`, `last_error_code`                       | 비동기 작업 기준 상태          |
+| `analysis_job_events`        | `analysis_job_id`, `event_id`, `event_type`, `payload`, `occurred_at`                                                                                                       | callback 멱등성·타임라인       |
+| `analysis_results`           | `analysis_job_id`, `schema_version`, `prompt_version`, `model`, `result jsonb`, `usage jsonb`                                                                               | 원본 구조화 결과 보존          |
+| `interview_questions`        | `analysis_result_id`, `category`, `question`, `intent`, `evidence`, `priority`                                                                                              | 생성 질문                      |
+| `interview_answers`          | `question_id`, `answer`, `revision`, `is_current`                                                                                                                           | 답변 수정 이력                 |
+| `interview_notes`            | `application_id`, `interviewed_at`, `round`, `content`, `lessons`                                                                                                           | 면접 회고                      |
+| `audit_events`               | `actor_id`, `action`, `entity_type`, `entity_id`, `request_id`, `metadata`                                                                                                  | 민감값 제외 운영 추적          |
 
 ### 상태 enum
 
@@ -434,6 +453,11 @@
 - `analysis_job_events(event_id)` unique
 - `analysis_jobs(status, updated_at)` index
 - `applications(status, interview_at)` index
+- `document_publications(owner_id, document_type)` composite primary key로 소유자·유형별 공개 버전 하나만 허용
+- `document_versions(owner_id, document_type)`에서 `is_default = true`인 행은 partial unique로 유형별 하나만 허용
+- `document_versions.storage_path`와 `content_hash`에 index를 두고 같은 hash 업로드 시 중복 경고
+- 지원 또는 분석이 참조하는 문서 버전은 hard delete하지 않고 archive 처리
+- `resume_version_id`와 `portfolio_version_id`가 각각 올바른 `document_type`인지 저장 함수 또는 trigger에서 검증
 - 결과 JSON에는 UI가 자주 조회하는 모든 필드를 넣기보다 검색·정렬 대상은 정규 컬럼으로 분리
 - 실제 삭제 대신 archive를 기본으로 하고 민감 데이터 완전 삭제 절차를 별도로 제공
 
@@ -441,16 +465,21 @@
 
 ### 공개 관리자 API
 
-| Method  | Path                           | 역할                           |
-| ------- | ------------------------------ | ------------------------------ |
-| `POST`  | `/v1/job-postings`             | Wanted URL 또는 수동 원문 등록 |
-| `GET`   | `/v1/job-postings`             | 공고 목록 조회                 |
-| `GET`   | `/v1/job-postings/:id`         | 공고 상세 조회                 |
-| `POST`  | `/v1/analysis-jobs`            | 비동기 분석 작업 생성          |
-| `GET`   | `/v1/analysis-jobs/:id`        | 작업 상태와 결과 조회          |
-| `POST`  | `/v1/analysis-jobs/:id/retry`  | 실패 작업 수동 재시도          |
-| `POST`  | `/v1/analysis-jobs/:id/cancel` | 가능한 단계에서 작업 취소      |
-| `PATCH` | `/v1/applications/:id`         | 지원 상태·일정 수정            |
+| Method  | Path                                 | 역할                           |
+| ------- | ------------------------------------ | ------------------------------ |
+| `POST`  | `/v1/document-versions/uploads`      | 문서 버전과 signed upload 준비 |
+| `POST`  | `/v1/document-versions/:id/complete` | 업로드 검증 및 버전 확정       |
+| `GET`   | `/v1/document-versions`              | 문서 유형별 버전 목록 조회     |
+| `PATCH` | `/v1/document-versions/:id`          | 이름·기본값·archive 상태 변경  |
+| `PUT`   | `/v1/document-publications/:type`    | 유형별 현재 공개 버전 지정     |
+| `POST`  | `/v1/job-postings`                   | Wanted URL 또는 수동 원문 등록 |
+| `GET`   | `/v1/job-postings`                   | 공고 목록 조회                 |
+| `GET`   | `/v1/job-postings/:id`               | 공고 상세 조회                 |
+| `POST`  | `/v1/analysis-jobs`                  | 비동기 분석 작업 생성          |
+| `GET`   | `/v1/analysis-jobs/:id`              | 작업 상태와 결과 조회          |
+| `POST`  | `/v1/analysis-jobs/:id/retry`        | 실패 작업 수동 재시도          |
+| `POST`  | `/v1/analysis-jobs/:id/cancel`       | 가능한 단계에서 작업 취소      |
+| `PATCH` | `/v1/applications/:id`               | 지원 상태·일정 수정            |
 
 작업 생성 요청에는 `Authorization: Bearer <Supabase access token>`과 `Idempotency-Key`가 필요하다. 응답은 `202 Accepted`와 `jobId`, `requestId`, `statusUrl`을 반환한다.
 
@@ -513,18 +542,20 @@
 
 ### Supabase
 
-- [ ] 새 프로젝트 생성, region과 비용 한도 확인
-- [ ] Auth에서 공개 회원가입 비활성화
-- [ ] 관리자 이메일 사용자 1명 생성
-- [ ] 개발 `http://localhost:3000`과 운영 Vercel URL을 Site URL/Redirect URL에 등록
-- [ ] 새 형식 Publishable key(`sb_publishable_...`)와 Secret key(`sb_secret_...`) 생성
-- [ ] JWT signing key와 JWKS endpoint 확인
-- [ ] migration 적용 후 모든 관리자 테이블의 RLS 확인
-- [ ] PDF 저장 시 공개 bucket과 비공개 bucket 중 의도에 맞게 선택
+- [x] 현재 무료 프로젝트의 project ref, region, active status 확인; Storage 사용량·egress는 운영 단계에서 모니터링
+- [x] Auth에서 공개 회원가입 비활성화
+- [x] 관리자 이메일 사용자 1명 생성
+- [x] 개발 `http://localhost:3000`과 운영 Vercel URL을 Site URL/Redirect URL에 등록
+- [x] 새 형식 Publishable key(`sb_publishable_...`)와 Secret key(`sb_secret_...`) 생성
+- [x] JWT signing key와 JWKS endpoint 확인
+- [x] migration으로 `career-documents` 비공개 bucket, 파일 제한, DB 테이블, RLS 적용
+- [x] 관리자 JWT로 PDF 업로드가 되고 익명 요청으로 비공개·이전 버전을 읽을 수 없는지 확인
 
 레거시 `anon`, `service_role` 키는 2026년 말 폐기 예정이므로 새 프로젝트에서는 Publishable/Secret 키를 기준으로 한다. Secret key는 RLS를 우회하므로 Worker와 신뢰된 서버에서만 사용한다.
 
-공식 참고: [Supabase API keys](https://supabase.com/docs/guides/getting-started/api-keys), [Next.js quickstart](https://supabase.com/docs/guides/getting-started/quickstarts/nextjs), [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [JWT/JWKS](https://supabase.com/docs/guides/auth/jwts)
+bucket은 Dashboard에서 수동 생성하지 않고 migration으로 재현한다. 버킷 이름과 20MB 제한은 환경별 비밀값이 아니므로 코드·migration에 고정하며, Storage를 위해 별도의 환경변수를 추가하지 않는다. 현재 9.4MB 포트폴리오는 6MB를 넘으므로 resumable upload 대상으로 처리한다.
+
+공식 참고: [Supabase API keys](https://supabase.com/docs/guides/getting-started/api-keys), [Next.js quickstart](https://supabase.com/docs/guides/getting-started/quickstarts/nextjs), [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [JWT/JWKS](https://supabase.com/docs/guides/auth/jwts), [Storage bucket](https://supabase.com/docs/guides/storage/buckets/fundamentals), [Resumable upload](https://supabase.com/docs/guides/storage/uploads/resumable-uploads)
 
 ### OpenAI
 
@@ -596,6 +627,8 @@ Cloudflare Pages는 이 프로젝트에서 사용하지 않는다. 공식 참고
 | `NEXT_PUBLIC_WORKER_API_URL`           | 공개      | Worker 연동 | Cloudflare Worker base URL    |
 
 브라우저 번들에 포함되므로 `NEXT_PUBLIC_*`에는 Secret key, OpenAI key, Slack URL을 절대 넣지 않는다.
+
+Supabase Storage는 같은 프로젝트 URL과 API key를 사용하므로 전용 환경변수가 필요하지 않다. `career-documents` bucket 이름, PDF MIME 제한, 20MB 크기 제한은 migration과 코드 상수로 관리한다.
 
 ### `apps/worker/.dev.vars` / Cloudflare Worker secrets·vars
 
@@ -670,7 +703,9 @@ Vercel은 기존 Git Integration 배포를 유지하므로 별도 CLI token, org
 | n8n 로컬 종료                     | 작업 지연           | 작업을 DB에 먼저 생성, 재시도 가능, 운영 위치는 실사용 후 결정 |
 | Worker → 로컬 n8n 접근 불가       | dispatch 실패       | 개발 중 직접 localhost 또는 임시 Tunnel, 운영은 HTTPS endpoint |
 | AI hallucination                  | 잘못된 준비 방향    | 근거 필수, unknown 허용, 2단계 분석, 사용자 검토               |
-| PDF 개인정보 공개                 | 개인정보 노출       | 커밋·배포 전 수동 검토, 필요 시 비공개 Storage 사용            |
+| PDF 개인정보 공개                 | 개인정보 노출       | 원본·이전 버전은 비공개 Storage, 명시적으로 선택한 버전만 공개 |
+| 문서 버전 덮어쓰기                | 분석 재현성 상실    | UUID 경로, upsert 금지, 참조된 버전 archive 처리               |
+| Supabase 무료 프로젝트 일시정지   | 문서·API 일시 중단  | 실사용 트래픽 확인, 상태 점검과 복구 절차 문서화               |
 | 중복 클릭/재시도                  | 비용 및 데이터 중복 | Idempotency-Key, event ID unique, 상태 전이 검증               |
 | Slack Webhook 유출                | 스팸/정보 노출      | Secret 저장, 로그 redaction, 즉시 rotation                     |
 | n8n 실행 DB 증가                  | 디스크 고갈         | pruning, 성공 실행 저장 최소화, volume 모니터링                |
@@ -691,4 +726,4 @@ Vercel은 기존 Git Integration 배포를 유지하므로 별도 CLI token, org
 
 ## 14. 다음 작업
 
-다음 구현은 **3단계 — 공개 이력서·포트폴리오 화면**이다. 기존 PDF의 공개 개인정보 범위를 먼저 검토한 뒤 `/resume`, `/portfolio` 페이지와 PDF 보기·다운로드·모바일 fallback을 구현한다. 관리자 인증과 DB는 이후 단계에서 진행한다.
+다음 구현은 **4단계 — 관리자 인증과 관리자 셸**이다. Supabase Auth 세션을 Next.js SSR 흐름에 연결하고 `/admin` 경로를 보호한 뒤, 5단계에서 현재 PDF를 비공개 Storage의 첫 문서 버전으로 등록한다.
