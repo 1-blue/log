@@ -1,8 +1,13 @@
 import {
   ApiErrorCodeSchema,
+  ApplicationListQuerySchema,
+  ApplicationStateInputSchema,
   CompleteDocumentUploadRequestSchema,
+  CreateApplicationRequestSchema,
   CreateDocumentDownloadUrlRequestSchema,
   DocumentTypeSchema,
+  PatchApplicationRequestSchema,
+  PatchJobPostingRequestSchema,
   PrepareDocumentUploadRequestSchema,
   PublicDocumentDispositionSchema,
   SetDocumentPublicationRequestSchema,
@@ -14,6 +19,11 @@ import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import * as z from "zod";
 
+import {
+  type ApplicationService,
+  ApplicationServiceError,
+  createApplicationService,
+} from "./applications.js";
 import {
   type JwtVerificationKey,
   verifySupabaseAdminToken,
@@ -66,11 +76,13 @@ function errorResponse(
 }
 
 type AppDependencies = {
+  applicationServiceFactory?: (env: CloudflareBindings) => ApplicationService;
   documentServiceFactory?: (env: CloudflareBindings) => DocumentService;
   jwtVerificationKey?: JwtVerificationKey;
 };
 
 const DocumentVersionIdSchema = z.uuid();
+const ResourceIdSchema = z.uuid();
 const DocumentListQuerySchema = z.strictObject({
   archived: z.enum(["exclude", "include", "only"]).default("exclude"),
   documentType: DocumentTypeSchema.optional(),
@@ -83,6 +95,16 @@ async function parseJsonBody<T>(
   c: Context<WorkerAppEnv>,
   schema: z.ZodType<T>,
 ): Promise<T | Response> {
+  const contentType = c.req.header("Content-Type")?.toLowerCase() ?? "";
+  if (!contentType.startsWith("application/json")) {
+    return errorResponse(
+      c,
+      400,
+      "VALIDATION_ERROR",
+      "Content-Type은 application/json이어야 합니다.",
+    );
+  }
+
   const contentLength = Number(c.req.header("Content-Length") ?? "0");
   if (Number.isFinite(contentLength) && contentLength > 600_000) {
     return errorResponse(
@@ -117,6 +139,62 @@ function parseDocumentVersionId(c: Context<WorkerAppEnv>): string | Response {
         "VALIDATION_ERROR",
         "문서 버전 ID가 올바르지 않습니다.",
       );
+}
+
+function parseResourceId(
+  c: Context<WorkerAppEnv>,
+  label: string,
+): string | Response {
+  const parsed = ResourceIdSchema.safeParse(c.req.param("id"));
+  return parsed.success
+    ? parsed.data
+    : errorResponse(
+        c,
+        400,
+        "VALIDATION_ERROR",
+        `${label} ID가 올바르지 않습니다.`,
+      );
+}
+
+function applicationServiceErrorResponse(
+  c: Context<WorkerAppEnv>,
+  error: unknown,
+): Response {
+  if (!(error instanceof ApplicationServiceError)) throw error;
+
+  if (error.kind === "not_found") {
+    return errorResponse(c, 404, "NOT_FOUND", "지원 정보를 찾을 수 없습니다.");
+  }
+  if (error.kind === "validation") {
+    return errorResponse(
+      c,
+      400,
+      "VALIDATION_ERROR",
+      "지원 상태와 문서 선택을 확인해 주세요.",
+      false,
+      error.details,
+    );
+  }
+  if (error.kind === "conflict") {
+    return errorResponse(
+      c,
+      409,
+      "CONFLICT",
+      error.details?.reason === "duplicate_job_posting"
+        ? "이미 등록된 공고입니다. 기존 공고에서 재지원을 추가해 주세요."
+        : "현재 지원 상태에서는 요청을 처리할 수 없습니다.",
+      false,
+      error.details,
+    );
+  }
+
+  return errorResponse(
+    c,
+    503,
+    "UPSTREAM_UNAVAILABLE",
+    "지원 정보를 불러올 수 없습니다.",
+    true,
+  );
 }
 
 function documentServiceErrorResponse(
@@ -227,6 +305,9 @@ function createRequireAdmin(
 export function createApp(dependencies: AppDependencies = {}) {
   const app = new Hono<WorkerAppEnv>();
   const requireAdmin = createRequireAdmin(dependencies);
+  const getApplicationService = (env: CloudflareBindings) =>
+    dependencies.applicationServiceFactory?.(env) ??
+    createApplicationService(env);
   const getDocumentService = (env: CloudflareBindings) =>
     dependencies.documentServiceFactory?.(env) ?? createDocumentService(env);
 
@@ -320,6 +401,131 @@ export function createApp(dependencies: AppDependencies = {}) {
 
     response.headers.set("X-Request-Id", requestId);
     return response;
+  });
+
+  app.post("/v1/applications", requireAdmin, async (c) => {
+    const input = await parseJsonBody(c, CreateApplicationRequestSchema);
+    if (input instanceof Response) return input;
+
+    try {
+      const data = await getApplicationService(c.env).create(
+        c.get("adminUserId"),
+        input,
+      );
+      return jsonData(c, data, 201);
+    } catch (error) {
+      return applicationServiceErrorResponse(c, error);
+    }
+  });
+
+  app.post("/v1/job-postings/:id/applications", requireAdmin, async (c) => {
+    const jobPostingId = parseResourceId(c, "채용공고");
+    if (jobPostingId instanceof Response) return jobPostingId;
+    const input = await parseJsonBody(c, ApplicationStateInputSchema);
+    if (input instanceof Response) return input;
+
+    try {
+      const data = await getApplicationService(c.env).createAttempt(
+        c.get("adminUserId"),
+        jobPostingId,
+        input,
+      );
+      return jsonData(c, data, 201);
+    } catch (error) {
+      return applicationServiceErrorResponse(c, error);
+    }
+  });
+
+  app.get("/v1/applications", requireAdmin, async (c) => {
+    const query = ApplicationListQuerySchema.safeParse({
+      archived: c.req.query("archived"),
+      page: c.req.query("page"),
+      pageSize: c.req.query("pageSize"),
+      q: c.req.query("q"),
+      sort: c.req.query("sort"),
+      status: c.req.query("status"),
+    });
+    if (!query.success) {
+      return errorResponse(
+        c,
+        400,
+        "VALIDATION_ERROR",
+        "지원 목록 조회 조건이 올바르지 않습니다.",
+      );
+    }
+
+    try {
+      const result = await getApplicationService(c.env).list(
+        c.get("adminUserId"),
+        query.data,
+      );
+      const requestId = getRequestId(c);
+      const response = c.json({
+        data: { items: result.items },
+        meta: { requestId },
+        pagination: {
+          page: result.page,
+          pageSize: result.pageSize,
+          total: result.total,
+          totalPages: result.totalPages,
+        },
+      });
+      response.headers.set("X-Request-Id", requestId);
+      return response;
+    } catch (error) {
+      return applicationServiceErrorResponse(c, error);
+    }
+  });
+
+  app.get("/v1/applications/:id", requireAdmin, async (c) => {
+    const applicationId = parseResourceId(c, "지원");
+    if (applicationId instanceof Response) return applicationId;
+
+    try {
+      const data = await getApplicationService(c.env).get(
+        c.get("adminUserId"),
+        applicationId,
+      );
+      return jsonData(c, data);
+    } catch (error) {
+      return applicationServiceErrorResponse(c, error);
+    }
+  });
+
+  app.patch("/v1/applications/:id", requireAdmin, async (c) => {
+    const applicationId = parseResourceId(c, "지원");
+    if (applicationId instanceof Response) return applicationId;
+    const input = await parseJsonBody(c, PatchApplicationRequestSchema);
+    if (input instanceof Response) return input;
+
+    try {
+      const data = await getApplicationService(c.env).update(
+        c.get("adminUserId"),
+        applicationId,
+        input,
+      );
+      return jsonData(c, data);
+    } catch (error) {
+      return applicationServiceErrorResponse(c, error);
+    }
+  });
+
+  app.patch("/v1/job-postings/:id", requireAdmin, async (c) => {
+    const jobPostingId = parseResourceId(c, "채용공고");
+    if (jobPostingId instanceof Response) return jobPostingId;
+    const input = await parseJsonBody(c, PatchJobPostingRequestSchema);
+    if (input instanceof Response) return input;
+
+    try {
+      const data = await getApplicationService(c.env).updateJobPosting(
+        c.get("adminUserId"),
+        jobPostingId,
+        input,
+      );
+      return jsonData(c, data);
+    } catch (error) {
+      return applicationServiceErrorResponse(c, error);
+    }
   });
 
   app.get("/v1/public/document-publications/:type", async (c) => {

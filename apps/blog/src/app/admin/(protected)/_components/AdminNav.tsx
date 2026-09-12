@@ -3,11 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { FileStackIcon, LayoutDashboardIcon } from "lucide-react";
+import {
+  BriefcaseBusinessIcon,
+  FileStackIcon,
+  LayoutDashboardIcon,
+} from "lucide-react";
 
 const items = [
   { href: "/admin", icon: LayoutDashboardIcon, label: "대시보드" },
   { href: "/admin/documents", icon: FileStackIcon, label: "문서 관리" },
+  {
+    href: "/admin/applications",
+    icon: BriefcaseBusinessIcon,
+    label: "지원 관리",
+  },
 ] as const;
 
 export default function AdminNav() {

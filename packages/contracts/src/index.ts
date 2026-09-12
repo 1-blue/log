@@ -45,9 +45,24 @@ export const ApplicationStatusSchema = z.enum([
   "offer",
   "rejected",
   "withdrawn",
-  "archived",
 ]);
 export type ApplicationStatus = z.infer<typeof ApplicationStatusSchema>;
+
+export const APPLICATION_STATUSES_REQUIRING_DOCUMENTS = [
+  "applied",
+  "screening",
+  "interview",
+  "offer",
+  "rejected",
+] as const satisfies readonly ApplicationStatus[];
+
+export function applicationStatusRequiresDocuments(
+  status: ApplicationStatus,
+): boolean {
+  return APPLICATION_STATUSES_REQUIRING_DOCUMENTS.includes(
+    status as (typeof APPLICATION_STATUSES_REQUIRING_DOCUMENTS)[number],
+  );
+}
 
 export const AnalysisJobStatusSchema = z.enum([
   "queued",
@@ -330,6 +345,214 @@ export const CreateJobPostingResponseSchema = z.strictObject({
   meta: z.strictObject({ requestId: UuidSchema }),
 });
 
+export const ApplicationArchiveFilterSchema = z.enum([
+  "exclude",
+  "include",
+  "only",
+]);
+export type ApplicationArchiveFilter = z.infer<
+  typeof ApplicationArchiveFilterSchema
+>;
+
+export const ApplicationSortSchema = z.enum([
+  "updated_desc",
+  "interview_asc",
+  "applied_desc",
+]);
+export type ApplicationSort = z.infer<typeof ApplicationSortSchema>;
+
+export const DateOnlySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "ISO date is required")
+  .refine((value) => {
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return (
+      !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value)
+    );
+  }, "A valid calendar date is required");
+
+const ApplicationCompanyNameSchema = z.string().trim().min(1).max(200);
+const ApplicationTitleSchema = z.string().trim().min(1).max(300);
+const ApplicationNoteSchema = z.string().trim().max(10_000).nullable();
+
+const ApplicationStateShape = {
+  status: ApplicationStatusSchema,
+  appliedOn: DateOnlySchema.nullable(),
+  interviewAt: Rfc3339TimestampSchema.nullable(),
+  note: ApplicationNoteSchema,
+  resumeVersionId: UuidSchema.nullable(),
+  portfolioVersionId: UuidSchema.nullable(),
+};
+
+function validateApplicationDocuments(
+  value: {
+    status: ApplicationStatus;
+    resumeVersionId: string | null;
+    portfolioVersionId: string | null;
+  },
+  context: z.RefinementCtx,
+) {
+  if (
+    applicationStatusRequiresDocuments(value.status) &&
+    (!value.resumeVersionId || !value.portfolioVersionId)
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Submitted applications require resume and portfolio versions",
+      path: [!value.resumeVersionId ? "resumeVersionId" : "portfolioVersionId"],
+    });
+  }
+}
+
+export const ApplicationStateInputSchema = z
+  .strictObject(ApplicationStateShape)
+  .superRefine(validateApplicationDocuments);
+export type ApplicationStateInput = z.infer<typeof ApplicationStateInputSchema>;
+
+export const CreateApplicationRequestSchema = z
+  .strictObject({
+    source: JobPostingSourceSchema,
+    url: WantedJobPostingUrlSchema,
+    companyName: ApplicationCompanyNameSchema,
+    title: ApplicationTitleSchema,
+    ...ApplicationStateShape,
+  })
+  .superRefine(validateApplicationDocuments);
+export type CreateApplicationRequest = z.infer<
+  typeof CreateApplicationRequestSchema
+>;
+
+export const CreateApplicationAttemptRequestSchema =
+  ApplicationStateInputSchema;
+export type CreateApplicationAttemptRequest = z.infer<
+  typeof CreateApplicationAttemptRequestSchema
+>;
+
+export const PatchApplicationRequestSchema = z
+  .strictObject({
+    status: ApplicationStatusSchema.optional(),
+    appliedOn: DateOnlySchema.nullable().optional(),
+    interviewAt: Rfc3339TimestampSchema.nullable().optional(),
+    note: ApplicationNoteSchema.optional(),
+    resumeVersionId: UuidSchema.nullable().optional(),
+    portfolioVersionId: UuidSchema.nullable().optional(),
+    archived: z.boolean().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "At least one application field is required",
+  });
+export type PatchApplicationRequest = z.infer<
+  typeof PatchApplicationRequestSchema
+>;
+
+export const PatchJobPostingRequestSchema = z
+  .strictObject({
+    companyName: ApplicationCompanyNameSchema.optional(),
+    title: ApplicationTitleSchema.optional(),
+  })
+  .refine(
+    (value) => value.companyName !== undefined || value.title !== undefined,
+    "At least one job posting field is required",
+  );
+export type PatchJobPostingRequest = z.infer<
+  typeof PatchJobPostingRequestSchema
+>;
+
+export const ApplicationDocumentSelectionSchema = z.strictObject({
+  id: UuidSchema,
+  documentType: DocumentTypeSchema,
+  label: z.string().min(1).max(100),
+  originalFilename: z.string().min(1).max(255),
+  archivedAt: Rfc3339TimestampSchema.nullable(),
+});
+export type ApplicationDocumentSelection = z.infer<
+  typeof ApplicationDocumentSelectionSchema
+>;
+
+export const ApplicationJobPostingSchema = z.strictObject({
+  id: UuidSchema,
+  source: JobPostingSourceSchema,
+  externalId: z.string().regex(/^\d+$/),
+  url: WantedJobPostingUrlSchema,
+  companyName: ApplicationCompanyNameSchema,
+  title: ApplicationTitleSchema,
+  createdAt: Rfc3339TimestampSchema,
+  updatedAt: Rfc3339TimestampSchema,
+});
+export type ApplicationJobPosting = z.infer<typeof ApplicationJobPostingSchema>;
+
+export const ApplicationJobPostingResponseSchema = z.strictObject({
+  data: ApplicationJobPostingSchema,
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type ApplicationJobPostingResponse = z.infer<
+  typeof ApplicationJobPostingResponseSchema
+>;
+
+export const ApplicationSummarySchema = z.strictObject({
+  id: UuidSchema,
+  attemptNumber: z.int().positive(),
+  status: ApplicationStatusSchema,
+  appliedOn: DateOnlySchema.nullable(),
+  interviewAt: Rfc3339TimestampSchema.nullable(),
+  note: ApplicationNoteSchema,
+  documentsLockedAt: Rfc3339TimestampSchema.nullable(),
+  archivedAt: Rfc3339TimestampSchema.nullable(),
+  createdAt: Rfc3339TimestampSchema,
+  updatedAt: Rfc3339TimestampSchema,
+  jobPosting: ApplicationJobPostingSchema,
+  documents: z.strictObject({
+    resume: ApplicationDocumentSelectionSchema.nullable(),
+    portfolio: ApplicationDocumentSelectionSchema.nullable(),
+  }),
+});
+export type ApplicationSummary = z.infer<typeof ApplicationSummarySchema>;
+
+export const ApplicationStatusHistorySchema = z.strictObject({
+  id: UuidSchema,
+  fromStatus: ApplicationStatusSchema.nullable(),
+  toStatus: ApplicationStatusSchema,
+  changedAt: Rfc3339TimestampSchema,
+});
+export type ApplicationStatusHistory = z.infer<
+  typeof ApplicationStatusHistorySchema
+>;
+
+export const ApplicationDetailSchema = ApplicationSummarySchema.extend({
+  statusHistory: z.array(ApplicationStatusHistorySchema).max(500),
+});
+export type ApplicationDetail = z.infer<typeof ApplicationDetailSchema>;
+
+export const ApplicationResponseSchema = z.strictObject({
+  data: ApplicationDetailSchema,
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type ApplicationResponse = z.infer<typeof ApplicationResponseSchema>;
+
+export const ApplicationListQuerySchema = z.strictObject({
+  q: z.string().trim().min(1).max(100).optional(),
+  status: ApplicationStatusSchema.optional(),
+  archived: ApplicationArchiveFilterSchema.default("exclude"),
+  sort: ApplicationSortSchema.default("updated_desc"),
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(20),
+});
+export type ApplicationListQuery = z.infer<typeof ApplicationListQuerySchema>;
+
+export const ApplicationListResponseSchema = z.strictObject({
+  data: z.strictObject({ items: z.array(ApplicationSummarySchema) }),
+  pagination: z.strictObject({
+    page: z.int().positive(),
+    pageSize: z.int().positive().max(50),
+    total: z.int().nonnegative(),
+    totalPages: z.int().nonnegative(),
+  }),
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type ApplicationListResponse = z.infer<
+  typeof ApplicationListResponseSchema
+>;
+
 export const CreateAnalysisJobRequestSchema = z.strictObject({
   jobPostingId: UuidSchema,
   resumeVersionId: UuidSchema,
@@ -368,22 +591,6 @@ export const AnalysisJobStatusResponseSchema = z.strictObject({
   data: AnalysisJobResponseSchema,
   meta: z.strictObject({ requestId: UuidSchema }),
 });
-
-export const PatchApplicationRequestSchema = z
-  .strictObject({
-    status: ApplicationStatusSchema.nullable(),
-    appliedAt: Rfc3339TimestampSchema.nullable(),
-    interviewAt: Rfc3339TimestampSchema.nullable(),
-    note: z.string().max(10_000).nullable(),
-  })
-  .refine(
-    (value) =>
-      value.status !== null ||
-      value.appliedAt !== null ||
-      value.interviewAt !== null ||
-      value.note !== null,
-    "At least one application field is required",
-  );
 
 const ProfileSnapshotSchema = z.strictObject({
   versionId: UuidSchema,

@@ -4,7 +4,16 @@ import {
   type AdminSessionResponse,
   AdminSessionResponseSchema,
   ApiErrorResponseSchema,
+  type ApplicationJobPostingResponse,
+  ApplicationJobPostingResponseSchema,
+  type ApplicationListQuery,
+  type ApplicationListResponse,
+  ApplicationListResponseSchema,
+  type ApplicationResponse,
+  ApplicationResponseSchema,
+  type ApplicationStateInput,
   type CompleteDocumentUploadRequest,
+  type CreateApplicationRequest,
   type CreateDocumentDownloadUrlRequest,
   type DocumentDownloadUrlResponse,
   DocumentDownloadUrlResponseSchema,
@@ -14,6 +23,8 @@ import {
   DocumentVersionListResponseSchema,
   type DocumentVersionResponse,
   DocumentVersionResponseSchema,
+  type PatchApplicationRequest,
+  type PatchJobPostingRequest,
   type PrepareDocumentUploadRequest,
   type PrepareDocumentUploadResponse,
   PrepareDocumentUploadResponseSchema,
@@ -36,6 +47,7 @@ export class WorkerApiError extends Error {
     message: string,
     readonly status: number,
     readonly retryable: boolean,
+    readonly details: Record<string, string> | null = null,
   ) {
     super(message);
     this.name = "WorkerApiError";
@@ -52,6 +64,7 @@ async function readWorkerError(response: Response): Promise<WorkerApiError> {
       parsed.data.error.message,
       response.status,
       parsed.data.error.retryable,
+      parsed.data.error.details,
     );
   }
 
@@ -128,6 +141,74 @@ async function requestWorker<T>(
 
 export function getWorkerAdminSession(): Promise<AdminSessionResponse> {
   return requestWorker("/v1/auth/me", AdminSessionResponseSchema);
+}
+
+export function createApplication(
+  input: CreateApplicationRequest,
+): Promise<ApplicationResponse> {
+  return requestWorker("/v1/applications", ApplicationResponseSchema, {
+    body: JSON.stringify(input),
+    method: "POST",
+  });
+}
+
+export function createApplicationAttempt(
+  jobPostingId: string,
+  input: ApplicationStateInput,
+): Promise<ApplicationResponse> {
+  return requestWorker(
+    `/v1/job-postings/${jobPostingId}/applications`,
+    ApplicationResponseSchema,
+    { body: JSON.stringify(input), method: "POST" },
+  );
+}
+
+export function listApplications(
+  filters: Partial<ApplicationListQuery> = {},
+): Promise<ApplicationListResponse> {
+  const query = new URLSearchParams();
+  if (filters.q) query.set("q", filters.q);
+  if (filters.status) query.set("status", filters.status);
+  if (filters.archived) query.set("archived", filters.archived);
+  if (filters.sort) query.set("sort", filters.sort);
+  if (filters.page) query.set("page", String(filters.page));
+  if (filters.pageSize) query.set("pageSize", String(filters.pageSize));
+  const suffix = query.size ? `?${query.toString()}` : "";
+  return requestWorker(
+    `/v1/applications${suffix}`,
+    ApplicationListResponseSchema,
+  );
+}
+
+export function getApplication(
+  applicationId: string,
+): Promise<ApplicationResponse> {
+  return requestWorker(
+    `/v1/applications/${applicationId}`,
+    ApplicationResponseSchema,
+  );
+}
+
+export function updateApplication(
+  applicationId: string,
+  input: PatchApplicationRequest,
+): Promise<ApplicationResponse> {
+  return requestWorker(
+    `/v1/applications/${applicationId}`,
+    ApplicationResponseSchema,
+    { body: JSON.stringify(input), method: "PATCH" },
+  );
+}
+
+export function updateJobPosting(
+  jobPostingId: string,
+  input: PatchJobPostingRequest,
+): Promise<ApplicationJobPostingResponse> {
+  return requestWorker(
+    `/v1/job-postings/${jobPostingId}`,
+    ApplicationJobPostingResponseSchema,
+    { body: JSON.stringify(input), method: "PATCH" },
+  );
 }
 
 export function prepareDocumentUpload(

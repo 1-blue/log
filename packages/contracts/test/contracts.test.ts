@@ -7,6 +7,11 @@ import {
   AdminLoginInputSchema,
   AdminSessionResponseSchema,
   AnalysisResultSchema,
+  ApplicationListQuerySchema,
+  ApplicationResponseSchema,
+  ApplicationStateInputSchema,
+  ApplicationStatusSchema,
+  CreateApplicationRequestSchema,
   CreateJobPostingRequestSchema,
   DOCUMENT_MAX_FILE_SIZE,
   DocumentDownloadUrlResponseSchema,
@@ -15,6 +20,7 @@ import {
   DocumentUploadMetadataSchema,
   DocumentVersionResponseSchema,
   isValidAnalysisJobTransition,
+  PatchApplicationRequestSchema,
   PrepareDocumentUploadResponseSchema,
   PublicDocumentAccessResponseSchema,
   UpdateDocumentVersionRequestSchema,
@@ -108,6 +114,109 @@ describe("career operations contracts", () => {
         manualContent: null,
       }).success,
     ).toBe(true);
+  });
+
+  it("separates application status from archive state", () => {
+    expect(ApplicationStatusSchema.safeParse("interview").success).toBe(true);
+    expect(ApplicationStatusSchema.safeParse("archived").success).toBe(false);
+    expect(
+      PatchApplicationRequestSchema.safeParse({ archived: true }).success,
+    ).toBe(true);
+    expect(PatchApplicationRequestSchema.safeParse({}).success).toBe(false);
+  });
+
+  it("requires both document versions after an application is submitted", () => {
+    const pending = {
+      appliedOn: null,
+      interviewAt: null,
+      note: null,
+      portfolioVersionId: null,
+      resumeVersionId: null,
+      status: "preparing",
+    };
+    expect(ApplicationStateInputSchema.safeParse(pending).success).toBe(true);
+    expect(
+      ApplicationStateInputSchema.safeParse({ ...pending, status: "applied" })
+        .success,
+    ).toBe(false);
+    expect(
+      ApplicationStateInputSchema.safeParse({
+        ...pending,
+        portfolioVersionId: "00000000-0000-4000-8000-000000000003",
+        resumeVersionId: "00000000-0000-4000-8000-000000000002",
+        status: "applied",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("validates Wanted application creation and list pagination", () => {
+    expect(
+      CreateApplicationRequestSchema.safeParse({
+        appliedOn: null,
+        companyName: "미리디",
+        interviewAt: null,
+        note: null,
+        portfolioVersionId: null,
+        resumeVersionId: null,
+        source: "wanted",
+        status: "interested",
+        title: "AX Engineer - Infra",
+        url: validWantedUrl,
+      }).success,
+    ).toBe(true);
+    expect(
+      ApplicationListQuerySchema.safeParse({ page: "2", pageSize: "51" })
+        .success,
+    ).toBe(false);
+    expect(ApplicationListQuerySchema.parse({ page: "2" })).toMatchObject({
+      archived: "exclude",
+      page: 2,
+      pageSize: 20,
+    });
+  });
+
+  it("validates application details without leaking owner identifiers", () => {
+    const response = {
+      data: {
+        appliedOn: null,
+        archivedAt: null,
+        attemptNumber: 1,
+        createdAt: "2026-09-12T00:00:00.000Z",
+        documents: { portfolio: null, resume: null },
+        documentsLockedAt: null,
+        id: validUuid,
+        interviewAt: null,
+        jobPosting: {
+          companyName: "미리디",
+          createdAt: "2026-09-12T00:00:00.000Z",
+          externalId: "384409",
+          id: "00000000-0000-4000-8000-000000000002",
+          source: "wanted",
+          title: "AX Engineer - Infra",
+          updatedAt: "2026-09-12T00:00:00.000Z",
+          url: validWantedUrl,
+        },
+        note: null,
+        status: "interested",
+        statusHistory: [
+          {
+            changedAt: "2026-09-12T00:00:00.000Z",
+            fromStatus: null,
+            id: "00000000-0000-4000-8000-000000000003",
+            toStatus: "interested",
+          },
+        ],
+        updatedAt: "2026-09-12T00:00:00.000Z",
+      },
+      meta: { requestId: validUuid },
+    };
+    expect(ApplicationResponseSchema.safeParse(response).success).toBe(true);
+    expect(
+      ApplicationResponseSchema.safeParse({
+        ...response,
+        data: { ...response.data, ownerId: validUuid },
+      }).success,
+    ).toBe(false);
   });
 
   it("accepts only the supported document types and extraction states", () => {

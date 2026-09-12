@@ -2,7 +2,7 @@
 
 > 기준일: 2026-09-12
 > 작업 브랜치: `codex/career-ops-foundation`  
-> 현재 범위: 6단계 기능 구현 완료·실제 공개 문서 확인 대기
+> 현재 범위: 7단계 기능 구현 완료·실제 관리자 통합 확인 대기
 
 ## 1. 프로젝트 정의
 
@@ -286,23 +286,36 @@
 
 목표: AI 없이도 기본 지원 관리 도구로 사용할 수 있게 한다.
 
-- [ ] 회사, 공고 URL, 제목, 지원 상태, 지원일, 면접일 입력 폼
-- [ ] 지원할 이력서·포트폴리오 버전을 명시적으로 선택
-- [ ] 목록 검색·필터·정렬 및 상세 화면
-- [ ] 상태 변경 이력 저장
-- [ ] 메모 저장 및 수정 시간 표시
-- [ ] URL 중복 경고와 동일 공고 재지원 정책 구현
-- [ ] 삭제는 기본적으로 soft delete 또는 archive 처리
+- [x] 회사, 공고 URL, 제목, 지원 상태, 지원일, 면접일 입력 폼
+- [x] 지원할 이력서·포트폴리오 버전을 명시적으로 선택
+- [x] 목록 검색·필터·정렬 및 상세 화면
+- [x] 상태 변경 이력 저장
+- [x] 메모 저장 및 수정 시간 표시
+- [x] URL 중복 경고와 동일 공고 재지원 정책 구현
+- [x] 삭제는 기본적으로 soft delete 또는 archive 처리
 
 종료 기준: 공고 등록부터 문서 버전 선택, 상태 변경과 회고 기록까지 수동으로 안정적으로 사용할 수 있다.
+
+구현 및 검증 결과:
+
+- Wanted 공고는 소유자·출처·공고 ID 조합으로 한 번만 저장하며 URL과 외부 ID는 생성 후 변경할 수 없다. 회사명과 공고명은 정정할 수 있다.
+- 같은 공고에 다시 지원할 때 공고를 복제하지 않고 `attempt_number`가 증가하는 새 지원 이력을 만든다. 중복 등록 응답에는 기존 상세 화면으로 이동할 수 있는 ID를 포함한다.
+- `interested`와 `preparing`에서는 문서 선택이 선택 사항이고, `applied` 이후 제출 상태에서는 이력서와 포트폴리오가 모두 필요하다.
+- 제출 상태가 된 시점의 문서 선택은 영구 잠기며 이후 문서를 바꾸려면 재지원 이력을 새로 만들어야 한다. 보관은 지원 상태와 별도 시각으로 관리한다.
+- 관리자 화면에 지원 목록 검색·상태/보관 필터·정렬·페이지 이동, 신규 등록, 상세 수정, 재지원, 보관/복원, 상태 이력을 구현했다.
+- Worker에 인증된 지원 CRUD API 6개를 추가하고 입력 크기·JSON Content-Type·Wanted URL·UUID·enum·날짜를 공통 Zod 계약으로 검증한다.
+- 원격 Supabase에 migration 3개를 적용하고 schema lint와 DB 타입 생성을 완료했다. 롤백형 원격 통합 검증으로 최초 제출 상태 등록, 문서 필수·잠금, 재지원 차수, 상태 이력과 보관 분리를 확인해 테스트 데이터는 남지 않는다.
+- contracts 13개, Next.js 25개, Worker 39개 테스트와 전체 타입 검사·lint·production build가 통과했다. lint에는 기존 블로그 import 정렬 warning만 남아 있다.
+- Docker가 실행 중이 아니고 원격 DB에는 pgTAP 확장이 없어 pgTAP 파일은 실행하지 못했다. 동일 핵심 규칙은 pgTAP 비의존 원격 통합 SQL로 검증했다.
+- 실제 관리자 계정으로 공고 등록부터 수정·재지원·보관까지 확인하는 수동 통합 검증은 남아 있다. 신규 환경변수는 없다.
 
 ### 8단계 — Cloudflare Worker API Gateway
 
 목표: n8n Webhook을 숨기고 외부 요청의 보안·정합성을 한곳에서 처리한다.
 
 - [x] `APP_BASE_URL` 기준 Origin 검증과 CORS preflight 기반 구현
-- [ ] Supabase JWT를 JWKS로 검증하고 관리자 UUID 확인
-- [ ] 요청 body 크기, Content-Type, URL, UUID, enum, 날짜 검증
+- [x] Supabase JWT를 JWKS로 검증하고 관리자 UUID 확인
+- [x] 요청 body 크기, Content-Type, URL, UUID, enum, 날짜 검증
 - [x] `X-Request-Id` 생성·응답 및 기본 구조화 로그 구현
 - [ ] `Idempotency-Key` 저장과 같은 요청의 중복 실행 방지
 - [ ] Cloudflare Rate Limiting binding 또는 동등한 저장소 기반 제한 구현
@@ -773,4 +786,4 @@ Vercel은 기존 Git Integration 배포를 유지하므로 별도 CLI token, org
 
 ## 14. 다음 작업
 
-다음 구현은 **7단계 — 지원 공고 및 지원 상태 CRUD**다. 실제 관리자 로그인과 PDF 등록이 가능해지면 5·6단계의 일반/TUS 업로드, 기본·공개·보관 전환, 데스크톱·모바일 표시, 새 탭, 다운로드, 공개 해제를 함께 확인한다. 공개 화면 전환을 확인한 뒤에만 기존 `public/pdfs` 파일을 삭제한다.
+다음 구현은 **8단계 — Cloudflare Worker API Gateway 완성**이다. 이미 구현한 Origin·JWT·Request ID·입력 검증을 기반으로 멱등성 저장, Rate Limit, n8n 요청 서명, upstream timeout, 내부 callback API 경계를 추가한다. 실제 관리자 로그인이 가능해지면 5~7단계의 문서 공개와 지원 CRUD 수동 통합 검증도 함께 진행하며, 공개 화면 전환을 확인한 뒤에만 기존 `public/pdfs` 파일을 삭제한다.
