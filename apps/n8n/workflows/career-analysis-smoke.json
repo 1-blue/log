@@ -1,0 +1,116 @@
+{
+  "createdAt": "2026-09-12T09:00:00.000Z",
+  "updatedAt": "2026-09-12T09:00:00.000Z",
+  "id": "careerAnalysisSmoke",
+  "name": "[local] 채용공고 분석 접수 확인",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "career-analysis",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f0a1d98b-3ccf-4d37-b1a5-91a45dc726b4",
+      "name": "분석 요청 수신",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-420, 0],
+      "webhookId": "3f15dd38-b50b-4e67-aeb4-f16818ab74ad"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "46bcd572-ad7a-4d85-b1aa-c212e603b34f",
+              "name": "status",
+              "value": "accepted",
+              "type": "string"
+            },
+            {
+              "id": "dddf96bb-903c-4904-8b27-74f464eecacd",
+              "name": "service",
+              "value": "n8n",
+              "type": "string"
+            },
+            {
+              "id": "b63d7006-c6a2-4a69-8364-ec48b7501bf0",
+              "name": "schemaVersion",
+              "value": "1.0.0",
+              "type": "string"
+            },
+            {
+              "id": "31642f8b-6802-45b8-ae00-6201cd594e36",
+              "name": "eventId",
+              "value": "={{ $json.body?.eventId ?? null }}",
+              "type": "string"
+            },
+            {
+              "id": "7d908476-10e9-45e0-a64b-974d829451cf",
+              "name": "requestId",
+              "value": "={{ $json.headers?.['x-request-id'] ?? $json.body?.requestId ?? null }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d6ad9d2e-a717-4a6b-862f-8258ec15f838",
+      "name": "접수 응답 구성",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [-180, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "434b6ab3-3cb1-489d-aa29-827a65f5e5c0",
+      "name": "접수 완료 응답",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [60, 0]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "분석 요청 수신": {
+      "main": [
+        [
+          {
+            "node": "접수 응답 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "접수 응답 구성": {
+      "main": [
+        [
+          {
+            "node": "접수 완료 응답",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "versionId": "4f604a0e-f0c4-4078-aefe-d0870b68821e",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "triggerCount": 0,
+  "tags": []
+}

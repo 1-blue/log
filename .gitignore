@@ -32,6 +32,8 @@ out/
 build
 dist
 
+# Local n8n data
+/apps/n8n/backups/
 
 # Debug
 npm-debug.log*
