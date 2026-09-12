@@ -108,7 +108,74 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      register_document_version: {
+        Args: {
+          p_content_hash: string
+          p_document_type: Database["public"]["Enums"]["document_type"]
+          p_file_size: number
+          p_id: string
+          p_label: string
+          p_mime_type: string
+          p_original_filename: string
+          p_owner_id: string
+          p_storage_path: string
+        }
+        Returns: {
+          archived_at: string | null
+          content_hash: string
+          created_at: string
+          document_type: Database["public"]["Enums"]["document_type"]
+          extracted_text: string | null
+          extraction_error: string | null
+          extraction_status: Database["public"]["Enums"]["document_extraction_status"]
+          file_size: number
+          id: string
+          is_default: boolean
+          label: string
+          mime_type: string
+          original_filename: string
+          owner_id: string
+          storage_path: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "document_versions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_default_document_version: {
+        Args: {
+          p_document_type: Database["public"]["Enums"]["document_type"]
+          p_document_version_id: string
+          p_owner_id: string
+        }
+        Returns: {
+          archived_at: string | null
+          content_hash: string
+          created_at: string
+          document_type: Database["public"]["Enums"]["document_type"]
+          extracted_text: string | null
+          extraction_error: string | null
+          extraction_status: Database["public"]["Enums"]["document_extraction_status"]
+          file_size: number
+          id: string
+          is_default: boolean
+          label: string
+          mime_type: string
+          original_filename: string
+          owner_id: string
+          storage_path: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "document_versions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       document_extraction_status: "pending" | "processing" | "ready" | "failed"

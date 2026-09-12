@@ -8,9 +8,16 @@ import {
   AdminSessionResponseSchema,
   AnalysisResultSchema,
   CreateJobPostingRequestSchema,
+  DOCUMENT_MAX_FILE_SIZE,
+  DocumentDownloadUrlResponseSchema,
   DocumentExtractionStatusSchema,
   DocumentTypeSchema,
+  DocumentUploadMetadataSchema,
+  DocumentVersionResponseSchema,
   isValidAnalysisJobTransition,
+  PrepareDocumentUploadResponseSchema,
+  PublicDocumentAccessResponseSchema,
+  UpdateDocumentVersionRequestSchema,
 } from "../src/index.js";
 
 const validUuid = "00000000-0000-4000-8000-000000000001";
@@ -112,6 +119,135 @@ describe("career operations contracts", () => {
     expect(DocumentExtractionStatusSchema.safeParse("unknown").success).toBe(
       false,
     );
+  });
+
+  it("validates PDF upload metadata and rejects unsafe values", () => {
+    const validMetadata = {
+      contentHash: "a".repeat(64),
+      documentType: "resume",
+      fileSize: 1_024,
+      label: "2026 인프라 이력서",
+      mimeType: "application/pdf",
+      originalFilename: "resume.pdf",
+    };
+
+    expect(DocumentUploadMetadataSchema.safeParse(validMetadata).success).toBe(
+      true,
+    );
+    expect(
+      DocumentUploadMetadataSchema.safeParse({
+        ...validMetadata,
+        fileSize: DOCUMENT_MAX_FILE_SIZE + 1,
+      }).success,
+    ).toBe(false);
+    expect(
+      DocumentUploadMetadataSchema.safeParse({
+        ...validMetadata,
+        originalFilename: "../resume.pdf",
+      }).success,
+    ).toBe(false);
+    expect(
+      DocumentUploadMetadataSchema.safeParse({
+        ...validMetadata,
+        contentHash: "A".repeat(64),
+      }).success,
+    ).toBe(false);
+  });
+
+  it("validates document actions and strict response envelopes", () => {
+    expect(
+      UpdateDocumentVersionRequestSchema.safeParse({
+        action: "update_metadata",
+      }).success,
+    ).toBe(false);
+    expect(
+      UpdateDocumentVersionRequestSchema.safeParse({
+        action: "update_metadata",
+        extractedText: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      UpdateDocumentVersionRequestSchema.safeParse({
+        action: "set_archived",
+        archived: true,
+        unknown: true,
+      }).success,
+    ).toBe(false);
+
+    expect(
+      PrepareDocumentUploadResponseSchema.safeParse({
+        data: {
+          documentVersionId: validUuid,
+          expiresAt: "2026-09-11T00:00:00.000Z",
+          resumableEndpoint: null,
+          storagePath: `${validUuid}/resume/${validUuid}.pdf`,
+          uploadMethod: "standard",
+          uploadToken: "signed-token",
+        },
+        meta: { requestId: validUuid },
+      }).success,
+    ).toBe(true);
+
+    const document = {
+      archivedAt: null,
+      contentHash: "a".repeat(64),
+      createdAt: "2026-09-11T00:00:00.000Z",
+      documentType: "resume",
+      extractedText: null,
+      extractionStatus: "pending",
+      fileSize: 1_024,
+      id: validUuid,
+      isDefault: true,
+      isPublished: false,
+      label: "이력서",
+      mimeType: "application/pdf",
+      originalFilename: "resume.pdf",
+      updatedAt: "2026-09-11T00:00:00.000Z",
+    };
+    expect(
+      DocumentVersionResponseSchema.safeParse({
+        data: document,
+        meta: { requestId: validUuid },
+      }).success,
+    ).toBe(true);
+    expect(
+      DocumentVersionResponseSchema.safeParse({
+        data: { ...document, storagePath: "private/path" },
+        meta: { requestId: validUuid },
+      }).success,
+    ).toBe(false);
+    expect(
+      DocumentDownloadUrlResponseSchema.safeParse({
+        data: {
+          expiresAt: "2026-09-11T00:01:00.000Z",
+          url: "https://example.supabase.co/signed",
+        },
+        meta: { requestId: validUuid },
+      }).success,
+    ).toBe(true);
+
+    const publicDocumentAccess = {
+      data: {
+        documentType: "resume",
+        expiresAt: "2026-09-11T00:01:00.000Z",
+        url: "https://example.supabase.co/signed/public-document",
+      },
+      meta: { requestId: validUuid },
+    };
+    expect(
+      PublicDocumentAccessResponseSchema.safeParse(publicDocumentAccess)
+        .success,
+    ).toBe(true);
+    expect(
+      PublicDocumentAccessResponseSchema.safeParse({
+        ...publicDocumentAccess,
+        data: {
+          ...publicDocumentAccess.data,
+          documentVersionId: validUuid,
+          storagePath: "private/resume.pdf",
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it("rejects unsupported job URLs and unknown fields", () => {

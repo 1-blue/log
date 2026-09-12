@@ -20,12 +20,12 @@ const Navigation: React.FC = () => {
   const pathname = usePathname();
 
   return (
-    <ul className="mx-auto my-8 flex max-w-7xl border-b">
+    <ul className="mx-auto my-8 flex max-w-7xl overflow-x-auto border-b">
       {routes.map(({ path, label, Outline, Solid }) => {
         const isCurrentPath = pathname === path;
 
         return (
-          <li key={path}>
+          <li className="shrink-0" key={path}>
             <Link
               href={path}
               className="relative flex items-center gap-1 px-4 py-2"

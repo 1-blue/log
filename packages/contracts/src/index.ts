@@ -136,6 +136,176 @@ export const AdminSessionResponseSchema = z.strictObject({
 });
 export type AdminSessionResponse = z.infer<typeof AdminSessionResponseSchema>;
 
+export const DOCUMENT_MAX_FILE_SIZE = 20 * 1_024 * 1_024;
+export const DOCUMENT_RESUMABLE_THRESHOLD = 6 * 1_024 * 1_024;
+export const DOCUMENT_EXTRACTED_TEXT_MAX_LENGTH = 500_000;
+
+const DocumentLabelSchema = z.string().trim().min(1).max(100);
+const DocumentFilenameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(255)
+  .refine(
+    (value) =>
+      !value.includes("/") &&
+      !value.includes("\\") &&
+      Array.from(value).every((character) => {
+        const codePoint = character.codePointAt(0) ?? 0;
+        return codePoint >= 32 && codePoint !== 127;
+      }),
+    "A plain file name without path separators is required",
+  );
+const DocumentContentHashSchema = z
+  .string()
+  .regex(/^[0-9a-f]{64}$/, "A lowercase SHA-256 hash is required");
+
+export const DocumentUploadMetadataSchema = z.strictObject({
+  documentType: DocumentTypeSchema,
+  label: DocumentLabelSchema,
+  originalFilename: DocumentFilenameSchema,
+  mimeType: z.literal("application/pdf"),
+  fileSize: z.int().min(1).max(DOCUMENT_MAX_FILE_SIZE),
+  contentHash: DocumentContentHashSchema,
+});
+export type DocumentUploadMetadata = z.infer<
+  typeof DocumentUploadMetadataSchema
+>;
+
+export const PrepareDocumentUploadRequestSchema = DocumentUploadMetadataSchema;
+export type PrepareDocumentUploadRequest = z.infer<
+  typeof PrepareDocumentUploadRequestSchema
+>;
+
+export const CompleteDocumentUploadRequestSchema = DocumentUploadMetadataSchema;
+export type CompleteDocumentUploadRequest = z.infer<
+  typeof CompleteDocumentUploadRequestSchema
+>;
+
+export const DocumentUploadMethodSchema = z.enum(["standard", "tus"]);
+export type DocumentUploadMethod = z.infer<typeof DocumentUploadMethodSchema>;
+
+export const PrepareDocumentUploadResponseSchema = z.strictObject({
+  data: z.strictObject({
+    documentVersionId: UuidSchema,
+    storagePath: z.string().min(1).max(500),
+    uploadToken: z.string().min(1),
+    uploadMethod: DocumentUploadMethodSchema,
+    resumableEndpoint: z.url().nullable(),
+    expiresAt: Rfc3339TimestampSchema,
+  }),
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type PrepareDocumentUploadResponse = z.infer<
+  typeof PrepareDocumentUploadResponseSchema
+>;
+
+export const DocumentVersionSchema = z.strictObject({
+  id: UuidSchema,
+  documentType: DocumentTypeSchema,
+  label: z.string().min(1).max(100),
+  originalFilename: z.string().min(1).max(255),
+  mimeType: z.literal("application/pdf"),
+  fileSize: z.int().min(1).max(DOCUMENT_MAX_FILE_SIZE),
+  contentHash: DocumentContentHashSchema,
+  extractedText: z.string().max(DOCUMENT_EXTRACTED_TEXT_MAX_LENGTH).nullable(),
+  extractionStatus: DocumentExtractionStatusSchema,
+  isDefault: z.boolean(),
+  isPublished: z.boolean(),
+  archivedAt: Rfc3339TimestampSchema.nullable(),
+  createdAt: Rfc3339TimestampSchema,
+  updatedAt: Rfc3339TimestampSchema,
+});
+export type DocumentVersion = z.infer<typeof DocumentVersionSchema>;
+
+export const DocumentVersionResponseSchema = z.strictObject({
+  data: DocumentVersionSchema,
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type DocumentVersionResponse = z.infer<
+  typeof DocumentVersionResponseSchema
+>;
+
+export const DocumentVersionListResponseSchema = z.strictObject({
+  data: z.strictObject({ items: z.array(DocumentVersionSchema).max(100) }),
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type DocumentVersionListResponse = z.infer<
+  typeof DocumentVersionListResponseSchema
+>;
+
+const UpdateDocumentMetadataRequestSchema = z
+  .strictObject({
+    action: z.literal("update_metadata"),
+    label: DocumentLabelSchema.optional(),
+    extractedText: z
+      .string()
+      .max(DOCUMENT_EXTRACTED_TEXT_MAX_LENGTH)
+      .nullable()
+      .optional(),
+  })
+  .refine(
+    (value) => value.label !== undefined || value.extractedText !== undefined,
+    "At least one metadata field is required",
+  );
+
+export const UpdateDocumentVersionRequestSchema = z.discriminatedUnion(
+  "action",
+  [
+    UpdateDocumentMetadataRequestSchema,
+    z.strictObject({ action: z.literal("set_default") }),
+    z.strictObject({
+      action: z.literal("set_archived"),
+      archived: z.boolean(),
+    }),
+  ],
+);
+export type UpdateDocumentVersionRequest = z.infer<
+  typeof UpdateDocumentVersionRequestSchema
+>;
+
+export const SetDocumentPublicationRequestSchema = z.strictObject({
+  documentVersionId: UuidSchema,
+});
+export type SetDocumentPublicationRequest = z.infer<
+  typeof SetDocumentPublicationRequestSchema
+>;
+
+export const PublicDocumentDispositionSchema = z.enum(["inline", "attachment"]);
+export type PublicDocumentDisposition = z.infer<
+  typeof PublicDocumentDispositionSchema
+>;
+
+export const CreateDocumentDownloadUrlRequestSchema = z.strictObject({
+  disposition: PublicDocumentDispositionSchema,
+});
+export type CreateDocumentDownloadUrlRequest = z.infer<
+  typeof CreateDocumentDownloadUrlRequestSchema
+>;
+
+export const DocumentDownloadUrlResponseSchema = z.strictObject({
+  data: z.strictObject({
+    url: z.url(),
+    expiresAt: Rfc3339TimestampSchema,
+  }),
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type DocumentDownloadUrlResponse = z.infer<
+  typeof DocumentDownloadUrlResponseSchema
+>;
+
+export const PublicDocumentAccessResponseSchema = z.strictObject({
+  data: z.strictObject({
+    documentType: DocumentTypeSchema,
+    url: z.url(),
+    expiresAt: Rfc3339TimestampSchema,
+  }),
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type PublicDocumentAccessResponse = z.infer<
+  typeof PublicDocumentAccessResponseSchema
+>;
+
 export const CreateJobPostingRequestSchema = z.strictObject({
   source: JobPostingSourceSchema,
   url: WantedJobPostingUrlSchema,

@@ -42,6 +42,7 @@
     "sonner": "^2.0.1",
     "tailwindcss": "^4.0.8",
     "tailwindcss-animate": "^1.0.7",
+    "tus-js-client": "4.3.1",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

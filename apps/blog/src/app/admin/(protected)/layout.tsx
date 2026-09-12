@@ -1,9 +1,8 @@
-import Link from "next/link";
-
 import { Button } from "@workspace/ui/components/Button";
 
-import { LayoutDashboardIcon, LogOutIcon } from "lucide-react";
+import { LogOutIcon } from "lucide-react";
 
+import AdminNav from "#/app/admin/(protected)/_components/AdminNav";
 import { logoutAction } from "#/app/admin/actions";
 import { requireAdmin } from "#/libs/auth/admin";
 
@@ -14,7 +13,7 @@ export default async function ProtectedAdminLayout({
 
   return (
     <div className="mx-auto min-h-[calc(100vh-2rem)] max-w-7xl overflow-hidden rounded-xl border lg:grid lg:grid-cols-[240px_1fr]">
-      <aside className="bg-muted/40 border-b p-5 lg:border-r lg:border-b-0">
+      <aside className="bg-muted/40 border-b p-5 lg:border-b-0 lg:border-r">
         <div className="mb-6">
           <p className="text-primary text-xs font-semibold tracking-widest">
             BLUELOG
@@ -22,16 +21,7 @@ export default async function ProtectedAdminLayout({
           <h1 className="mt-1 text-lg font-bold">취업 준비 관리</h1>
         </div>
 
-        <nav aria-label="관리자 메뉴">
-          <Link
-            aria-current="page"
-            className="bg-primary text-primary-foreground flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium"
-            href="/admin"
-          >
-            <LayoutDashboardIcon aria-hidden="true" className="size-4" />
-            대시보드
-          </Link>
-        </nav>
+        <AdminNav />
       </aside>
 
       <div className="flex min-w-0 flex-col">

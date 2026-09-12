@@ -6,6 +6,19 @@ import rehypePrism from "rehype-prism-plus";
 const nextConfig = {
   transpilePackages: ["@workspace/ui"],
   pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
+  async headers() {
+    return [
+      {
+        source: "/pdfs/:path*",
+        headers: [
+          {
+            key: "X-Robots-Tag",
+            value: "noindex, nofollow, noarchive",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 const withMDX = createMDX({

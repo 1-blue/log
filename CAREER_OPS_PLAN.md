@@ -1,8 +1,8 @@
 # 취업 준비 관리·자동화 확장 프로젝트 계획
 
-> 기준일: 2026-09-11
+> 기준일: 2026-09-12
 > 작업 브랜치: `codex/career-ops-foundation`  
-> 현재 범위: 4단계(관리자 인증과 관리자 셸) 완료
+> 현재 범위: 6단계 기능 구현 완료·실제 공개 문서 확인 대기
 
 ## 1. 프로젝트 정의
 
@@ -233,29 +233,54 @@
 목표: 문서를 Git의 고정 파일이 아니라 외부에서 등록하는 변경 불가능한 버전으로 관리한다.
 
 - [ ] 현재 PDF의 개인정보와 공개 범위를 검토하고 최초 버전으로 이전할 파일 확정
-- [ ] `/admin/documents`에서 이력서·포트폴리오 PDF 등록, 목록, 상세, archive 기능 구현
-- [ ] 6MB를 넘는 PDF는 Supabase resumable upload를 사용하고 Storage로 직접 업로드
-- [ ] 업로드마다 UUID 기반 새 경로를 사용하고 `upsert` 또는 기존 파일 덮어쓰기 금지
-- [ ] 문서 유형, 버전명, 원본 파일명, 크기, MIME type, SHA-256 hash, 생성일 저장
-- [ ] 기본 선택 버전과 공개 버전을 별도로 지정하고 유형별 하나만 유지
-- [ ] 지원·분석에 참조된 버전은 hard delete하지 않고 archive 처리
-- [ ] PDF 텍스트 추출 상태와 사람이 수정할 분석용 텍스트 필드를 준비
-- [ ] 새 버전 등록 후 기존 지원·분석의 참조가 자동 변경되지 않게 보장
+- [x] `/admin/documents`에서 이력서·포트폴리오 PDF 등록, 목록, 상세, archive 기능 구현
+- [x] 6MB를 넘는 PDF는 Supabase resumable upload를 사용하고 Storage로 직접 업로드
+- [x] 업로드마다 UUID 기반 새 경로를 사용하고 `upsert` 또는 기존 파일 덮어쓰기 금지
+- [x] 문서 유형, 버전명, 원본 파일명, 크기, MIME type, SHA-256 hash, 생성일 저장
+- [x] 기본 선택 버전과 공개 버전을 별도로 지정하고 유형별 하나만 유지
+- [x] 지원·분석에 참조된 버전은 hard delete하지 않고 archive 처리
+- [x] PDF 텍스트 추출 상태와 사람이 수정할 분석용 텍스트 필드를 준비
+- [x] 새 버전 등록 후 기존 지원·분석의 참조가 자동 변경되지 않게 보장
 
 종료 기준: 관리자 화면에서 새 문서를 등록하고 기본·공개 버전을 선택할 수 있으며, 이전 버전과 참조 관계가 보존된다.
+
+구현 및 검증 결과:
+
+- Worker가 JWT 관리자 확인 후 업로드 준비·완료, 목록·상세, metadata 수정, 기본·공개·보관 상태 변경, 60초 signed download URL을 제공한다.
+- 업로드 완료 시 Storage object의 크기, MIME type, PDF signature, SHA-256을 Worker가 다시 검증하고 실패한 object는 제거한다.
+- 6MiB 이하 파일은 signed upload URL, 초과 파일은 6MiB chunk의 TUS resumable upload를 사용하며 최대 크기는 20MiB다.
+- 첫 활성 버전만 자동으로 기본 지정하고 이후 버전과 공개 버전 변경은 명시적으로 수행하도록 DB 함수를 추가했다.
+- 원격 `blog` Supabase에 migration을 dry-run 후 적용했고 schema lint와 DB 타입 재생성을 완료했다.
+- contracts 9개, Next.js 인증 16개, Worker 24개 테스트와 전체 타입 검사·lint·production build가 통과했다.
+- Docker가 실행 중이 아니어서 신규 pgTAP 테스트는 로컬에서 실행하지 못했다. 실제 관리자 로그인과 현재 PDF 2개의 업로드·공개 범위 확인, 큰 PDF 완료 검증의 Cloudflare Free CPU 사용량 확인도 사용자 확인 단계로 남겨 둔다.
+- 기존 `apps/blog/public/pdfs` 파일은 실제 공개 화면 전환을 확인할 때까지 유지하되 새 공개 페이지에서는 참조하거나 fallback으로 사용하지 않는다.
 
 ### 6단계 — 공개 이력서·포트폴리오 화면
 
 목표: 기존 블로그 디자인을 유지하면서 관리자가 지정한 현재 공개 버전만 제공한다.
 
-- [ ] `/resume`, `/portfolio` 페이지를 `document_publications`의 현재 버전에 연결
-- [ ] 공개 지정된 Storage object에만 Worker의 짧은 signed URL로 접근 허용
-- [ ] PDF 보기, 새 탭 열기, 다운로드, 모바일 fallback 제공
-- [ ] 공개 버전이 없거나 일시적으로 접근할 수 없을 때 안내 상태 제공
-- [ ] 메타데이터, sitemap, 내비게이션, 접근성 확인
-- [ ] 외부 검색 노출 여부와 PDF 캐시 정책 결정
+- [x] `/resume`, `/portfolio` 페이지를 `document_publications`의 현재 버전에 연결
+- [x] 공개 지정된 Storage object에만 Worker의 짧은 signed URL로 접근 허용
+- [x] PDF 보기, 새 탭 열기, 다운로드, 모바일 fallback 제공
+- [x] 공개 버전이 없거나 일시적으로 접근할 수 없을 때 안내 상태 제공
+- [x] 메타데이터, sitemap, 내비게이션, 접근성 확인
+- [x] 외부 검색 노출 여부와 PDF 캐시 정책 결정
 
 종료 기준: 데스크톱·모바일에서 현재 공개 버전만 볼 수 있고, 비공개 및 이전 문서가 의도치 않게 노출되지 않는다.
+
+구현 및 검증 결과:
+
+- 인증 없는 `GET /v1/public/document-publications/:type`은 관리자 1명의 현재 공개 포인터만 조회하고 60초 signed URL을 반환한다.
+- 공개 응답은 문서 종류, URL, 만료 시각만 포함하며 문서 버전 ID, 파일명, Storage 경로, hash 등 내부 metadata를 노출하지 않는다.
+- 공개 해제 상태는 404 빈 상태, Storage 장애는 재시도 가능한 503으로 구분하고 모든 응답은 `no-store`로 제공한다.
+- `/resume`, `/portfolio`는 정적 페이지 셸로 생성하고 실제 문서 URL은 브라우저에서 필요할 때만 발급한다. 새 탭과 다운로드도 클릭 시 새 URL을 사용한다.
+- 모바일에서는 숨겨진 iframe으로 큰 PDF를 내려받지 않고 새 탭·다운로드 동작을 안내한다.
+- 두 페이지는 내비게이션에 추가하되 sitemap에서 제외하고 `noindex`, `nofollow`, `noarchive`, `nocache`를 적용했다.
+- 기존 `public/pdfs`는 삭제하지 않았으며 `X-Robots-Tag: noindex, nofollow, noarchive`를 적용했다. 새 페이지에는 기존 파일 fallback이 없다.
+- 신규 환경변수, 패키지, DB migration 없이 기존 공개 포인터와 Worker 설정을 재사용했다.
+- contracts 9개, Worker 30개, Next.js 22개 테스트가 통과했고 `/resume`, `/portfolio`가 정적 페이지로 production build되는 것을 확인했다.
+- 로컬 production 응답에서 `noindex` robots metadata, sitemap 제외, 초기 HTML의 Supabase·기존 PDF 경로 미포함, `/pdfs/*`의 `X-Robots-Tag`를 확인했다.
+- 실제 관리자 계정으로 문서를 공개한 뒤 데스크톱·모바일 표시, 새 탭, 다운로드, 공개 해제를 확인하는 수동 통합 검증은 남아 있다.
 
 ### 7단계 — 지원 공고 및 지원 상태 CRUD
 
@@ -474,6 +499,15 @@
 - 실제 삭제 대신 archive를 기본으로 하고 민감 데이터 완전 삭제 절차를 별도로 제공
 
 ## 7. API 계약 초안
+
+### 공개 문서 API
+
+| Method | Path                                                            | 역할                                  |
+| ------ | --------------------------------------------------------------- | ------------------------------------- |
+| `GET`  | `/v1/public/document-publications/:type`                        | 현재 공개 문서의 짧은 inline URL 발급 |
+| `GET`  | `/v1/public/document-publications/:type?disposition=attachment` | 현재 공개 문서의 다운로드 URL 발급    |
+
+공개 문서 API에는 인증이 필요하지 않지만 `resume`, `portfolio` 이외의 유형은 거부한다. 응답에는 현재 공개 파일에 접근할 짧은 signed URL과 만료 시각만 포함하고 버전 ID와 Storage 경로는 포함하지 않는다.
 
 ### 공개 관리자 API
 
@@ -739,4 +773,4 @@ Vercel은 기존 Git Integration 배포를 유지하므로 별도 CLI token, org
 
 ## 14. 다음 작업
 
-다음 구현은 **5단계 — 이력서·포트폴리오 업로드 및 버전 관리**다. 관리자 화면에서 비공개 PDF를 새 불변 버전으로 등록하고 기본·공개 버전을 구분해 선택하며, 기존 지원과 분석의 문서 참조가 바뀌지 않게 한다.
+다음 구현은 **7단계 — 지원 공고 및 지원 상태 CRUD**다. 실제 관리자 로그인과 PDF 등록이 가능해지면 5·6단계의 일반/TUS 업로드, 기본·공개·보관 전환, 데스크톱·모바일 표시, 새 탭, 다운로드, 공개 해제를 함께 확인한다. 공개 화면 전환을 확인한 뒤에만 기존 `public/pdfs` 파일을 삭제한다.

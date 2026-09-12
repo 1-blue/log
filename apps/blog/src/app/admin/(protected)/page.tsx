@@ -1,3 +1,7 @@
+import Link from "next/link";
+
+import { Button } from "@workspace/ui/components/Button";
+
 import {
   BriefcaseBusinessIcon,
   FileStackIcon,
@@ -8,11 +12,6 @@ import {
 import WorkerAuthStatus from "#/app/admin/(protected)/_components/WorkerAuthStatus";
 
 const upcomingFeatures = [
-  {
-    description: "이력서와 포트폴리오를 업로드하고 버전을 관리합니다.",
-    icon: FileStackIcon,
-    title: "문서 관리",
-  },
   {
     description: "지원할 회사와 채용공고의 진행 상태를 관리합니다.",
     icon: BriefcaseBusinessIcon,
@@ -31,8 +30,7 @@ export default function AdminDashboardPage() {
       <div>
         <h2 className="text-2xl font-bold">대시보드</h2>
         <p className="text-muted-foreground mt-2 text-sm">
-          관리자 인증 기반이 준비되었습니다. 다음 단계에서 문서 관리 기능을
-          연결합니다.
+          관리자 인증과 문서 버전 관리 기능이 연결되어 있습니다.
         </p>
       </div>
 
@@ -44,7 +42,21 @@ export default function AdminDashboardPage() {
         <WorkerAuthStatus />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="border-border bg-card rounded-lg border p-5">
+        <FileStackIcon
+          aria-hidden="true"
+          className="text-primary mb-4 size-6"
+        />
+        <h3 className="font-semibold">문서 관리</h3>
+        <p className="text-muted-foreground mt-2 text-sm leading-6">
+          이력서와 포트폴리오 PDF를 업로드하고 기본·공개 버전을 관리합니다.
+        </p>
+        <Button asChild className="mt-4" size="sm">
+          <Link href="/admin/documents">문서 관리 열기</Link>
+        </Button>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
         {upcomingFeatures.map(({ description, icon: Icon, title }) => (
           <article
             className="border-border bg-card rounded-lg border p-5"
