@@ -14,6 +14,54 @@ export type Database = {
   };
   public: {
     Tables: {
+      api_idempotency_records: {
+        Row: {
+          completed_at: string | null;
+          created_at: string;
+          execution_id: string;
+          expires_at: string;
+          idempotency_key: string;
+          original_request_id: string;
+          owner_id: string;
+          request_fingerprint: string;
+          request_method: string;
+          request_path: string;
+          response_body: Json | null;
+          response_status: number | null;
+          status: Database["public"]["Enums"]["api_idempotency_status"];
+        };
+        Insert: {
+          completed_at?: string | null;
+          created_at?: string;
+          execution_id: string;
+          expires_at?: string;
+          idempotency_key: string;
+          original_request_id: string;
+          owner_id: string;
+          request_fingerprint: string;
+          request_method: string;
+          request_path: string;
+          response_body?: Json | null;
+          response_status?: number | null;
+          status?: Database["public"]["Enums"]["api_idempotency_status"];
+        };
+        Update: {
+          completed_at?: string | null;
+          created_at?: string;
+          execution_id?: string;
+          expires_at?: string;
+          idempotency_key?: string;
+          original_request_id?: string;
+          owner_id?: string;
+          request_fingerprint?: string;
+          request_method?: string;
+          request_path?: string;
+          response_body?: Json | null;
+          response_status?: number | null;
+          status?: Database["public"]["Enums"]["api_idempotency_status"];
+        };
+        Relationships: [];
+      };
       application_documents: {
         Row: {
           application_id: string;
@@ -278,6 +326,34 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      claim_api_idempotency_request: {
+        Args: {
+          p_execution_id: string;
+          p_idempotency_key: string;
+          p_owner_id: string;
+          p_request_fingerprint: string;
+          p_request_id: string;
+          p_request_method: string;
+          p_request_path: string;
+        };
+        Returns: {
+          outcome: string;
+          stored_execution_id: string;
+          stored_request_id: string;
+          stored_response_body: Json;
+          stored_response_status: number;
+        }[];
+      };
+      complete_api_idempotency_request: {
+        Args: {
+          p_execution_id: string;
+          p_idempotency_key: string;
+          p_owner_id: string;
+          p_response_body: Json;
+          p_response_status: number;
+        };
+        Returns: undefined;
+      };
       create_application_attempt: {
         Args: {
           p_applied_on: string;
@@ -383,6 +459,14 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      release_api_idempotency_request: {
+        Args: {
+          p_execution_id: string;
+          p_idempotency_key: string;
+          p_owner_id: string;
+        };
+        Returns: undefined;
+      };
       replace_application_state: {
         Args: {
           p_application_id: string;
@@ -475,6 +559,7 @@ export type Database = {
       };
     };
     Enums: {
+      api_idempotency_status: "processing" | "completed";
       application_status:
         | "interested"
         | "preparing"
@@ -617,6 +702,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      api_idempotency_status: ["processing", "completed"],
       application_status: [
         "interested",
         "preparing",

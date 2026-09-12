@@ -21,6 +21,7 @@ import {
   type ApplicationService,
   ApplicationServiceError,
 } from "../src/applications.js";
+import type { IdempotencyService } from "../src/idempotency.js";
 
 const ADMIN_USER_ID = "00000000-0000-4000-8000-000000000001";
 const APPLICATION_ID = "00000000-0000-4000-8000-000000000010";
@@ -37,6 +38,12 @@ const mockEnv: CloudflareBindings = {
   SLACK_ERROR_WEBHOOK_URL: "https://hooks.slack.com/services/test",
   SUPABASE_SECRET_KEY: "sb_secret_test",
   SUPABASE_URL: "https://example.supabase.co",
+  ADMIN_API_RATE_LIMITER: {
+    limit: vi.fn(async () => ({ success: true })),
+  },
+  PUBLIC_API_RATE_LIMITER: {
+    limit: vi.fn(async () => ({ success: true })),
+  },
 };
 
 let privateKey: CryptoKey;
@@ -119,6 +126,17 @@ function fakeService(): ApplicationService {
   };
 }
 
+function fakeIdempotencyService(): IdempotencyService {
+  return {
+    claim: vi.fn(async ({ executionId }) => ({
+      executionId,
+      kind: "claimed" as const,
+    })),
+    complete: vi.fn(async () => undefined),
+    release: vi.fn(async () => undefined),
+  };
+}
+
 async function request(
   path: string,
   init: RequestInit = {},
@@ -126,12 +144,16 @@ async function request(
 ) {
   const app = createApp({
     applicationServiceFactory: () => service,
+    idempotencyServiceFactory: () => fakeIdempotencyService(),
     jwtVerificationKey: publicKey,
   });
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${await accessToken()}`);
   if (init.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
+  }
+  if (init.method === "POST" && !headers.has("Idempotency-Key")) {
+    headers.set("Idempotency-Key", crypto.randomUUID());
   }
   return {
     response: await app.request(

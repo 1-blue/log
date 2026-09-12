@@ -19,6 +19,7 @@ import {
   DocumentTypeSchema,
   DocumentUploadMetadataSchema,
   DocumentVersionResponseSchema,
+  IdempotencyKeySchema,
   isValidAnalysisJobTransition,
   PatchApplicationRequestSchema,
   PrepareDocumentUploadResponseSchema,
@@ -78,6 +79,11 @@ const validAnalysisResult = {
 };
 
 describe("career operations contracts", () => {
+  it("accepts only UUID idempotency keys", () => {
+    expect(IdempotencyKeySchema.safeParse(validUuid).success).toBe(true);
+    expect(IdempotencyKeySchema.safeParse("reused-key").success).toBe(false);
+  });
+
   it("validates administrator login inputs and session responses", () => {
     expect(
       AdminLoginInputSchema.safeParse({

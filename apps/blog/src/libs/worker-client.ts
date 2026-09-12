@@ -121,8 +121,10 @@ async function requestWorker<T>(
   path: string,
   schema: ResponseSchema<T>,
   init: RequestInit = {},
+  idempotent = false,
 ): Promise<T> {
-  const response = await fetchWorker(path, init);
+  const requestInit = idempotent ? createIdempotentRequestInit(init) : init;
+  const response = await fetchWorker(path, requestInit);
   if (!response.ok) throw await readWorkerError(response);
 
   const payload: unknown = await response.json();
@@ -139,6 +141,17 @@ async function requestWorker<T>(
   return parsed.data;
 }
 
+export function createIdempotentRequestInit(
+  init: RequestInit,
+  createKey: () => string = () => crypto.randomUUID(),
+): RequestInit {
+  const headers = new Headers(init.headers);
+  if (!headers.has("Idempotency-Key")) {
+    headers.set("Idempotency-Key", createKey());
+  }
+  return { ...init, headers };
+}
+
 export function getWorkerAdminSession(): Promise<AdminSessionResponse> {
   return requestWorker("/v1/auth/me", AdminSessionResponseSchema);
 }
@@ -146,10 +159,15 @@ export function getWorkerAdminSession(): Promise<AdminSessionResponse> {
 export function createApplication(
   input: CreateApplicationRequest,
 ): Promise<ApplicationResponse> {
-  return requestWorker("/v1/applications", ApplicationResponseSchema, {
-    body: JSON.stringify(input),
-    method: "POST",
-  });
+  return requestWorker(
+    "/v1/applications",
+    ApplicationResponseSchema,
+    {
+      body: JSON.stringify(input),
+      method: "POST",
+    },
+    true,
+  );
 }
 
 export function createApplicationAttempt(
@@ -160,6 +178,7 @@ export function createApplicationAttempt(
     `/v1/job-postings/${jobPostingId}/applications`,
     ApplicationResponseSchema,
     { body: JSON.stringify(input), method: "POST" },
+    true,
   );
 }
 
@@ -218,6 +237,7 @@ export function prepareDocumentUpload(
     "/v1/document-versions/uploads",
     PrepareDocumentUploadResponseSchema,
     { body: JSON.stringify(input), method: "POST" },
+    true,
   );
 }
 
@@ -229,6 +249,7 @@ export function completeDocumentUpload(
     `/v1/document-versions/${documentVersionId}/complete`,
     DocumentVersionResponseSchema,
     { body: JSON.stringify(input), method: "POST" },
+    true,
   );
 }
 

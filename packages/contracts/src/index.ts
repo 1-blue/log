@@ -111,6 +111,11 @@ export type Evidence = z.infer<typeof EvidenceSchema>;
 
 export const ApiErrorCodeSchema = z.enum([
   "VALIDATION_ERROR",
+  "IDEMPOTENCY_KEY_REQUIRED",
+  "IDEMPOTENCY_CONFLICT",
+  "IDEMPOTENCY_IN_PROGRESS",
+  "INVALID_SIGNATURE",
+  "REPLAY_DETECTED",
   "UNAUTHORIZED",
   "FORBIDDEN",
   "NOT_FOUND",
@@ -121,6 +126,9 @@ export const ApiErrorCodeSchema = z.enum([
   "UPSTREAM_UNAVAILABLE",
   "INTERNAL_ERROR",
 ]);
+
+export const IdempotencyKeySchema = UuidSchema;
+export type IdempotencyKey = z.infer<typeof IdempotencyKeySchema>;
 
 export const ApiErrorInfoSchema = z.strictObject({
   code: z.string().min(1).max(100),

@@ -317,13 +317,20 @@
 - [x] Supabase JWT를 JWKS로 검증하고 관리자 UUID 확인
 - [x] 요청 body 크기, Content-Type, URL, UUID, enum, 날짜 검증
 - [x] `X-Request-Id` 생성·응답 및 기본 구조화 로그 구현
-- [ ] `Idempotency-Key` 저장과 같은 요청의 중복 실행 방지
-- [ ] Cloudflare Rate Limiting binding 또는 동등한 저장소 기반 제한 구현
-- [ ] n8n 요청에 timestamp, request ID, HMAC 서명 추가
-- [ ] upstream timeout 처리와 오류 코드 세분화
-- [ ] 공개 API와 `/v1/internal/*` 콜백 API 분리
+- [x] `Idempotency-Key` 저장과 같은 요청의 중복 실행 방지
+- [x] Cloudflare Rate Limiting binding 기반 제한 구현
+- [x] n8n 요청에 timestamp, request ID, HMAC 서명 추가
+- [x] upstream timeout 처리와 오류 코드 세분화
+- [x] 공개 API와 `/v1/internal/*` 콜백 API 분리
 
 종료 기준: 인증되지 않은 요청, 재전송 공격, 중복 요청, 잘못된 입력이 차단되고 정상 요청은 추적 가능하다.
+
+- 중복 생성 위험이 있는 지원 등록·재지원·문서 업로드 준비·완료 POST에 UUID `Idempotency-Key`를 요구한다. Supabase의 원자적 claim/complete/release RPC와 `(owner_id, idempotency_key)` unique 제약으로 처리 중 요청, 다른 내용의 키 재사용, 완료 응답 재전송을 구분한다.
+- 완료 응답은 24시간 보존하고 동일 요청에는 원래 응답과 `Idempotency-Replayed: true`를 반환한다. 실패한 실행은 claim을 해제하며 실행 UUID가 일치하는 요청만 완료·해제할 수 있다.
+- Cloudflare Rate Limiting binding은 공개 문서 API를 IP·경로별 분당 60회, 인증된 관리자 API를 관리자 UUID별 분당 120회로 제한한다. `/health`는 제한하지 않으며 binding 장애 시 우회하지 않고 retry 가능한 503을 반환한다.
+- Worker와 n8n 사이에는 HMAC-SHA256으로 timestamp, event ID, request ID, method, path, body hash를 서명한다. 내부 API는 POST·JSON·600KB 이하·±5분 서명만 허용한다.
+- n8n dispatch client는 5초 안의 2xx만 접수 성공으로 처리하며 timeout, 네트워크·429·5xx, 그 외 4xx를 구분한다. 실제 분석 dispatch route와 callback event 중복 저장·상태 전이는 n8n Workflow와 `analysis_jobs`가 생기는 12단계에서 연결한다.
+- 원격 Supabase에 멱등성 migration을 적용하고 schema lint와 rollback 통합 SQL을 통과했다. contracts 14개, Next.js 27개, Worker 56개 테스트와 타입 검사가 통과했으며 신규 환경변수는 없다.
 
 ### 9단계 — 로컬 n8n Docker 환경
 
@@ -482,6 +489,7 @@
 | `document_versions`          | `document_type`, `label`, `storage_path`, `original_filename`, `mime_type`, `file_size`, `content_hash`, `extracted_text`, `extraction_status`, `is_default`, `archived_at` | 이력서·포트폴리오 버전 통합    |
 | `document_publications`      | `document_type`, `document_version_id`, `published_at`                                                                                                                      | 유형별 현재 공개 버전 1개      |
 | `application_documents`      | `application_id`, `resume_version_id`, `portfolio_version_id`, `selected_at`                                                                                                | 공고별 제출 자료 고정          |
+| `api_idempotency_records`    | `owner_id`, `idempotency_key`, `request_fingerprint`, `execution_id`, `status`, `response_status`, `response_body`, `expires_at`                                            | 외부 변경 요청 중복 실행 방지  |
 | `analysis_jobs`              | `job_posting_id`, `resume_version_id`, `portfolio_version_id`, `status`, `stage`, `request_id`, `idempotency_key`, `attempt_count`, `last_error_code`                       | 비동기 작업 기준 상태          |
 | `analysis_job_events`        | `analysis_job_id`, `event_id`, `event_type`, `payload`, `occurred_at`                                                                                                       | callback 멱등성·타임라인       |
 | `analysis_results`           | `analysis_job_id`, `schema_version`, `prompt_version`, `model`, `result jsonb`, `usage jsonb`                                                                               | 원본 구조화 결과 보존          |
@@ -499,6 +507,7 @@
 ### 주요 제약과 인덱스
 
 - `job_postings(source, external_id)` unique
+- `api_idempotency_records(owner_id, idempotency_key)` composite primary key
 - `analysis_jobs(owner_id, idempotency_key)` partial unique
 - `analysis_job_events(event_id)` unique
 - `analysis_jobs(status, updated_at)` index
@@ -643,7 +652,7 @@ bucket은 Dashboard에서 수동 생성하지 않고 migration으로 재현한�
 - [ ] 개발/운영 Worker 이름과 custom domain 또는 `workers.dev` URL 결정
 - [ ] Wrangler 로그인 또는 배포용 최소 권한 API Token 생성
 - [ ] Worker secret은 dashboard 또는 `wrangler secret put`으로 등록
-- [ ] Rate Limiting 기능의 Free plan 한도와 현재 지원 방식을 구현 시점에 확인
+- [x] Rate Limiting 기능의 Free plan 한도와 현재 지원 방식을 구현 시점에 확인
 - [ ] 로컬 n8n 외부 콜백 시험 시 임시 Tunnel 사용 여부 결정
 
 Cloudflare Pages는 이 프로젝트에서 사용하지 않는다. 공식 참고: [Workers 환경변수와 secrets](https://developers.cloudflare.com/workers/configuration/environment-variables/), [Wrangler environments](https://developers.cloudflare.com/workers/wrangler/environments/)

@@ -5,8 +5,26 @@
   "compatibility_date": "2026-09-11",
   "workers_dev": true,
   "dev": {
-    "port": 8787
+    "port": 8787,
   },
+  "ratelimits": [
+    {
+      "name": "PUBLIC_API_RATE_LIMITER",
+      "namespace_id": "4243110490",
+      "simple": {
+        "limit": 60,
+        "period": 60,
+      },
+    },
+    {
+      "name": "ADMIN_API_RATE_LIMITER",
+      "namespace_id": "1836731902",
+      "simple": {
+        "limit": 120,
+        "period": 60,
+      },
+    },
+  ],
   "secrets": {
     "required": [
       "APP_BASE_URL",
@@ -16,7 +34,7 @@
       "N8N_WEBHOOK_URL",
       "N8N_WEBHOOK_SECRET",
       "N8N_CALLBACK_SECRET",
-      "SLACK_ERROR_WEBHOOK_URL"
-    ]
-  }
+      "SLACK_ERROR_WEBHOOK_URL",
+    ],
+  },
 }

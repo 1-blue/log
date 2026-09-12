@@ -17,6 +17,7 @@ import {
   getDocumentUploadMethod,
   inspectPdfResponse,
 } from "../src/documents.js";
+import type { IdempotencyService } from "../src/idempotency.js";
 
 const ADMIN_USER_ID = "00000000-0000-4000-8000-000000000001";
 const OTHER_USER_ID = "00000000-0000-4000-8000-000000000002";
@@ -31,6 +32,12 @@ const mockEnv: CloudflareBindings = {
   SLACK_ERROR_WEBHOOK_URL: "https://hooks.slack.com/services/test",
   SUPABASE_SECRET_KEY: "sb_secret_test",
   SUPABASE_URL: "https://example.supabase.co",
+  ADMIN_API_RATE_LIMITER: {
+    limit: vi.fn(async () => ({ success: true })),
+  },
+  PUBLIC_API_RATE_LIMITER: {
+    limit: vi.fn(async () => ({ success: true })),
+  },
 };
 
 let privateKey: CryptoKey;
@@ -110,6 +117,17 @@ function createFakeDocumentService(): DocumentService {
       isPublished: true,
     })),
     update: vi.fn(async () => documentFixture),
+  };
+}
+
+function createFakeIdempotencyService(): IdempotencyService {
+  return {
+    claim: vi.fn(async ({ executionId }) => ({
+      executionId,
+      kind: "claimed" as const,
+    })),
+    complete: vi.fn(async () => undefined),
+    release: vi.fn(async () => undefined),
   };
 }
 
@@ -369,11 +387,15 @@ describe("worker document API", () => {
   ) {
     const testApp = createApp({
       documentServiceFactory: () => service,
+      idempotencyServiceFactory: () => createFakeIdempotencyService(),
       jwtVerificationKey: publicKey,
     });
     const headers = new Headers(init.headers);
     headers.set("Authorization", `Bearer ${await createAccessToken()}`);
     if (init.body) headers.set("Content-Type", "application/json");
+    if (init.method === "POST") {
+      headers.set("Idempotency-Key", crypto.randomUUID());
+    }
     return {
       response: await testApp.request(
         `http://localhost:8787${path}`,
