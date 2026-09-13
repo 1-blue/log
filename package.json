@@ -12,7 +12,10 @@
     "db:push:dry-run": "supabase db push --dry-run",
     "db:push": "supabase db push",
     "db:lint": "supabase db lint --linked --schema public --level warning --fail-on error",
+    "db:lint:local": "supabase db lint --local --schema public --level warning --fail-on error",
+    "db:test:local": "supabase test db supabase/tests/database",
     "db:types": "supabase gen types typescript --linked --schema public > packages/contracts/src/database.types.ts",
+    "db:types:local": "supabase gen types typescript --local --schema public > packages/contracts/src/database.types.ts",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "ui:add": "pnpm --filter ui ui:add",
     "clean": "rm -rf .turbo && find . -name 'node_modules' -type d -prune -exec rm -rf '{}' + && find . -name '.next' -type d -prune -exec rm -rf '{}' + && rm -f package-lock.json + && pnpm install"

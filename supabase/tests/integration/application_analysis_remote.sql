@@ -78,7 +78,7 @@ insert into public.analysis_jobs (
   resume_version_id, portfolio_version_id, job_posting_text,
   job_posting_content_hash, resume_text, resume_content_hash,
   resume_original_length, portfolio_text, portfolio_content_hash,
-  portfolio_original_length, request_id, status, stage
+  portfolio_original_length, request_id
 ) values (
   '00000000-0000-4000-8000-000000000217',
   '00000000-0000-4000-8000-000000000211',
@@ -90,7 +90,7 @@ insert into public.analysis_jobs (
   'Cloudflare Worker 운영 경험', pg_catalog.repeat('c', 64),
   'Cloudflare Worker API를 구현했습니다.', pg_catalog.repeat('d', 64), 28,
   'n8n 자동화 Workflow를 운영했습니다.', pg_catalog.repeat('e', 64), 29,
-  '00000000-0000-4000-8000-000000000218', 'running', 'matching'
+  '00000000-0000-4000-8000-000000000218'
 );
 
 do $$
@@ -119,26 +119,40 @@ begin
 end;
 $$;
 
-select public.record_analysis_event(
+select public.begin_analysis_attempt(
   '00000000-0000-4000-8000-000000000217',
-  '00000000-0000-4000-8000-000000000221', 'running', 'extracting'
+  '00000000-0000-4000-8000-000000000211',
+  '00000000-0000-4000-8000-000000000221'
 );
 select public.record_analysis_event(
-  '00000000-0000-4000-8000-000000000217',
-  '00000000-0000-4000-8000-000000000222', 'retrying', 'extracting',
-  'OPENAI_RETRY', '일시적인 OpenAI 오류', true
+  p_analysis_job_id := '00000000-0000-4000-8000-000000000217',
+  p_event_id := '00000000-0000-4000-8000-000000000222',
+  p_run_attempt := 1, p_event_type := 'heartbeat', p_status := 'running',
+  p_stage := 'extracting', p_step := 'job_facts', p_step_attempt := 1
 );
 select public.record_analysis_event(
-  '00000000-0000-4000-8000-000000000217',
-  '00000000-0000-4000-8000-000000000223', 'running', 'matching'
+  p_analysis_job_id := '00000000-0000-4000-8000-000000000217',
+  p_event_id := '00000000-0000-4000-8000-000000000223',
+  p_run_attempt := 1, p_event_type := 'retrying', p_status := 'retrying',
+  p_stage := 'extracting', p_step := 'job_facts', p_step_attempt := 1,
+  p_retry_at := pg_catalog.now() + interval '2 seconds',
+  p_error_code := 'OPENAI_UNAVAILABLE',
+  p_error_message := '일시적인 OpenAI 오류', p_error_retryable := true
+);
+select public.record_analysis_event(
+  p_analysis_job_id := '00000000-0000-4000-8000-000000000217',
+  p_event_id := '00000000-0000-4000-8000-000000000225',
+  p_run_attempt := 1, p_event_type := 'progress', p_status := 'running',
+  p_stage := 'matching', p_step := 'profile_comparison', p_step_attempt := 1
 );
 
 select public.complete_analysis_job(
   '00000000-0000-4000-8000-000000000217',
-  '00000000-0000-4000-8000-000000000220', '1.0.0',
+  '00000000-0000-4000-8000-000000000220', 1, '1.0.0',
   '{"summary":"공고 사실"}',
   '{"fitScore":100}',
-  '[{"step":"job_facts","model":"gpt-5.4-mini-2026-03-17","promptVersion":"job-facts-v1","responseId":"resp_1","inputTokens":10,"outputTokens":5,"latencyMs":100,"attemptCount":1},{"step":"profile_comparison","model":"gpt-5.4-mini-2026-03-17","promptVersion":"profile-match-v1","responseId":"resp_2","inputTokens":20,"outputTokens":10,"latencyMs":200,"attemptCount":1}]'
+  '[{"step":"job_facts","model":"gpt-5.4-mini-2026-03-17","promptVersion":"job-facts-v1","responseId":"resp_1","inputTokens":10,"outputTokens":5,"latencyMs":100,"attemptCount":2},{"step":"profile_comparison","model":"gpt-5.4-mini-2026-03-17","promptVersion":"profile-match-v1","responseId":"resp_2","inputTokens":20,"outputTokens":10,"latencyMs":200,"attemptCount":1}]',
+  pg_catalog.now()
 );
 
 do $$
@@ -150,13 +164,14 @@ begin
    where analysis_job_id = '00000000-0000-4000-8000-000000000217';
   select pg_catalog.count(*) into execution_count from public.analysis_step_executions
    where analysis_job_id = '00000000-0000-4000-8000-000000000217';
-  if current_status <> 'succeeded' or attempts <> 2 or result_count <> 1 or execution_count <> 2 then
+  if current_status <> 'succeeded' or attempts <> 1 or result_count <> 1 or execution_count <> 2 then
     raise exception 'analysis completion was not atomic';
   end if;
 
   perform public.complete_analysis_job(
     '00000000-0000-4000-8000-000000000217',
-    '00000000-0000-4000-8000-000000000220', '1.0.0', '{}', '{}', '[]'
+    '00000000-0000-4000-8000-000000000220', 1, '1.0.0', '{}', '{}', '[]',
+    pg_catalog.now()
   );
 
   begin

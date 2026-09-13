@@ -248,6 +248,28 @@ export function getAnalysisJob(
   );
 }
 
+export function retryAnalysisJob(
+  analysisJobId: string,
+): Promise<CreateAnalysisJobResponse> {
+  return requestWorker(
+    `/v1/analysis-jobs/${analysisJobId}/retry`,
+    CreateAnalysisJobResponseSchema,
+    { body: JSON.stringify({}), method: "POST" },
+    true,
+  );
+}
+
+export function cancelAnalysisJob(
+  analysisJobId: string,
+): Promise<CreateAnalysisJobResponse> {
+  return requestWorker(
+    `/v1/analysis-jobs/${analysisJobId}/cancel`,
+    CreateAnalysisJobResponseSchema,
+    { body: JSON.stringify({}), method: "POST" },
+    true,
+  );
+}
+
 export function updateApplication(
   applicationId: string,
   input: PatchApplicationRequest,

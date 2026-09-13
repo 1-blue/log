@@ -21,9 +21,15 @@
       "format": "uuid",
       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
     },
+    "runAttempt": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2
+    },
     "eventType": {
       "type": "string",
       "enum": [
+        "heartbeat",
         "progress",
         "needs_input",
         "retrying",
@@ -63,6 +69,43 @@
         }
       ]
     },
+    "step": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "job_facts",
+            "profile_comparison"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stepAttempt": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "retryAt": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,9})?(?:Z|[+-]\\d{2}:\\d{2})$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "message": {
       "anyOf": [
         {
@@ -81,8 +124,21 @@
           "properties": {
             "code": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 100
+              "enum": [
+                "CALLBACK_FAILED",
+                "CANCELLED_BY_ADMIN",
+                "DISPATCH_FAILED",
+                "OPENAI_AUTHENTICATION_FAILED",
+                "OPENAI_BILLING_LIMIT",
+                "OPENAI_INCOMPLETE",
+                "OPENAI_INVALID_REQUEST",
+                "OPENAI_RATE_LIMITED",
+                "OPENAI_SCHEMA_INVALID",
+                "OPENAI_TIMEOUT",
+                "OPENAI_UNAVAILABLE",
+                "WORKFLOW_ERROR",
+                "WORKFLOW_STALLED"
+              ]
             },
             "message": {
               "type": "string",
@@ -115,9 +171,13 @@
     "eventId",
     "requestId",
     "analysisJobId",
+    "runAttempt",
     "eventType",
     "status",
     "stage",
+    "step",
+    "stepAttempt",
+    "retryAt",
     "message",
     "error",
     "occurredAt"

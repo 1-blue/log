@@ -7,13 +7,73 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   public: {
     Tables: {
+      analysis_job_events: {
+        Row: {
+          analysis_job_id: string
+          error_code: string | null
+          error_message: string | null
+          error_retryable: boolean
+          event_id: string
+          event_type: string
+          message: string | null
+          occurred_at: string
+          owner_id: string
+          received_at: string
+          retry_at: string | null
+          run_attempt: number
+          stage: Database["public"]["Enums"]["analysis_job_stage"] | null
+          status: Database["public"]["Enums"]["analysis_job_status"]
+          step: string | null
+          step_attempt: number | null
+        }
+        Insert: {
+          analysis_job_id: string
+          error_code?: string | null
+          error_message?: string | null
+          error_retryable?: boolean
+          event_id: string
+          event_type: string
+          message?: string | null
+          occurred_at: string
+          owner_id: string
+          received_at?: string
+          retry_at?: string | null
+          run_attempt: number
+          stage?: Database["public"]["Enums"]["analysis_job_stage"] | null
+          status: Database["public"]["Enums"]["analysis_job_status"]
+          step?: string | null
+          step_attempt?: number | null
+        }
+        Update: {
+          analysis_job_id?: string
+          error_code?: string | null
+          error_message?: string | null
+          error_retryable?: boolean
+          event_id?: string
+          event_type?: string
+          message?: string | null
+          occurred_at?: string
+          owner_id?: string
+          received_at?: string
+          retry_at?: string | null
+          run_attempt?: number
+          stage?: Database["public"]["Enums"]["analysis_job_stage"] | null
+          status?: Database["public"]["Enums"]["analysis_job_status"]
+          step?: string | null
+          step_attempt?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_job_events_job_fk"
+            columns: ["analysis_job_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_jobs"
+            referencedColumns: ["id", "owner_id"]
+          },
+        ]
+      }
       analysis_jobs: {
         Row: {
           application_id: string
@@ -30,6 +90,7 @@ export type Database = {
           job_posting_id: string
           job_posting_snapshot_id: string
           job_posting_text: string
+          last_heartbeat_at: string | null
           owner_id: string
           portfolio_content_hash: string
           portfolio_document_type:
@@ -45,6 +106,7 @@ export type Database = {
           resume_text: string
           resume_truncated: boolean
           resume_version_id: string
+          retry_at: string | null
           stage: Database["public"]["Enums"]["analysis_job_stage"] | null
           started_at: string | null
           status: Database["public"]["Enums"]["analysis_job_status"]
@@ -65,6 +127,7 @@ export type Database = {
           job_posting_id: string
           job_posting_snapshot_id: string
           job_posting_text: string
+          last_heartbeat_at?: string | null
           owner_id: string
           portfolio_content_hash: string
           portfolio_document_type?:
@@ -80,6 +143,7 @@ export type Database = {
           resume_text: string
           resume_truncated?: boolean
           resume_version_id: string
+          retry_at?: string | null
           stage?: Database["public"]["Enums"]["analysis_job_stage"] | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["analysis_job_status"]
@@ -100,6 +164,7 @@ export type Database = {
           job_posting_id?: string
           job_posting_snapshot_id?: string
           job_posting_text?: string
+          last_heartbeat_at?: string | null
           owner_id?: string
           portfolio_content_hash?: string
           portfolio_document_type?:
@@ -115,6 +180,7 @@ export type Database = {
           resume_text?: string
           resume_truncated?: boolean
           resume_version_id?: string
+          retry_at?: string | null
           stage?: Database["public"]["Enums"]["analysis_job_stage"] | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["analysis_job_status"]
@@ -686,6 +752,106 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      begin_analysis_attempt: {
+        Args: {
+          p_analysis_job_id: string
+          p_event_id: string
+          p_owner_id: string
+        }
+        Returns: {
+          application_id: string
+          attempt_count: number
+          created_at: string
+          document_type: Database["public"]["Enums"]["document_type"] | null
+          error_code: string | null
+          error_message: string | null
+          error_retryable: boolean
+          final_event_id: string | null
+          finished_at: string | null
+          id: string
+          job_posting_content_hash: string
+          job_posting_id: string
+          job_posting_snapshot_id: string
+          job_posting_text: string
+          last_heartbeat_at: string | null
+          owner_id: string
+          portfolio_content_hash: string
+          portfolio_document_type:
+            | Database["public"]["Enums"]["document_type"]
+            | null
+          portfolio_original_length: number
+          portfolio_text: string
+          portfolio_truncated: boolean
+          portfolio_version_id: string
+          request_id: string
+          resume_content_hash: string
+          resume_original_length: number
+          resume_text: string
+          resume_truncated: boolean
+          resume_version_id: string
+          retry_at: string | null
+          stage: Database["public"]["Enums"]["analysis_job_stage"] | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["analysis_job_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "analysis_jobs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      cancel_analysis_job: {
+        Args: {
+          p_analysis_job_id: string
+          p_event_id: string
+          p_owner_id: string
+        }
+        Returns: {
+          application_id: string
+          attempt_count: number
+          created_at: string
+          document_type: Database["public"]["Enums"]["document_type"] | null
+          error_code: string | null
+          error_message: string | null
+          error_retryable: boolean
+          final_event_id: string | null
+          finished_at: string | null
+          id: string
+          job_posting_content_hash: string
+          job_posting_id: string
+          job_posting_snapshot_id: string
+          job_posting_text: string
+          last_heartbeat_at: string | null
+          owner_id: string
+          portfolio_content_hash: string
+          portfolio_document_type:
+            | Database["public"]["Enums"]["document_type"]
+            | null
+          portfolio_original_length: number
+          portfolio_text: string
+          portfolio_truncated: boolean
+          portfolio_version_id: string
+          request_id: string
+          resume_content_hash: string
+          resume_original_length: number
+          resume_text: string
+          resume_truncated: boolean
+          resume_version_id: string
+          retry_at: string | null
+          stage: Database["public"]["Enums"]["analysis_job_stage"] | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["analysis_job_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "analysis_jobs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       claim_api_idempotency_request: {
         Args: {
           p_execution_id: string
@@ -710,7 +876,9 @@ export type Database = {
           p_event_id: string
           p_executions: Json
           p_job_posting_facts: Json
+          p_occurred_at?: string
           p_result: Json
+          p_run_attempt: number
           p_schema_version: string
         }
         Returns: {
@@ -728,6 +896,7 @@ export type Database = {
           job_posting_id: string
           job_posting_snapshot_id: string
           job_posting_text: string
+          last_heartbeat_at: string | null
           owner_id: string
           portfolio_content_hash: string
           portfolio_document_type:
@@ -743,6 +912,7 @@ export type Database = {
           resume_text: string
           resume_truncated: boolean
           resume_version_id: string
+          retry_at: string | null
           stage: Database["public"]["Enums"]["analysis_job_stage"] | null
           started_at: string | null
           status: Database["public"]["Enums"]["analysis_job_status"]
@@ -876,6 +1046,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      fail_stale_analysis_jobs: {
+        Args: { p_cutoff: string; p_limit?: number }
+        Returns: string[]
+      }
       record_analysis_event: {
         Args: {
           p_analysis_job_id: string
@@ -883,8 +1057,15 @@ export type Database = {
           p_error_message?: string
           p_error_retryable?: boolean
           p_event_id: string
+          p_event_type: string
+          p_message?: string
+          p_occurred_at?: string
+          p_retry_at?: string
+          p_run_attempt: number
           p_stage?: Database["public"]["Enums"]["analysis_job_stage"]
           p_status: Database["public"]["Enums"]["analysis_job_status"]
+          p_step?: string
+          p_step_attempt?: number
         }
         Returns: {
           application_id: string
@@ -901,6 +1082,7 @@ export type Database = {
           job_posting_id: string
           job_posting_snapshot_id: string
           job_posting_text: string
+          last_heartbeat_at: string | null
           owner_id: string
           portfolio_content_hash: string
           portfolio_document_type:
@@ -916,6 +1098,7 @@ export type Database = {
           resume_text: string
           resume_truncated: boolean
           resume_version_id: string
+          retry_at: string | null
           stage: Database["public"]["Enums"]["analysis_job_stage"] | null
           started_at: string | null
           status: Database["public"]["Enums"]["analysis_job_status"]

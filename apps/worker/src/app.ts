@@ -1,5 +1,6 @@
 import {
   AnalysisEventCallbackSchema,
+  AnalysisJobActionRequestSchema,
   AnalysisResultCallbackSchema,
   ApiErrorCodeSchema,
   ApplicationListQuerySchema,
@@ -355,6 +356,12 @@ function analysisServiceErrorResponse(
     const reason = error.details?.reason;
     const messages: Record<string, string> = {
       analysis_in_progress: "이 지원 공고를 이미 분석하고 있습니다.",
+      analysis_attempt_mismatch:
+        "현재 분석 실행 회차와 요청이 일치하지 않습니다.",
+      analysis_attempts_exhausted:
+        "이 분석 작업은 재시도 횟수를 모두 사용했습니다.",
+      analysis_not_active: "진행 중인 분석 작업만 취소할 수 있습니다.",
+      analysis_not_failed: "실패한 분석 작업만 재시도할 수 있습니다.",
       collection_required: "먼저 채용공고 원문 수집을 완료해 주세요.",
       document_selection_required: "이력서와 포트폴리오를 모두 선택해 주세요.",
       document_text_required:
@@ -921,6 +928,54 @@ export function createApp(dependencies: AppDependencies = {}) {
     } catch (error) {
       return analysisServiceErrorResponse(c, error);
     }
+  });
+
+  app.post("/v1/analysis-jobs/:id/retry", requireAdmin, async (c) => {
+    const analysisJobId = parseResourceId(c, "분석 작업");
+    if (analysisJobId instanceof Response) return analysisJobId;
+    const input = await parseJsonBody(c, AnalysisJobActionRequestSchema);
+    if (input instanceof Response) return input;
+
+    return executeIdempotently(
+      c,
+      getIdempotencyService(c.env),
+      input,
+      async () => {
+        try {
+          const job = await getAnalysisJobService(c.env).retry(
+            c.get("adminUserId"),
+            analysisJobId,
+          );
+          return jsonData(c, { job }, 202);
+        } catch (error) {
+          return analysisServiceErrorResponse(c, error);
+        }
+      },
+    );
+  });
+
+  app.post("/v1/analysis-jobs/:id/cancel", requireAdmin, async (c) => {
+    const analysisJobId = parseResourceId(c, "분석 작업");
+    if (analysisJobId instanceof Response) return analysisJobId;
+    const input = await parseJsonBody(c, AnalysisJobActionRequestSchema);
+    if (input instanceof Response) return input;
+
+    return executeIdempotently(
+      c,
+      getIdempotencyService(c.env),
+      input,
+      async () => {
+        try {
+          const job = await getAnalysisJobService(c.env).cancel(
+            c.get("adminUserId"),
+            analysisJobId,
+          );
+          return jsonData(c, { job });
+        } catch (error) {
+          return analysisServiceErrorResponse(c, error);
+        }
+      },
+    );
   });
 
   app.patch("/v1/applications/:id", requireAdmin, async (c) => {

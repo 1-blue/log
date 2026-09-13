@@ -430,6 +430,7 @@ describe("n8n dispatch client", () => {
       },
     },
     requestId: REQUEST_ID,
+    runAttempt: 1,
     schemaVersion: "1.0.0",
   };
 

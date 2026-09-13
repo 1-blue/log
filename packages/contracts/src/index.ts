@@ -1,6 +1,8 @@
 import * as z from "zod";
 
 export const CONTRACT_VERSION = "1.0.0" as const;
+export const ANALYSIS_JOB_MAX_RUN_ATTEMPTS = 2;
+export const ANALYSIS_STEP_MAX_ATTEMPTS = 2;
 
 const UuidSchema = z.uuid();
 const Rfc3339TimestampSchema = z
@@ -781,6 +783,8 @@ export const AnalysisJobResponseSchema = z.strictObject({
   result: z.lazy(() => AnalysisResultSchema).nullable(),
   createdAt: Rfc3339TimestampSchema,
   startedAt: Rfc3339TimestampSchema.nullable(),
+  lastHeartbeatAt: Rfc3339TimestampSchema.nullable(),
+  retryAt: Rfc3339TimestampSchema.nullable(),
   finishedAt: Rfc3339TimestampSchema.nullable(),
   updatedAt: Rfc3339TimestampSchema,
 });
@@ -802,6 +806,11 @@ export type AnalysisJobListResponse = z.infer<
   typeof AnalysisJobListResponseSchema
 >;
 
+export const AnalysisJobActionRequestSchema = z.strictObject({});
+export type AnalysisJobActionRequest = z.infer<
+  typeof AnalysisJobActionRequestSchema
+>;
+
 export const AnalysisInputDocumentSchema = z.strictObject({
   versionId: UuidSchema,
   contentHash: z.string().regex(/^[0-9a-f]{64}$/),
@@ -816,6 +825,7 @@ export const N8nDispatchPayloadSchema = z.strictObject({
   eventId: UuidSchema,
   requestId: UuidSchema,
   analysisJobId: UuidSchema,
+  runAttempt: z.int().min(1).max(ANALYSIS_JOB_MAX_RUN_ATTEMPTS),
   jobPosting: z.strictObject({
     id: UuidSchema,
     snapshotId: UuidSchema,
@@ -957,6 +967,7 @@ export function calculateAnalysisFitScore(
 }
 
 export const AnalysisEventTypeSchema = z.enum([
+  "heartbeat",
   "progress",
   "needs_input",
   "retrying",
@@ -964,29 +975,99 @@ export const AnalysisEventTypeSchema = z.enum([
   "cancelled",
 ]);
 
-export const AnalysisEventCallbackSchema = z.strictObject({
-  schemaVersion: z.literal(CONTRACT_VERSION),
-  eventId: UuidSchema,
-  requestId: UuidSchema,
-  analysisJobId: UuidSchema,
-  eventType: AnalysisEventTypeSchema,
-  status: AnalysisJobStatusSchema,
-  stage: AnalysisJobStageSchema.nullable(),
-  message: z.string().max(1_000).nullable(),
-  error: ApiErrorInfoSchema.nullable(),
-  occurredAt: Rfc3339TimestampSchema,
+export const AnalysisStepNameSchema = z.enum([
+  "job_facts",
+  "profile_comparison",
+]);
+
+export const AnalysisErrorCodeSchema = z.enum([
+  "CALLBACK_FAILED",
+  "CANCELLED_BY_ADMIN",
+  "DISPATCH_FAILED",
+  "OPENAI_AUTHENTICATION_FAILED",
+  "OPENAI_BILLING_LIMIT",
+  "OPENAI_INCOMPLETE",
+  "OPENAI_INVALID_REQUEST",
+  "OPENAI_RATE_LIMITED",
+  "OPENAI_SCHEMA_INVALID",
+  "OPENAI_TIMEOUT",
+  "OPENAI_UNAVAILABLE",
+  "WORKFLOW_ERROR",
+  "WORKFLOW_STALLED",
+]);
+export type AnalysisErrorCode = z.infer<typeof AnalysisErrorCodeSchema>;
+
+const AnalysisCallbackErrorSchema = z.strictObject({
+  code: AnalysisErrorCodeSchema,
+  message: z.string().min(1).max(500),
+  retryable: z.boolean(),
 });
+
+export const AnalysisEventCallbackSchema = z
+  .strictObject({
+    schemaVersion: z.literal(CONTRACT_VERSION),
+    eventId: UuidSchema,
+    requestId: UuidSchema,
+    analysisJobId: UuidSchema,
+    runAttempt: z.int().min(1).max(ANALYSIS_JOB_MAX_RUN_ATTEMPTS),
+    eventType: AnalysisEventTypeSchema,
+    status: AnalysisJobStatusSchema,
+    stage: AnalysisJobStageSchema.nullable(),
+    step: AnalysisStepNameSchema.nullable(),
+    stepAttempt: z.int().min(1).max(ANALYSIS_STEP_MAX_ATTEMPTS).nullable(),
+    retryAt: Rfc3339TimestampSchema.nullable(),
+    message: z.string().max(1_000).nullable(),
+    error: AnalysisCallbackErrorSchema.nullable(),
+    occurredAt: Rfc3339TimestampSchema,
+  })
+  .superRefine((value, context) => {
+    const expectedStatus = {
+      cancelled: "cancelled",
+      failed: "failed",
+      heartbeat: "running",
+      needs_input: "needs_input",
+      progress: "running",
+      retrying: "retrying",
+    } as const;
+    if (value.status !== expectedStatus[value.eventType]) {
+      context.addIssue({
+        code: "custom",
+        message: "eventType and status must match",
+        path: ["status"],
+      });
+    }
+    const isFailure = [
+      "cancelled",
+      "failed",
+      "needs_input",
+      "retrying",
+    ].includes(value.eventType);
+    if (isFailure !== (value.error !== null)) {
+      context.addIssue({
+        code: "custom",
+        message: "error must be present only for failure events",
+        path: ["error"],
+      });
+    }
+    if ((value.eventType === "retrying") !== (value.retryAt !== null)) {
+      context.addIssue({
+        code: "custom",
+        message: "retryAt is required only for retrying events",
+        path: ["retryAt"],
+      });
+    }
+  });
 export type AnalysisEventCallback = z.infer<typeof AnalysisEventCallbackSchema>;
 
 export const AnalysisStepSchema = z.strictObject({
-  step: z.enum(["job_facts", "profile_comparison"]),
+  step: AnalysisStepNameSchema,
   model: z.string().min(1).max(200),
   promptVersion: z.string().min(1).max(100),
   responseId: z.string().min(1).max(300).nullable(),
   inputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
   latencyMs: z.number().int().nonnegative(),
-  attemptCount: z.number().int().min(1).max(2),
+  attemptCount: z.number().int().min(1).max(ANALYSIS_STEP_MAX_ATTEMPTS),
 });
 
 export const AnalysisResultCallbackSchema = z.strictObject({
@@ -994,6 +1075,7 @@ export const AnalysisResultCallbackSchema = z.strictObject({
   eventId: UuidSchema,
   requestId: UuidSchema,
   analysisJobId: UuidSchema,
+  runAttempt: z.int().min(1).max(ANALYSIS_JOB_MAX_RUN_ATTEMPTS),
   status: z.literal("succeeded"),
   result: AnalysisResultSchema,
   executions: z.array(AnalysisStepSchema).min(1),
@@ -1017,11 +1099,18 @@ const AllowedAnalysisTransitions: Record<
   readonly AnalysisJobStatus[]
 > = {
   cancelled: [],
-  failed: ["queued", "retrying"],
-  needs_input: ["queued", "cancelled"],
-  queued: ["running", "cancelled"],
+  failed: ["queued"],
+  needs_input: [],
+  queued: ["running", "failed", "cancelled"],
   retrying: ["running", "failed", "cancelled"],
-  running: ["needs_input", "retrying", "succeeded", "failed", "cancelled"],
+  running: [
+    "running",
+    "needs_input",
+    "retrying",
+    "succeeded",
+    "failed",
+    "cancelled",
+  ],
   succeeded: [],
 };
 

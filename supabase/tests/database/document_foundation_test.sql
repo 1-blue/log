@@ -146,16 +146,35 @@ select is(
   'anon has no document_publications grants'
 );
 
+insert into auth.users (
+  id, instance_id, aud, role, email, encrypted_password,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+) values (
+  '00000000-0000-4000-8000-000000000091',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated', 'document-foundation@example.com', '',
+  '{"provider":"email","providers":["email"]}', '{}',
+  pg_catalog.now(), pg_catalog.now()
+), (
+  '00000000-0000-4000-8000-000000000099',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated', 'authenticated', 'another-document-owner@example.com', '',
+  '{"provider":"email","providers":["email"]}', '{}',
+  pg_catalog.now(), pg_catalog.now()
+);
+
 create temporary table document_foundation_test_context (
   owner_id uuid not null,
   document_id uuid not null
 ) on commit drop;
 
 insert into document_foundation_test_context (owner_id, document_id)
-select id, extensions.gen_random_uuid()
-  from auth.users
- order by created_at
- limit 1;
+values (
+  '00000000-0000-4000-8000-000000000091',
+  '00000000-0000-4000-8000-000000000092'
+);
+
+grant select on document_foundation_test_context to authenticated;
 
 insert into public.document_versions (
   id,
@@ -220,9 +239,16 @@ select is(
   'authenticated users cannot read another owner document version'
 );
 
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-000000000091","role":"authenticated"}',
+  true
+);
+
 select throws_ok(
   $$
     insert into public.document_versions (
+      id,
       owner_id,
       document_type,
       label,
@@ -232,6 +258,7 @@ select throws_ok(
       file_size,
       content_hash
     ) values (
+      '00000000-0000-4000-8000-000000000098',
       '00000000-0000-4000-8000-000000000099',
       'resume',
       'RLS test denied',

@@ -1,4 +1,5 @@
 import {
+  ANALYSIS_JOB_MAX_RUN_ATTEMPTS,
   type AnalysisEventCallback,
   type AnalysisJobResponse,
   type AnalysisResult,
@@ -50,6 +51,7 @@ export class AnalysisJobServiceError extends Error {
 }
 
 export interface AnalysisJobService {
+  cancel(ownerId: string, analysisJobId: string): Promise<AnalysisJobResponse>;
   complete(input: AnalysisResultCallback): Promise<AnalysisJobResponse>;
   create(
     ownerId: string,
@@ -57,8 +59,10 @@ export interface AnalysisJobService {
     requestId: string,
   ): Promise<AnalysisJobResponse>;
   event(input: AnalysisEventCallback): Promise<AnalysisJobResponse>;
+  failStale(cutoff: string, limit: number): Promise<string[]>;
   get(ownerId: string, analysisJobId: string): Promise<AnalysisJobResponse>;
   list(ownerId: string, applicationId: string): Promise<AnalysisJobResponse[]>;
+  retry(ownerId: string, analysisJobId: string): Promise<AnalysisJobResponse>;
 }
 
 export function prepareAnalysisDocumentText(text: string): {
@@ -156,9 +160,11 @@ function mapJob(
     id: row.id,
     jobPostingId: row.job_posting_id,
     jobPostingSnapshotId: row.job_posting_snapshot_id,
+    lastHeartbeatAt: row.last_heartbeat_at,
     lastError: lastError(row),
     portfolioVersionId: row.portfolio_version_id,
     requestId: row.request_id,
+    retryAt: row.retry_at,
     result: parsedResult?.data ?? null,
     resumeVersionId: row.resume_version_id,
     stage: row.stage,
@@ -284,6 +290,120 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
     if (error) throw new AnalysisJobServiceError("unavailable");
     if (!data) throw new AnalysisJobServiceError("not_found");
     return data;
+  }
+
+  private async getPosting(row: AnalysisJobRow): Promise<PostingRow> {
+    const { data, error } = await this.supabase
+      .from("job_postings")
+      .select("*")
+      .eq("id", row.job_posting_id)
+      .eq("owner_id", row.owner_id)
+      .maybeSingle();
+    if (error || !data) throw new AnalysisJobServiceError("unavailable");
+    return data;
+  }
+
+  private buildDispatchPayload(
+    row: AnalysisJobRow,
+    posting: PostingRow,
+    eventId: string,
+  ): N8nDispatchPayload {
+    return {
+      analysisJobId: row.id,
+      callbacks: {
+        eventPath: `/v1/internal/analysis-jobs/${row.id}/events`,
+        resultPath: `/v1/internal/analysis-jobs/${row.id}/result`,
+      },
+      eventId,
+      jobPosting: {
+        companyName: posting.company_name,
+        contentHash: row.job_posting_content_hash,
+        id: posting.id,
+        snapshotId: row.job_posting_snapshot_id,
+        source: posting.source,
+        text: row.job_posting_text,
+        title: posting.title,
+        url: posting.canonical_url,
+      },
+      kind: "application_analysis",
+      outputSchemas: outputSchemas(),
+      profile: {
+        portfolio: {
+          contentHash: row.portfolio_content_hash,
+          originalLength: row.portfolio_original_length,
+          text: row.portfolio_text,
+          truncated: row.portfolio_truncated,
+          versionId: row.portfolio_version_id,
+        },
+        resume: {
+          contentHash: row.resume_content_hash,
+          originalLength: row.resume_original_length,
+          text: row.resume_text,
+          truncated: row.resume_truncated,
+          versionId: row.resume_version_id,
+        },
+      },
+      requestId: row.request_id,
+      runAttempt: row.attempt_count,
+      schemaVersion: CONTRACT_VERSION,
+    };
+  }
+
+  private async beginAttempt(row: AnalysisJobRow): Promise<AnalysisJobRow> {
+    const { data, error } = await this.supabase.rpc("begin_analysis_attempt", {
+      p_analysis_job_id: row.id,
+      p_event_id: crypto.randomUUID(),
+      p_owner_id: row.owner_id,
+    });
+    if (error || !data) {
+      if (error?.code === "23514") {
+        const reason =
+          row.attempt_count >= ANALYSIS_JOB_MAX_RUN_ATTEMPTS
+            ? "analysis_attempts_exhausted"
+            : "analysis_not_failed";
+        throw new AnalysisJobServiceError("conflict", { reason });
+      }
+      throw new AnalysisJobServiceError("unavailable");
+    }
+    return data;
+  }
+
+  private async markDispatchFailed(
+    row: AnalysisJobRow,
+    retryable: boolean,
+  ): Promise<AnalysisJobRow> {
+    const { data, error } = await this.supabase.rpc("record_analysis_event", {
+      p_analysis_job_id: row.id,
+      p_error_code: "DISPATCH_FAILED",
+      p_error_message: "분석 Workflow 호출에 실패했습니다.",
+      p_error_retryable: retryable,
+      p_event_id: crypto.randomUUID(),
+      p_event_type: "failed",
+      p_message: "분석 Workflow 호출에 실패했습니다.",
+      p_occurred_at: new Date().toISOString(),
+      p_run_attempt: row.attempt_count,
+      p_stage: "dispatching",
+      p_status: "failed",
+    });
+    if (error || !data) throw new AnalysisJobServiceError("unavailable");
+    return data;
+  }
+
+  private async dispatchAttempt(
+    row: AnalysisJobRow,
+    posting: PostingRow,
+  ): Promise<AnalysisJobRow> {
+    try {
+      await this.dispatch(
+        this.buildDispatchPayload(row, posting, crypto.randomUUID()),
+        this.env,
+      );
+      return row;
+    } catch (dispatchError) {
+      const mapped =
+        dispatchError instanceof N8nDispatchError ? dispatchError : null;
+      return this.markDispatchFailed(row, mapped?.retryable ?? true);
+    }
   }
 
   async get(ownerId: string, analysisJobId: string) {
@@ -434,63 +554,62 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
       throw new AnalysisJobServiceError("unavailable");
     }
 
-    const eventId = crypto.randomUUID();
-    const payload: N8nDispatchPayload = {
-      callbacks: {
-        eventPath: `/v1/internal/analysis-jobs/${row.id}/events`,
-        resultPath: `/v1/internal/analysis-jobs/${row.id}/result`,
-      },
-      eventId,
-      analysisJobId: row.id,
-      jobPosting: {
-        companyName: posting.company_name,
-        contentHash: jobPostingHash,
-        id: posting.id,
-        snapshotId: snapshot.id,
-        source: posting.source,
-        text: jobPostingText,
-        title: posting.title,
-        url: posting.canonical_url,
-      },
-      kind: "application_analysis",
-      outputSchemas: outputSchemas(),
-      profile: {
-        portfolio: {
-          contentHash: portfolioHash,
-          originalLength: portfolioInput.originalLength,
-          text: portfolioInput.text,
-          truncated: portfolioInput.truncated,
-          versionId: portfolio.id,
-        },
-        resume: {
-          contentHash: resumeHash,
-          originalLength: resumeInput.originalLength,
-          text: resumeInput.text,
-          truncated: resumeInput.truncated,
-          versionId: resume.id,
-        },
-      },
-      requestId,
-      schemaVersion: CONTRACT_VERSION,
-    };
+    const started = await this.beginAttempt(row);
+    const dispatched = await this.dispatchAttempt(started, posting);
+    return mapJob(dispatched, null);
+  }
 
-    try {
-      await this.dispatch(payload, this.env);
-    } catch (dispatchError) {
-      const mapped =
-        dispatchError instanceof N8nDispatchError ? dispatchError : null;
-      await this.supabase.rpc("record_analysis_event", {
-        p_analysis_job_id: row.id,
-        p_error_code: "DISPATCH_FAILED",
-        p_error_message: "분석 Workflow 호출에 실패했습니다.",
-        p_error_retryable: mapped?.retryable ?? true,
-        p_event_id: crypto.randomUUID(),
-        p_stage: "dispatching",
-        p_status: "failed",
+  async retry(ownerId: string, analysisJobId: string) {
+    const row = await this.getRow(analysisJobId, ownerId);
+    if (row.status !== "failed") {
+      throw new AnalysisJobServiceError("conflict", {
+        reason: "analysis_not_failed",
       });
+    }
+    if (row.attempt_count >= ANALYSIS_JOB_MAX_RUN_ATTEMPTS) {
+      throw new AnalysisJobServiceError("conflict", {
+        reason: "analysis_attempts_exhausted",
+      });
+    }
+
+    const started = await this.beginAttempt(row);
+    const dispatched = await this.dispatchAttempt(
+      started,
+      await this.getPosting(started),
+    );
+    return mapJob(dispatched, await this.getResult(dispatched.id));
+  }
+
+  async cancel(ownerId: string, analysisJobId: string) {
+    const { data, error } = await this.supabase.rpc("cancel_analysis_job", {
+      p_analysis_job_id: analysisJobId,
+      p_event_id: crypto.randomUUID(),
+      p_owner_id: ownerId,
+    });
+    if (error || !data) {
+      if (error?.code === "P0002") {
+        throw new AnalysisJobServiceError("not_found");
+      }
+      if (error?.code === "23514") {
+        throw new AnalysisJobServiceError("conflict", {
+          reason: "analysis_not_active",
+        });
+      }
       throw new AnalysisJobServiceError("unavailable");
     }
-    return mapJob(row, null);
+    return mapJob(data, await this.getResult(data.id));
+  }
+
+  async failStale(cutoff: string, limit: number) {
+    const { data, error } = await this.supabase.rpc(
+      "fail_stale_analysis_jobs",
+      {
+        p_cutoff: cutoff,
+        p_limit: limit,
+      },
+    );
+    if (error) throw new AnalysisJobServiceError("unavailable");
+    return data ?? [];
   }
 
   async event(input: AnalysisEventCallback) {
@@ -501,10 +620,17 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
     const { data, error } = await this.supabase.rpc("record_analysis_event", {
       p_analysis_job_id: input.analysisJobId,
       p_error_code: input.error?.code,
-      p_error_message: input.error?.message ?? input.message ?? undefined,
+      p_error_message: input.error?.message,
       p_error_retryable: input.error?.retryable ?? false,
       p_event_id: input.eventId,
+      p_event_type: input.eventType,
+      p_message: input.message ?? undefined,
+      p_occurred_at: input.occurredAt,
+      p_retry_at: input.retryAt ?? undefined,
+      p_run_attempt: input.runAttempt,
       p_stage: input.stage ?? undefined,
+      p_step: input.step ?? undefined,
+      p_step_attempt: input.stepAttempt ?? undefined,
       p_status: input.status,
     });
     if (error || !data) {
@@ -520,6 +646,17 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
     if (row.request_id !== input.requestId) {
       throw new AnalysisJobServiceError("validation");
     }
+    if (
+      input.runAttempt < row.attempt_count ||
+      ["cancelled", "failed", "needs_input", "succeeded"].includes(row.status)
+    ) {
+      return mapJob(row, await this.getResult(row.id));
+    }
+    if (input.runAttempt !== row.attempt_count) {
+      throw new AnalysisJobServiceError("conflict", {
+        reason: "analysis_attempt_mismatch",
+      });
+    }
     const parsed = AnalysisResultSchema.safeParse(input.result);
     if (!parsed.success) throw new AnalysisJobServiceError("validation");
     const semantic = validateAnalysisSemantics(parsed.data, row);
@@ -534,7 +671,9 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
       p_event_id: input.eventId,
       p_executions: input.executions as unknown as Json,
       p_job_posting_facts: parsed.data.job as unknown as Json,
+      p_occurred_at: input.occurredAt,
       p_result: parsed.data as unknown as Json,
+      p_run_attempt: input.runAttempt,
       p_schema_version: input.schemaVersion,
     });
     if (error || !data) {

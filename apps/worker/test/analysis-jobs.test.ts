@@ -90,6 +90,7 @@ const row: Parameters<typeof validateAnalysisSemantics>[1] = {
   job_posting_id: POSTING_ID,
   job_posting_snapshot_id: SNAPSHOT_ID,
   job_posting_text: "자격요건\nCloudflare Worker 운영 경험",
+  last_heartbeat_at: NOW,
   owner_id: ADMIN_USER_ID,
   portfolio_content_hash: "b".repeat(64),
   portfolio_document_type: "portfolio",
@@ -98,6 +99,7 @@ const row: Parameters<typeof validateAnalysisSemantics>[1] = {
   portfolio_truncated: false,
   portfolio_version_id: PORTFOLIO_ID,
   request_id: REQUEST_ID,
+  retry_at: null,
   resume_content_hash: "c".repeat(64),
   resume_original_length: 30,
   resume_text: "프로젝트\nCloudflare Worker API를 구현했습니다.",
@@ -111,16 +113,18 @@ const row: Parameters<typeof validateAnalysisSemantics>[1] = {
 
 const response: AnalysisJobResponse = {
   applicationId: APPLICATION_ID,
-  attemptCount: 0,
+  attemptCount: 1,
   createdAt: NOW,
   finishedAt: null,
   id: ANALYSIS_JOB_ID,
   jobPostingId: POSTING_ID,
   jobPostingSnapshotId: SNAPSHOT_ID,
+  lastHeartbeatAt: NOW,
   lastError: null,
   portfolioVersionId: PORTFOLIO_ID,
   requestId: REQUEST_ID,
   result: null,
+  retryAt: null,
   resumeVersionId: RESUME_ID,
   stage: "dispatching",
   startedAt: null,
@@ -204,6 +208,13 @@ describe("analysis job API", () => {
 
   function service(): AnalysisJobService {
     return {
+      cancel: vi.fn(
+        async (): Promise<AnalysisJobResponse> => ({
+          ...response,
+          finishedAt: NOW,
+          status: "cancelled",
+        }),
+      ),
       complete: vi.fn(
         async (): Promise<AnalysisJobResponse> => ({
           ...response,
@@ -218,8 +229,15 @@ describe("analysis job API", () => {
           status: "running",
         }),
       ),
+      failStale: vi.fn(async () => []),
       get: vi.fn(async () => response),
       list: vi.fn(async () => [response]),
+      retry: vi.fn(
+        async (): Promise<AnalysisJobResponse> => ({
+          ...response,
+          attemptCount: 2,
+        }),
+      ),
     };
   }
 
@@ -290,5 +308,33 @@ describe("analysis job API", () => {
     expect(
       AnalysisJobStatusResponseSchema.safeParse(await fetched.json()).success,
     ).toBe(true);
+  });
+
+  it("retries and cancels an analysis job through idempotent actions", async () => {
+    const retried = await request(
+      `/v1/analysis-jobs/${ANALYSIS_JOB_ID}/retry`,
+      { body: "{}", method: "POST" },
+    );
+    const cancelled = await request(
+      `/v1/analysis-jobs/${ANALYSIS_JOB_ID}/cancel`,
+      { body: "{}", method: "POST" },
+    );
+
+    expect(retried.status).toBe(202);
+    await expect(retried.json()).resolves.toMatchObject({
+      data: { job: { attemptCount: 2 } },
+    });
+    expect(cancelled.status).toBe(200);
+    await expect(cancelled.json()).resolves.toMatchObject({
+      data: { job: { status: "cancelled" } },
+    });
+  });
+
+  it("rejects unknown fields in analysis action bodies", async () => {
+    const action = await request(`/v1/analysis-jobs/${ANALYSIS_JOB_ID}/retry`, {
+      body: '{"force":true}',
+      method: "POST",
+    });
+    expect(action.status).toBe(400);
   });
 });

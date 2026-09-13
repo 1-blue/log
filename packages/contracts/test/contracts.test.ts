@@ -6,7 +6,11 @@ import { describe, expect, it } from "vitest";
 import {
   AdminLoginInputSchema,
   AdminSessionResponseSchema,
+  AnalysisEventCallbackSchema,
+  AnalysisJobActionRequestSchema,
+  AnalysisJobResponseSchema,
   type AnalysisResult,
+  AnalysisResultCallbackSchema,
   AnalysisResultSchema,
   ApplicationListQuerySchema,
   ApplicationResponseSchema,
@@ -499,9 +503,122 @@ describe("career operations contracts", () => {
 
   it("enforces the analysis job state machine", () => {
     expect(isValidAnalysisJobTransition("queued", "running")).toBe(true);
+    expect(isValidAnalysisJobTransition("running", "running")).toBe(true);
+    expect(isValidAnalysisJobTransition("failed", "queued")).toBe(true);
     expect(isValidAnalysisJobTransition("running", "succeeded")).toBe(true);
+    expect(isValidAnalysisJobTransition("needs_input", "queued")).toBe(false);
     expect(isValidAnalysisJobTransition("succeeded", "running")).toBe(false);
     expect(isValidAnalysisJobTransition("cancelled", "running")).toBe(false);
+  });
+
+  it("validates analysis retry and cancellation action bodies strictly", () => {
+    expect(AnalysisJobActionRequestSchema.safeParse({}).success).toBe(true);
+    expect(
+      AnalysisJobActionRequestSchema.safeParse({ force: true }).success,
+    ).toBe(false);
+  });
+
+  it("requires run attempts and retry metadata in analysis callbacks", () => {
+    const baseEvent = {
+      analysisJobId: validUuid,
+      error: null,
+      eventId: "00000000-0000-4000-8000-000000000002",
+      eventType: "heartbeat",
+      message: "공고 요구사항 분석을 진행하고 있습니다.",
+      occurredAt: "2026-09-13T00:00:00.000Z",
+      requestId: "00000000-0000-4000-8000-000000000003",
+      retryAt: null,
+      runAttempt: 1,
+      schemaVersion: "1.0.0",
+      stage: "extracting",
+      status: "running",
+      step: "job_facts",
+      stepAttempt: 1,
+    } as const;
+    expect(AnalysisEventCallbackSchema.safeParse(baseEvent).success).toBe(true);
+    expect(
+      AnalysisEventCallbackSchema.safeParse({
+        ...baseEvent,
+        error: {
+          code: "OPENAI_RATE_LIMITED",
+          message: "호출 제한으로 잠시 대기합니다.",
+          retryable: true,
+        },
+        eventType: "retrying",
+        retryAt: "2026-09-13T00:00:03.000Z",
+        status: "retrying",
+      }).success,
+    ).toBe(true);
+    expect(
+      AnalysisEventCallbackSchema.safeParse({
+        ...baseEvent,
+        eventType: "retrying",
+        status: "retrying",
+      }).success,
+    ).toBe(false);
+    expect(
+      AnalysisEventCallbackSchema.safeParse({
+        ...baseEvent,
+        runAttempt: 3,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("exposes heartbeat and retry timing in analysis job responses", () => {
+    const now = "2026-09-13T00:00:00.000Z";
+    expect(
+      AnalysisJobResponseSchema.safeParse({
+        applicationId: validUuid,
+        attemptCount: 1,
+        createdAt: now,
+        finishedAt: null,
+        id: "00000000-0000-4000-8000-000000000002",
+        jobPostingId: "00000000-0000-4000-8000-000000000003",
+        jobPostingSnapshotId: "00000000-0000-4000-8000-000000000004",
+        lastHeartbeatAt: now,
+        lastError: null,
+        portfolioVersionId: "00000000-0000-4000-8000-000000000005",
+        requestId: "00000000-0000-4000-8000-000000000006",
+        result: null,
+        resumeVersionId: "00000000-0000-4000-8000-000000000007",
+        retryAt: null,
+        stage: "extracting",
+        startedAt: now,
+        status: "running",
+        updatedAt: now,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("requires the run attempt on completed analysis callbacks", () => {
+    const callback = {
+      analysisJobId: validUuid,
+      eventId: "00000000-0000-4000-8000-000000000002",
+      executions: [
+        {
+          attemptCount: 1,
+          inputTokens: 100,
+          latencyMs: 250,
+          model: "fixture-model",
+          outputTokens: 50,
+          promptVersion: "job-facts-v1",
+          responseId: null,
+          step: "job_facts",
+        },
+      ],
+      occurredAt: "2026-09-13T00:00:00.000Z",
+      requestId: "00000000-0000-4000-8000-000000000003",
+      result: validAnalysisResult,
+      runAttempt: 1,
+      schemaVersion: "1.0.0",
+      status: "succeeded",
+    };
+    expect(AnalysisResultCallbackSchema.safeParse(callback).success).toBe(true);
+    const withoutRunAttempt: Partial<typeof callback> = { ...callback };
+    delete withoutRunAttempt.runAttempt;
+    expect(
+      AnalysisResultCallbackSchema.safeParse(withoutRunAttempt).success,
+    ).toBe(false);
   });
 
   it("keeps generated schemas synchronized with the source schemas", async () => {

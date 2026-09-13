@@ -31,6 +31,7 @@ import {
   ExternalLinkIcon,
   LoaderCircleIcon,
   RotateCcwIcon,
+  XIcon,
 } from "lucide-react";
 
 import {
@@ -41,6 +42,7 @@ import {
   toUtcTimestamp,
 } from "#/libs/application-ui";
 import {
+  cancelAnalysisJob,
   createAnalysisJob,
   createApplicationAttempt,
   createJobPostingCollection,
@@ -50,6 +52,7 @@ import {
   listAnalysisJobs,
   listDocumentVersions,
   listJobPostingCollections,
+  retryAnalysisJob,
   updateApplication,
   updateJobPosting,
   WorkerApiError,
@@ -109,6 +112,20 @@ const ANALYSIS_STATUS_LABELS: Record<AnalysisJobResponse["status"], string> = {
   succeeded: "분석 완료",
 };
 
+const ANALYSIS_STAGE_LABELS: Record<
+  NonNullable<AnalysisJobResponse["stage"]>,
+  string
+> = {
+  dispatching: "Workflow 전달",
+  extracting: "공고 요구사항 추출",
+  fetching: "원문 확인",
+  generating_questions: "면접 질문 생성",
+  matching: "이력서·포트폴리오 비교",
+  normalizing: "원문 정리",
+  notifying: "완료 알림",
+  saving: "결과 저장",
+};
+
 export default function ApplicationDetailClient({
   applicationId,
 }: Readonly<{ applicationId: string }>) {
@@ -124,6 +141,7 @@ export default function ApplicationDetailClient({
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [analysisPollingExpired, setAnalysisPollingExpired] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -195,6 +213,7 @@ export default function ApplicationDetailClient({
   useEffect(() => {
     if (!activeAnalysisId) return;
     let stopped = false;
+    setAnalysisPollingExpired(false);
     const refresh = async () => {
       try {
         const response = await getAnalysisJob(activeAnalysisId);
@@ -209,6 +228,7 @@ export default function ApplicationDetailClient({
     const timeout = window.setTimeout(() => {
       stopped = true;
       window.clearInterval(interval);
+      setAnalysisPollingExpired(true);
     }, 5 * 60_000);
     return () => {
       stopped = true;
@@ -216,6 +236,48 @@ export default function ApplicationDetailClient({
       window.clearTimeout(timeout);
     };
   }, [activeAnalysisId]);
+
+  async function refreshAnalysis(analysisJobId: string) {
+    setPending("analysis-refresh");
+    setError(null);
+    try {
+      const response = await getAnalysisJob(analysisJobId);
+      setAnalysisJobs((current) => upsertAnalysis(current, response.data));
+      setAnalysisPollingExpired(
+        ["queued", "running", "retrying"].includes(response.data.status),
+      );
+    } catch (caught) {
+      setError(message(caught));
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function retryAnalysis(analysisJobId: string) {
+    setPending("analysis-retry");
+    setError(null);
+    try {
+      const response = await retryAnalysisJob(analysisJobId);
+      setAnalysisJobs((current) => upsertAnalysis(current, response.data.job));
+    } catch (caught) {
+      setError(message(caught));
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function cancelAnalysis(analysisJobId: string) {
+    setPending("analysis-cancel");
+    setError(null);
+    try {
+      const response = await cancelAnalysisJob(analysisJobId);
+      setAnalysisJobs((current) => upsertAnalysis(current, response.data.job));
+    } catch (caught) {
+      setError(message(caught));
+    } finally {
+      setPending(null);
+    }
+  }
 
   async function analyze() {
     setPending("analyze");
@@ -579,7 +641,7 @@ export default function ApplicationDetailClient({
                 </dd>
               </div>
             </dl>
-            <pre className="border-border bg-background max-h-96 overflow-auto whitespace-pre-wrap rounded-md border p-4 text-xs leading-6">
+            <pre className="border-border bg-background max-h-96 overflow-auto rounded-md border p-4 text-xs leading-6 whitespace-pre-wrap">
               {latestSnapshot.normalizedContent}
             </pre>
           </div>
@@ -712,11 +774,113 @@ export default function ApplicationDetailClient({
                 {formatApplicationDate(latestAnalysis.updatedAt)}
               </time>
             </div>
+            <dl className="text-muted-foreground mt-3 grid gap-2 text-xs sm:grid-cols-2">
+              <div>
+                <dt className="inline font-medium">실행 회차 </dt>
+                <dd className="inline">{latestAnalysis.attemptCount} / 2</dd>
+              </div>
+              <div>
+                <dt className="inline font-medium">현재 단계 </dt>
+                <dd className="inline">
+                  {latestAnalysis.stage
+                    ? ANALYSIS_STAGE_LABELS[latestAnalysis.stage]
+                    : "대기 중"}
+                </dd>
+              </div>
+              <div>
+                <dt className="inline font-medium">최근 응답 </dt>
+                <dd className="inline">
+                  {latestAnalysis.lastHeartbeatAt
+                    ? formatApplicationDate(latestAnalysis.lastHeartbeatAt)
+                    : "아직 없음"}
+                </dd>
+              </div>
+              {latestAnalysis.retryAt ? (
+                <div>
+                  <dt className="inline font-medium">다음 단계 재시도 </dt>
+                  <dd className="inline">
+                    {formatApplicationDate(latestAnalysis.retryAt)}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
             {latestAnalysis.lastError ? (
               <p className="text-destructive mt-2 text-xs">
                 {latestAnalysis.lastError.message}
               </p>
             ) : null}
+            {analysisPollingExpired && activeAnalysisId ? (
+              <div className="border-border bg-muted/30 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+                <p className="text-muted-foreground text-xs">
+                  자동 새로고침이 종료되었습니다. 작업은 백그라운드에서 계속될
+                  수 있습니다.
+                </p>
+                <Button
+                  disabled={disabled}
+                  onClick={() => void refreshAnalysis(activeAnalysisId)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  {pending === "analysis-refresh" ? (
+                    <LoaderCircleIcon className="animate-spin" />
+                  ) : (
+                    <RotateCcwIcon />
+                  )}
+                  상태 새로고침
+                </Button>
+              </div>
+            ) : null}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {latestAnalysis.status === "failed" &&
+              latestAnalysis.lastError?.retryable &&
+              latestAnalysis.attemptCount < 2 ? (
+                <Button
+                  disabled={disabled}
+                  onClick={() => void retryAnalysis(latestAnalysis.id)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  {pending === "analysis-retry" ? (
+                    <LoaderCircleIcon className="animate-spin" />
+                  ) : (
+                    <RotateCcwIcon />
+                  )}
+                  같은 작업 재시도
+                </Button>
+              ) : null}
+              {activeAnalysisId === latestAnalysis.id ? (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button disabled={disabled} size="sm" variant="outline">
+                      <XIcon /> 분석 취소
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>분석 작업을 취소할까요?</DialogTitle>
+                      <DialogDescription>
+                        이미 실행 중인 외부 요청은 즉시 중단되지 않을 수 있지만,
+                        이후 도착한 결과는 저장되지 않습니다.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                      <DialogClose asChild>
+                        <Button variant="outline">계속 진행</Button>
+                      </DialogClose>
+                      <DialogClose asChild>
+                        <Button
+                          onClick={() => void cancelAnalysis(latestAnalysis.id)}
+                        >
+                          취소 확정
+                        </Button>
+                      </DialogClose>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              ) : null}
+            </div>
             {latestAnalysis.result ? (
               <div className="mt-4 grid gap-3">
                 <div className="flex flex-wrap items-end gap-3">
@@ -738,7 +902,7 @@ export default function ApplicationDetailClient({
                   <summary className="cursor-pointer font-medium">
                     구조화 분석 원문 보기
                   </summary>
-                  <pre className="border-border bg-background mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded-md border p-4 text-xs leading-5">
+                  <pre className="border-border bg-background mt-3 max-h-96 overflow-auto rounded-md border p-4 text-xs leading-5 whitespace-pre-wrap">
                     {JSON.stringify(latestAnalysis.result, null, 2)}
                   </pre>
                 </details>
