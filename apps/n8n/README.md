@@ -37,40 +37,38 @@ docker compose logs --tail=100 postgres
 
 브라우저에서 `http://localhost:5678`을 열어 owner 계정을 한 번 생성한다. OpenAI API Key는 11단계에서 OpenAI Credential로, Slack Bot Token은 14단계에서 Slack API Credential로 등록하며 `.env`나 Workflow JSON에 넣지 않는다.
 
-## 샘플 Webhook
+## 채용공고 수집 Workflow
 
-owner 계정을 만든 다음 버전 관리 중인 샘플 Workflow를 import하고 publish한다. n8n 2.x의 CLI publish 결과는 서버 재시작 뒤 적용된다.
+owner 계정을 만든 다음 버전 관리 중인 Workflow를 import하고 publish한다. n8n 2.x의 CLI publish 결과는 서버 재시작 뒤 적용된다. 기존 smoke Workflow는 비활성 상태로 보존하며 동일한 Webhook 경로를 동시에 게시하지 않는다.
 
 ```bash
-docker compose exec -T n8n n8n import:workflow --input=/workflows/career-analysis-smoke.json
-docker compose exec -T n8n n8n publish:workflow --id=careerAnalysisSmoke
+docker compose exec -T n8n n8n unpublish:workflow --id=careerAnalysisSmoke
+docker compose exec -T n8n n8n import:workflow --input=/workflows/career-analysis.json
+docker compose exec -T n8n n8n publish:workflow --id=careerAnalysis
 docker compose restart n8n
 ```
 
-컨테이너가 다시 healthy 상태가 되면 로컬 요청으로 확인한다.
+Workflow는 다음 순서로 동작한다.
 
-```bash
-curl --include \
-  --request POST \
-  --header 'Content-Type: application/json' \
-  --header 'X-Request-Id: 00000000-0000-4000-8000-000000000001' \
-  --data '{"schemaVersion":"1.0.0","eventId":"00000000-0000-4000-8000-000000000002","requestId":"00000000-0000-4000-8000-000000000001"}' \
-  http://localhost:5678/webhook/career-analysis
-```
+- Worker가 보낸 원문 body와 요청 식별자를 HMAC-SHA256으로 검증한다.
+- 유효한 요청에 즉시 `202 Accepted`, 잘못된 서명에 `401`을 반환한다.
+- 자동 모드는 Wanted HTML을 리다이렉트 없이 최대 10초 동안 요청한다.
+- 수동 모드는 전달받은 원문을 그대로 사용한다.
+- 최대 600KB 정책을 적용하고 결과를 다시 HMAC 서명해 Worker 내부 API로 전달한다.
 
-이 Workflow는 로컬 연결만 검사하는 임시 골격이며 HMAC을 아직 검증하지 않는다. 실제 서명 검증이 연결되기 전에는 Webhook이나 n8n UI를 Tunnel로 공개하지 않는다.
+Code 노드는 서명 처리에 Node 내장 `crypto`만 사용할 수 있다. SSRF 보호는 기본 차단 범위와 `100.64.0.0/10`을 차단하며 로컬 Worker callback을 위한 `host.docker.internal`만 예외로 허용한다. Wanted 호스트를 allowlist에 추가하지 않는다.
 
 UI에서 수정한 Workflow는 Credential 값과 인증 헤더가 없는지 확인한 다음 게시 버전을 다시 export한다.
 
 ```bash
 docker compose exec -T n8n n8n export:workflow \
-  --id=careerAnalysisSmoke \
+  --id=careerAnalysis \
   --published \
-  --output=/tmp/career-analysis-smoke.json
+  --output=/tmp/career-analysis.json
 docker compose cp \
-  n8n:/tmp/career-analysis-smoke.json \
-  workflows/career-analysis-smoke.json
-docker compose exec -T n8n rm /tmp/career-analysis-smoke.json
+  n8n:/tmp/career-analysis.json \
+  workflows/career-analysis.json
+docker compose exec -T n8n rm /tmp/career-analysis.json
 ```
 
 `workflows/`는 컨테이너에 읽기 전용으로 연결되므로 실행 중인 n8n이 저장소 파일을 직접 덮어쓸 수 없다.
@@ -120,5 +118,5 @@ DB 백업만으로 Credential을 복호화할 수 없으므로 `.env`의 `N8N_EN
 
 - `workflows/`에는 n8n에서 export한 Workflow JSON만 저장한다.
 - Credential export와 실행 데이터는 저장소에 넣지 않는다.
-- 공고 분석 요청과 callback payload는 `packages/contracts`의 JSON Schema를 기준으로 한다.
+- 공고 수집 요청과 callback payload는 `packages/contracts`의 Zod 계약을 기준으로 한다.
 - 운영 공개 주소, HTTPS, reverse proxy, 외부 task runner와 백업 자동화는 운영 배포 단계에서 추가한다.

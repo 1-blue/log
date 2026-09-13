@@ -15,6 +15,7 @@ import {
   type CompleteDocumentUploadRequest,
   type CreateApplicationRequest,
   type CreateDocumentDownloadUrlRequest,
+  type CreateJobPostingCollectionRequest,
   type DocumentDownloadUrlResponse,
   DocumentDownloadUrlResponseSchema,
   type DocumentType,
@@ -23,6 +24,10 @@ import {
   DocumentVersionListResponseSchema,
   type DocumentVersionResponse,
   DocumentVersionResponseSchema,
+  type JobPostingCollectionListResponse,
+  JobPostingCollectionListResponseSchema,
+  type JobPostingCollectionResponse,
+  JobPostingCollectionResponseSchema,
   type PatchApplicationRequest,
   type PatchJobPostingRequest,
   type PrepareDocumentUploadRequest,
@@ -227,6 +232,37 @@ export function updateJobPosting(
     `/v1/job-postings/${jobPostingId}`,
     ApplicationJobPostingResponseSchema,
     { body: JSON.stringify(input), method: "PATCH" },
+  );
+}
+
+export function createJobPostingCollection(
+  jobPostingId: string,
+  input: CreateJobPostingCollectionRequest,
+): Promise<JobPostingCollectionResponse> {
+  return requestWorker(
+    `/v1/job-postings/${jobPostingId}/collections`,
+    JobPostingCollectionResponseSchema,
+    { body: JSON.stringify(input), method: "POST" },
+    true,
+  );
+}
+
+export function getJobPostingCollection(
+  jobPostingId: string,
+  collectionRunId: string,
+): Promise<JobPostingCollectionResponse> {
+  return requestWorker(
+    `/v1/job-postings/${jobPostingId}/collections/${collectionRunId}`,
+    JobPostingCollectionResponseSchema,
+  );
+}
+
+export function listJobPostingCollections(
+  jobPostingId: string,
+): Promise<JobPostingCollectionListResponse> {
+  return requestWorker(
+    `/v1/job-postings/${jobPostingId}/collections`,
+    JobPostingCollectionListResponseSchema,
   );
 }
 

@@ -282,6 +282,131 @@ export type Database = {
         };
         Relationships: [];
       };
+      job_posting_collection_runs: {
+        Row: {
+          created_at: string;
+          error_code:
+            | Database["public"]["Enums"]["job_posting_collection_error_code"]
+            | null;
+          final_event_id: string | null;
+          finished_at: string | null;
+          http_status: number | null;
+          id: string;
+          job_posting_id: string;
+          mode: Database["public"]["Enums"]["job_posting_collection_mode"];
+          owner_id: string;
+          request_id: string;
+          retryable: boolean;
+          snapshot_id: string | null;
+          started_at: string | null;
+          status: Database["public"]["Enums"]["job_posting_collection_status"];
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          error_code?:
+            | Database["public"]["Enums"]["job_posting_collection_error_code"]
+            | null;
+          final_event_id?: string | null;
+          finished_at?: string | null;
+          http_status?: number | null;
+          id?: string;
+          job_posting_id: string;
+          mode: Database["public"]["Enums"]["job_posting_collection_mode"];
+          owner_id: string;
+          request_id: string;
+          retryable?: boolean;
+          snapshot_id?: string | null;
+          started_at?: string | null;
+          status?: Database["public"]["Enums"]["job_posting_collection_status"];
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          error_code?:
+            | Database["public"]["Enums"]["job_posting_collection_error_code"]
+            | null;
+          final_event_id?: string | null;
+          finished_at?: string | null;
+          http_status?: number | null;
+          id?: string;
+          job_posting_id?: string;
+          mode?: Database["public"]["Enums"]["job_posting_collection_mode"];
+          owner_id?: string;
+          request_id?: string;
+          retryable?: boolean;
+          snapshot_id?: string | null;
+          started_at?: string | null;
+          status?: Database["public"]["Enums"]["job_posting_collection_status"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "job_posting_collection_runs_posting_fk";
+            columns: ["job_posting_id", "owner_id"];
+            isOneToOne: false;
+            referencedRelation: "job_postings";
+            referencedColumns: ["id", "owner_id"];
+          },
+          {
+            foreignKeyName: "job_posting_collection_runs_snapshot_fk";
+            columns: ["snapshot_id", "owner_id"];
+            isOneToOne: false;
+            referencedRelation: "job_posting_snapshots";
+            referencedColumns: ["id", "owner_id"];
+          },
+        ];
+      };
+      job_posting_snapshots: {
+        Row: {
+          content_hash: string;
+          created_at: string;
+          fetched_at: string;
+          id: string;
+          job_posting_id: string;
+          normalized_content: string;
+          owner_id: string;
+          parser_version: string;
+          raw_content: string;
+          source: Database["public"]["Enums"]["job_posting_snapshot_source"];
+          source_metadata: Json;
+        };
+        Insert: {
+          content_hash: string;
+          created_at?: string;
+          fetched_at: string;
+          id?: string;
+          job_posting_id: string;
+          normalized_content: string;
+          owner_id: string;
+          parser_version: string;
+          raw_content: string;
+          source: Database["public"]["Enums"]["job_posting_snapshot_source"];
+          source_metadata: Json;
+        };
+        Update: {
+          content_hash?: string;
+          created_at?: string;
+          fetched_at?: string;
+          id?: string;
+          job_posting_id?: string;
+          normalized_content?: string;
+          owner_id?: string;
+          parser_version?: string;
+          raw_content?: string;
+          source?: Database["public"]["Enums"]["job_posting_snapshot_source"];
+          source_metadata?: Json;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "job_posting_snapshots_posting_fk";
+            columns: ["job_posting_id", "owner_id"];
+            isOneToOne: false;
+            referencedRelation: "job_postings";
+            referencedColumns: ["id", "owner_id"];
+          },
+        ];
+      };
       job_postings: {
         Row: {
           canonical_url: string;
@@ -353,6 +478,49 @@ export type Database = {
           p_response_status: number;
         };
         Returns: undefined;
+      };
+      complete_job_posting_collection: {
+        Args: {
+          p_collection_run_id: string;
+          p_content_hash?: string;
+          p_error_code?: Database["public"]["Enums"]["job_posting_collection_error_code"];
+          p_event_id: string;
+          p_fetched_at?: string;
+          p_http_status?: number;
+          p_normalized_content?: string;
+          p_owner_id: string;
+          p_parser_version?: string;
+          p_raw_content?: string;
+          p_retryable?: boolean;
+          p_snapshot_source?: Database["public"]["Enums"]["job_posting_snapshot_source"];
+          p_source_metadata?: Json;
+          p_status: Database["public"]["Enums"]["job_posting_collection_status"];
+        };
+        Returns: {
+          created_at: string;
+          error_code:
+            | Database["public"]["Enums"]["job_posting_collection_error_code"]
+            | null;
+          final_event_id: string | null;
+          finished_at: string | null;
+          http_status: number | null;
+          id: string;
+          job_posting_id: string;
+          mode: Database["public"]["Enums"]["job_posting_collection_mode"];
+          owner_id: string;
+          request_id: string;
+          retryable: boolean;
+          snapshot_id: string | null;
+          started_at: string | null;
+          status: Database["public"]["Enums"]["job_posting_collection_status"];
+          updated_at: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "job_posting_collection_runs";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
       create_application_attempt: {
         Args: {
@@ -571,6 +739,28 @@ export type Database = {
         | "withdrawn";
       document_extraction_status: "pending" | "processing" | "ready" | "failed";
       document_type: "resume" | "portfolio";
+      job_posting_collection_error_code:
+        | "ACCESS_BLOCKED"
+        | "JOB_EXPIRED"
+        | "REDIRECT_NOT_ALLOWED"
+        | "INVALID_CONTENT_TYPE"
+        | "CONTENT_TOO_LARGE"
+        | "INVALID_JOB_POSTING"
+        | "PARSER_STRUCTURE_CHANGED"
+        | "URL_MISMATCH"
+        | "TIMEOUT"
+        | "NETWORK_ERROR"
+        | "RATE_LIMITED"
+        | "UPSTREAM_ERROR"
+        | "DISPATCH_FAILED";
+      job_posting_collection_mode: "automatic" | "manual";
+      job_posting_collection_status:
+        | "queued"
+        | "running"
+        | "succeeded"
+        | "needs_input"
+        | "failed";
+      job_posting_snapshot_source: "wanted_json_ld" | "manual";
       job_posting_source: "wanted";
     };
     CompositeTypes: {
@@ -715,6 +905,30 @@ export const Constants = {
       ],
       document_extraction_status: ["pending", "processing", "ready", "failed"],
       document_type: ["resume", "portfolio"],
+      job_posting_collection_error_code: [
+        "ACCESS_BLOCKED",
+        "JOB_EXPIRED",
+        "REDIRECT_NOT_ALLOWED",
+        "INVALID_CONTENT_TYPE",
+        "CONTENT_TOO_LARGE",
+        "INVALID_JOB_POSTING",
+        "PARSER_STRUCTURE_CHANGED",
+        "URL_MISMATCH",
+        "TIMEOUT",
+        "NETWORK_ERROR",
+        "RATE_LIMITED",
+        "UPSTREAM_ERROR",
+        "DISPATCH_FAILED",
+      ],
+      job_posting_collection_mode: ["automatic", "manual"],
+      job_posting_collection_status: [
+        "queued",
+        "running",
+        "succeeded",
+        "needs_input",
+        "failed",
+      ],
+      job_posting_snapshot_source: ["wanted_json_ld", "manual"],
       job_posting_source: ["wanted"],
     },
   },

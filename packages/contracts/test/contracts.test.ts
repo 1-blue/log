@@ -12,6 +12,7 @@ import {
   ApplicationStateInputSchema,
   ApplicationStatusSchema,
   CreateApplicationRequestSchema,
+  CreateJobPostingCollectionRequestSchema,
   CreateJobPostingRequestSchema,
   DOCUMENT_MAX_FILE_SIZE,
   DocumentDownloadUrlResponseSchema,
@@ -21,6 +22,7 @@ import {
   DocumentVersionResponseSchema,
   IdempotencyKeySchema,
   isValidAnalysisJobTransition,
+  JobPostingCollectionCallbackSchema,
   PatchApplicationRequestSchema,
   PrepareDocumentUploadResponseSchema,
   PublicDocumentAccessResponseSchema,
@@ -120,6 +122,69 @@ describe("career operations contracts", () => {
         manualContent: null,
       }).success,
     ).toBe(true);
+  });
+
+  it("requires a canonical Wanted URL without URL decorations", () => {
+    for (const url of [
+      `${validWantedUrl}?from=search`,
+      `${validWantedUrl}#details`,
+      "https://user@www.wanted.co.kr/wd/384409",
+      "https://www.wanted.co.kr:444/wd/384409",
+      "http://www.wanted.co.kr/wd/384409",
+    ]) {
+      expect(
+        CreateJobPostingRequestSchema.safeParse({
+          manualContent: null,
+          source: "wanted",
+          url,
+        }).success,
+      ).toBe(false);
+    }
+  });
+
+  it("validates manual collection input and strict callbacks", () => {
+    expect(
+      CreateJobPostingCollectionRequestSchema.safeParse({ manualContent: null })
+        .success,
+    ).toBe(true);
+    expect(
+      CreateJobPostingCollectionRequestSchema.safeParse({
+        manualContent: "공고 원문 ".repeat(20),
+      }).success,
+    ).toBe(true);
+    expect(
+      CreateJobPostingCollectionRequestSchema.safeParse({
+        manualContent: "너무 짧음",
+      }).success,
+    ).toBe(false);
+
+    const callback = {
+      collectionRunId: validUuid,
+      eventId: "00000000-0000-4000-8000-000000000002",
+      occurredAt: "2026-09-13T00:00:00.000Z",
+      outcome: "timeout",
+      requestId: "00000000-0000-4000-8000-000000000003",
+      response: null,
+      schemaVersion: "1.0.0",
+    };
+    expect(JobPostingCollectionCallbackSchema.safeParse(callback).success).toBe(
+      true,
+    );
+    expect(
+      JobPostingCollectionCallbackSchema.safeParse({
+        ...callback,
+        response: {
+          body: "",
+          contentLength: 0,
+          contentType: null,
+          status: 504,
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      JobPostingCollectionCallbackSchema.safeParse({ ...callback, extra: true })
+        .success,
+    ).toBe(false);
   });
 
   it("separates application status from archive state", () => {

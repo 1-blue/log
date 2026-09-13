@@ -9,6 +9,8 @@ import {
   type ApplicationStatus,
   applicationStatusRequiresDocuments,
   type DocumentVersion,
+  type JobPostingCollectionErrorCode,
+  type JobPostingCollectionRun,
 } from "@workspace/contracts";
 import { Button } from "@workspace/ui/components/Button";
 import {
@@ -39,8 +41,11 @@ import {
 } from "#/libs/application-ui";
 import {
   createApplicationAttempt,
+  createJobPostingCollection,
   getApplication,
+  getJobPostingCollection,
   listDocumentVersions,
+  listJobPostingCollections,
   updateApplication,
   updateJobPosting,
   WorkerApiError,
@@ -55,6 +60,32 @@ function message(error: unknown) {
     : "요청을 처리하지 못했습니다.";
 }
 
+const COLLECTION_ERROR_LABELS: Record<JobPostingCollectionErrorCode, string> = {
+  ACCESS_BLOCKED: "Wanted가 자동 접근을 차단했습니다.",
+  CONTENT_TOO_LARGE: "공고 원문이 허용된 크기를 초과했습니다.",
+  DISPATCH_FAILED: "수집 Workflow에 요청을 전달하지 못했습니다.",
+  INVALID_CONTENT_TYPE: "Wanted가 HTML이 아닌 응답을 반환했습니다.",
+  INVALID_JOB_POSTING: "유효한 채용공고 내용을 확인하지 못했습니다.",
+  JOB_EXPIRED: "삭제되었거나 만료된 공고입니다.",
+  NETWORK_ERROR: "Wanted 연결 중 네트워크 오류가 발생했습니다.",
+  PARSER_STRUCTURE_CHANGED:
+    "Wanted 공고 구조가 변경되어 자동으로 읽지 못했습니다.",
+  RATE_LIMITED: "Wanted 요청 제한에 도달했습니다.",
+  REDIRECT_NOT_ALLOWED: "공고가 다른 주소로 이동되었습니다.",
+  TIMEOUT: "Wanted 응답 시간이 초과되었습니다.",
+  UPSTREAM_ERROR: "Wanted 서버에서 오류를 반환했습니다.",
+  URL_MISMATCH: "응답 공고와 등록한 URL이 일치하지 않습니다.",
+};
+
+function upsertCollection(
+  current: JobPostingCollectionRun[],
+  next: JobPostingCollectionRun,
+) {
+  return [next, ...current.filter((item) => item.id !== next.id)]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 20);
+}
+
 export default function ApplicationDetailClient({
   applicationId,
 }: Readonly<{ applicationId: string }>) {
@@ -63,6 +94,8 @@ export default function ApplicationDetailClient({
     null,
   );
   const [documents, setDocuments] = useState<DocumentVersion[]>([]);
+  const [collections, setCollections] = useState<JobPostingCollectionRun[]>([]);
+  const [manualContent, setManualContent] = useState("");
   const [status, setStatus] = useState<ApplicationStatus>("interested");
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<string | null>(null);
@@ -79,6 +112,14 @@ export default function ApplicationDetailClient({
       setApplication(applicationResponse.data);
       setStatus(applicationResponse.data.status);
       setDocuments(documentsResponse.data.items);
+      try {
+        const collectionsResponse = await listJobPostingCollections(
+          applicationResponse.data.jobPosting.id,
+        );
+        setCollections(collectionsResponse.data.items);
+      } catch (caught) {
+        setError(message(caught));
+      }
     } catch (caught) {
       setError(message(caught));
     } finally {
@@ -89,6 +130,55 @@ export default function ApplicationDetailClient({
   useEffect(() => {
     void load();
   }, [load]);
+
+  const activeCollection = collections.find(
+    (item) => item.status === "queued" || item.status === "running",
+  );
+  const activeCollectionId = activeCollection?.id ?? null;
+
+  useEffect(() => {
+    if (!application || !activeCollectionId) return;
+    const postingId = application.jobPosting.id;
+    const runId = activeCollectionId;
+    let stopped = false;
+    const refresh = async () => {
+      try {
+        const response = await getJobPostingCollection(postingId, runId);
+        if (stopped) return;
+        setCollections((current) => upsertCollection(current, response.data));
+      } catch (caught) {
+        if (!stopped) setError(message(caught));
+      }
+    };
+    const interval = window.setInterval(() => void refresh(), 2_000);
+    const timeout = window.setTimeout(() => {
+      stopped = true;
+      window.clearInterval(interval);
+    }, 60_000);
+    return () => {
+      stopped = true;
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+    };
+  }, [activeCollectionId, application]);
+
+  async function collect(content: string | null) {
+    if (!application) return;
+    setPending(content === null ? "collect" : "manual-collect");
+    setError(null);
+    try {
+      const response = await createJobPostingCollection(
+        application.jobPosting.id,
+        { manualContent: content },
+      );
+      setCollections((current) => upsertCollection(current, response.data));
+      if (content !== null) setManualContent("");
+    } catch (caught) {
+      setError(message(caught));
+    } finally {
+      setPending(null);
+    }
+  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -202,6 +292,16 @@ export default function ApplicationDetailClient({
     (item) => item.documentType === "portfolio",
   );
   const disabled = pending !== null;
+  const latestCollection = collections[0] ?? null;
+  const latestSnapshot =
+    collections.find((item) => item.snapshot)?.snapshot ?? null;
+  const metadataDiffers = latestSnapshot
+    ? (latestSnapshot.sourceMetadata.companyName !== null &&
+        latestSnapshot.sourceMetadata.companyName !==
+          application.jobPosting.companyName) ||
+      (latestSnapshot.sourceMetadata.title !== null &&
+        latestSnapshot.sourceMetadata.title !== application.jobPosting.title)
+    : false;
 
   return (
     <section className="flex max-w-4xl flex-col gap-6">
@@ -302,6 +402,170 @@ export default function ApplicationDetailClient({
           보관된 지원은 먼저 보관 해제한 뒤 수정할 수 있습니다.
         </p>
       ) : null}
+
+      <div className="border-border bg-card rounded-lg border p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold">채용공고 원문 수집</h3>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Wanted의 공식 JobPosting 데이터 또는 직접 입력한 원문을 버전으로
+              보관합니다.
+            </p>
+          </div>
+          <Button
+            disabled={disabled || Boolean(activeCollection)}
+            onClick={() => void collect(null)}
+            type="button"
+            variant="outline"
+          >
+            {pending === "collect" ? (
+              <LoaderCircleIcon className="animate-spin" />
+            ) : (
+              <RotateCcwIcon />
+            )}
+            {latestCollection ? "자동 수집 재시도" : "자동 수집"}
+          </Button>
+        </div>
+
+        {latestCollection ? (
+          <div className="border-border bg-muted/30 mt-4 rounded-md border p-4 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-medium">
+                {latestCollection.status === "queued" ||
+                latestCollection.status === "running"
+                  ? "공고를 수집하고 있습니다."
+                  : latestCollection.status === "succeeded"
+                    ? "공고 원문 수집을 완료했습니다."
+                    : COLLECTION_ERROR_LABELS[
+                        latestCollection.errorCode ?? "INVALID_JOB_POSTING"
+                      ]}
+              </span>
+              <time className="text-muted-foreground text-xs">
+                {formatApplicationDate(latestCollection.updatedAt)}
+              </time>
+            </div>
+            {latestCollection.retryable ? (
+              <p className="text-muted-foreground mt-2 text-xs">
+                일시적인 오류일 수 있으므로 잠시 후 다시 시도할 수 있습니다.
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-muted-foreground mt-4 text-sm">
+            아직 수집한 원문이 없습니다.
+          </p>
+        )}
+
+        {latestSnapshot ? (
+          <div className="mt-5 grid gap-4">
+            {metadataDiffers ? (
+              <div className="border-primary/20 bg-primary/5 rounded-md border p-3 text-sm">
+                <p className="font-medium">
+                  입력 정보와 Wanted 추출 정보가 다릅니다.
+                </p>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  추출 회사명:{" "}
+                  {latestSnapshot.sourceMetadata.companyName ?? "확인 불가"} ·
+                  추출 공고명:{" "}
+                  {latestSnapshot.sourceMetadata.title ?? "확인 불가"}
+                </p>
+              </div>
+            ) : null}
+            <dl className="text-muted-foreground grid gap-2 text-xs sm:grid-cols-2">
+              <div>
+                <dt className="inline font-medium">출처 </dt>
+                <dd className="inline">
+                  {latestSnapshot.source === "manual"
+                    ? "직접 입력"
+                    : "Wanted JSON-LD"}
+                </dd>
+              </div>
+              <div>
+                <dt className="inline font-medium">파서 </dt>
+                <dd className="inline">{latestSnapshot.parserVersion}</dd>
+              </div>
+              <div>
+                <dt className="inline font-medium">수집 시각 </dt>
+                <dd className="inline">
+                  {formatApplicationDate(latestSnapshot.fetchedAt)}
+                </dd>
+              </div>
+              <div>
+                <dt className="inline font-medium">해시 </dt>
+                <dd className="inline font-mono">
+                  {latestSnapshot.contentHash.slice(0, 12)}…
+                </dd>
+              </div>
+            </dl>
+            <pre className="border-border bg-background max-h-96 overflow-auto whitespace-pre-wrap rounded-md border p-4 text-xs leading-6">
+              {latestSnapshot.normalizedContent}
+            </pre>
+          </div>
+        ) : null}
+
+        <form
+          className="border-border mt-5 grid gap-3 border-t pt-5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void collect(manualContent.trim());
+          }}
+        >
+          <label className="grid gap-2 text-sm font-medium">
+            원문 직접 입력
+            <textarea
+              className={`${fieldClassName} min-h-44 resize-y`}
+              maxLength={100_000}
+              minLength={100}
+              onChange={(event) => setManualContent(event.target.value)}
+              placeholder="자동 수집이 불가능하면 Wanted 공고 본문을 붙여 넣어 주세요."
+              value={manualContent}
+            />
+          </label>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-muted-foreground text-xs">
+              {manualContent.trim().length.toLocaleString()} / 100,000자 · 최소
+              100자
+            </span>
+            <Button
+              disabled={
+                disabled ||
+                Boolean(activeCollection) ||
+                manualContent.trim().length < 100
+              }
+              type="submit"
+            >
+              {pending === "manual-collect" ? (
+                <LoaderCircleIcon className="animate-spin" />
+              ) : null}
+              수동 원문 저장
+            </Button>
+          </div>
+        </form>
+
+        {collections.length > 1 ? (
+          <details className="mt-5 text-sm">
+            <summary className="cursor-pointer font-medium">
+              최근 수집 이력 {collections.length}건
+            </summary>
+            <ol className="mt-3 grid gap-2">
+              {collections.map((item) => (
+                <li
+                  className="border-border flex flex-wrap justify-between gap-2 border-b py-2 last:border-0"
+                  key={item.id}
+                >
+                  <span>
+                    {item.mode === "manual" ? "직접 입력" : "자동 수집"} ·{" "}
+                    {item.status}
+                  </span>
+                  <time className="text-muted-foreground">
+                    {formatApplicationDate(item.createdAt)}
+                  </time>
+                </li>
+              ))}
+            </ol>
+          </details>
+        ) : null}
+      </div>
 
       <form
         className="border-border bg-card grid gap-5 rounded-lg border p-5 sm:grid-cols-2"

@@ -5,8 +5,10 @@ import {
   CompleteDocumentUploadRequestSchema,
   CreateApplicationRequestSchema,
   CreateDocumentDownloadUrlRequestSchema,
+  CreateJobPostingCollectionRequestSchema,
   DocumentTypeSchema,
   IdempotencyKeySchema,
+  JobPostingCollectionCallbackSchema,
   PatchApplicationRequestSchema,
   PatchJobPostingRequestSchema,
   PrepareDocumentUploadRequestSchema,
@@ -40,6 +42,11 @@ import {
   createRequestFingerprint,
   type IdempotencyService,
 } from "./idempotency.js";
+import {
+  createJobPostingCollectionService,
+  type JobPostingCollectionService,
+  JobPostingCollectionServiceError,
+} from "./job-posting-collections.js";
 import { verifySignedRequest } from "./n8n.js";
 
 type WorkerAppEnv = {
@@ -47,8 +54,11 @@ type WorkerAppEnv = {
   Variables: {
     adminUserId: string;
     requestId: string;
+    signedEventId: string;
   };
 };
+
+const INTERNAL_CALLBACK_MAX_BYTES = 1_250_000;
 
 const SERVICE_NAME = "bluelog-career-ops-api" as const;
 
@@ -86,6 +96,9 @@ type AppDependencies = {
   applicationServiceFactory?: (env: CloudflareBindings) => ApplicationService;
   documentServiceFactory?: (env: CloudflareBindings) => DocumentService;
   idempotencyServiceFactory?: (env: CloudflareBindings) => IdempotencyService;
+  jobPostingCollectionServiceFactory?: (
+    env: CloudflareBindings,
+  ) => JobPostingCollectionService;
   jwtVerificationKey?: JwtVerificationKey;
 };
 
@@ -102,6 +115,7 @@ const PublicDocumentAccessQuerySchema = z.strictObject({
 async function parseJsonBody<T>(
   c: Context<WorkerAppEnv>,
   schema: z.ZodType<T>,
+  maxBytes = 600_000,
 ): Promise<T | Response> {
   const contentType = c.req.header("Content-Type")?.toLowerCase() ?? "";
   if (!contentType.startsWith("application/json")) {
@@ -114,7 +128,7 @@ async function parseJsonBody<T>(
   }
 
   const contentLength = Number(c.req.header("Content-Length") ?? "0");
-  if (Number.isFinite(contentLength) && contentLength > 600_000) {
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
     return errorResponse(
       c,
       400,
@@ -124,7 +138,7 @@ async function parseJsonBody<T>(
   }
 
   const rawBody = await c.req.text().catch(() => "");
-  if (new TextEncoder().encode(rawBody).byteLength > 600_000) {
+  if (new TextEncoder().encode(rawBody).byteLength > maxBytes) {
     return errorResponse(
       c,
       400,
@@ -268,10 +282,52 @@ function documentServiceErrorResponse(
   );
 }
 
+function collectionServiceErrorResponse(
+  c: Context<WorkerAppEnv>,
+  error: unknown,
+): Response {
+  if (!(error instanceof JobPostingCollectionServiceError)) throw error;
+  if (error.kind === "not_found") {
+    return errorResponse(
+      c,
+      404,
+      "NOT_FOUND",
+      "공고 수집 정보를 찾을 수 없습니다.",
+    );
+  }
+  if (error.kind === "validation") {
+    return errorResponse(
+      c,
+      400,
+      "VALIDATION_ERROR",
+      "공고 수집 결과가 올바르지 않습니다.",
+    );
+  }
+  if (error.kind === "conflict") {
+    return errorResponse(
+      c,
+      409,
+      "CONFLICT",
+      error.details?.reason === "collection_in_progress"
+        ? "이 공고를 이미 수집하고 있습니다."
+        : "이미 완료되었거나 현재 처리할 수 없는 수집 요청입니다.",
+      false,
+      error.details,
+    );
+  }
+  return errorResponse(
+    c,
+    503,
+    "UPSTREAM_UNAVAILABLE",
+    "공고 수집 저장소를 사용할 수 없습니다.",
+    true,
+  );
+}
+
 function jsonData<T>(
   c: Context<WorkerAppEnv>,
   data: T,
-  status: 200 | 201 = 200,
+  status: 200 | 201 | 202 = 200,
 ) {
   const requestId = getRequestId(c);
   const response = c.json({ data, meta: { requestId } }, status);
@@ -496,6 +552,9 @@ export function createApp(dependencies: AppDependencies = {}) {
   const getIdempotencyService = (env: CloudflareBindings) =>
     dependencies.idempotencyServiceFactory?.(env) ??
     createIdempotencyService(env);
+  const getJobPostingCollectionService = (env: CloudflareBindings) =>
+    dependencies.jobPostingCollectionServiceFactory?.(env) ??
+    createJobPostingCollectionService(env);
 
   app.use("*", async (c, next) => {
     const requestId = crypto.randomUUID();
@@ -588,7 +647,10 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
 
     const contentLength = Number(c.req.header("Content-Length") ?? "0");
-    if (Number.isFinite(contentLength) && contentLength > 600_000) {
+    if (
+      Number.isFinite(contentLength) &&
+      contentLength > INTERNAL_CALLBACK_MAX_BYTES
+    ) {
       return errorResponse(
         c,
         400,
@@ -603,7 +665,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     }).catch(() => null);
     if (
       !verified ||
-      verified.body.byteLength > 600_000 ||
+      verified.body.byteLength > INTERNAL_CALLBACK_MAX_BYTES ||
       !ResourceIdSchema.safeParse(verified.eventId).success ||
       !ResourceIdSchema.safeParse(verified.requestId).success
     ) {
@@ -616,6 +678,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
 
     c.set("requestId", verified.requestId);
+    c.set("signedEventId", verified.eventId);
     c.header("X-Request-Id", verified.requestId);
     await next();
   });
@@ -782,6 +845,115 @@ export function createApp(dependencies: AppDependencies = {}) {
       return jsonData(c, data);
     } catch (error) {
       return applicationServiceErrorResponse(c, error);
+    }
+  });
+
+  app.post("/v1/job-postings/:id/collections", requireAdmin, async (c) => {
+    const jobPostingId = parseResourceId(c, "채용공고");
+    if (jobPostingId instanceof Response) return jobPostingId;
+    const input = await parseJsonBody(
+      c,
+      CreateJobPostingCollectionRequestSchema,
+    );
+    if (input instanceof Response) return input;
+
+    return executeIdempotently(
+      c,
+      getIdempotencyService(c.env),
+      input,
+      async () => {
+        try {
+          const data = await getJobPostingCollectionService(c.env).create(
+            c.get("adminUserId"),
+            jobPostingId,
+            getRequestId(c),
+            input,
+          );
+          return jsonData(c, data, 202);
+        } catch (error) {
+          return collectionServiceErrorResponse(c, error);
+        }
+      },
+    );
+  });
+
+  app.get("/v1/job-postings/:id/collections", requireAdmin, async (c) => {
+    const jobPostingId = parseResourceId(c, "채용공고");
+    if (jobPostingId instanceof Response) return jobPostingId;
+    try {
+      const items = await getJobPostingCollectionService(c.env).list(
+        c.get("adminUserId"),
+        jobPostingId,
+      );
+      return jsonData(c, { items });
+    } catch (error) {
+      return collectionServiceErrorResponse(c, error);
+    }
+  });
+
+  app.get(
+    "/v1/job-postings/:id/collections/:collectionId",
+    requireAdmin,
+    async (c) => {
+      const jobPostingId = parseResourceId(c, "채용공고");
+      const collectionRunId = ResourceIdSchema.safeParse(
+        c.req.param("collectionId"),
+      );
+      if (jobPostingId instanceof Response) return jobPostingId;
+      if (!collectionRunId.success) {
+        return errorResponse(
+          c,
+          400,
+          "VALIDATION_ERROR",
+          "수집 실행 ID가 올바르지 않습니다.",
+        );
+      }
+      try {
+        const data = await getJobPostingCollectionService(c.env).get(
+          c.get("adminUserId"),
+          collectionRunId.data,
+        );
+        if (data.jobPostingId !== jobPostingId) {
+          return errorResponse(
+            c,
+            404,
+            "NOT_FOUND",
+            "공고 수집 정보를 찾을 수 없습니다.",
+          );
+        }
+        return jsonData(c, data);
+      } catch (error) {
+        return collectionServiceErrorResponse(c, error);
+      }
+    },
+  );
+
+  app.post("/v1/internal/job-posting-collections/:id/complete", async (c) => {
+    const collectionRunId = parseResourceId(c, "수집 실행");
+    if (collectionRunId instanceof Response) return collectionRunId;
+    const input = await parseJsonBody(
+      c,
+      JobPostingCollectionCallbackSchema,
+      INTERNAL_CALLBACK_MAX_BYTES,
+    );
+    if (input instanceof Response) return input;
+    if (
+      input.collectionRunId !== collectionRunId ||
+      input.eventId !== c.get("signedEventId") ||
+      input.requestId !== getRequestId(c)
+    ) {
+      return errorResponse(
+        c,
+        401,
+        "INVALID_SIGNATURE",
+        "내부 요청 식별자가 일치하지 않습니다.",
+      );
+    }
+    try {
+      const data = await getJobPostingCollectionService(c.env).complete(input);
+      return jsonData(c, data);
+    } catch (error) {
+      return collectionServiceErrorResponse(c, error);
     }
   });
 

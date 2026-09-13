@@ -363,17 +363,25 @@
 
 목표: Wanted URL에서 분석 가능한 본문을 얻되 수집 실패가 전체 기능을 막지 않게 한다.
 
-- [ ] `https://www.wanted.co.kr/wd/{숫자}` 형식만 허용하고 canonical URL 생성
-- [ ] redirect, timeout, 응답 크기, Content-Type 제한
-- [ ] localhost, 사설 IP, link-local 등 SSRF 대상 차단
-- [ ] 공식적으로 노출된 HTML/구조화 데이터에서 제목, 회사, 본문 추출
-- [ ] 공고 ID와 수집 시각, 원문 hash, parser version 저장
-- [ ] 본문 정규화 시 섹션과 원문 근거 위치 보존
-- [ ] 로그인, 차단, 만료, 구조 변경을 구분한 오류 코드 정의
-- [ ] 실패 시 사용자가 공고 본문을 직접 붙여 넣어 재개하는 UI 구현
-- [ ] 접근 제한 우회·CAPTCHA 해결·과도한 반복 요청은 구현하지 않음
+- [x] `https://www.wanted.co.kr/wd/{숫자}` 형식만 허용하고 canonical URL 생성
+- [x] redirect, timeout, 응답 크기, Content-Type 제한
+- [x] localhost, 사설 IP, link-local 등 SSRF 대상 차단
+- [x] 공식적으로 노출된 HTML/구조화 데이터에서 제목, 회사, 본문 추출
+- [x] 공고 ID와 수집 시각, 원문 hash, parser version 저장
+- [x] 본문 정규화 시 섹션과 원문 근거 위치 보존
+- [x] 로그인, 차단, 만료, 구조 변경을 구분한 오류 코드 정의
+- [x] 실패 시 사용자가 공고 본문을 직접 붙여 넣어 재개하는 UI 구현
+- [x] 접근 제한 우회·CAPTCHA 해결·과도한 반복 요청은 구현하지 않음
 
 종료 기준: 지원되는 Wanted 공고는 자동 수집되고, 실패한 공고도 수동 원문으로 동일 분석 흐름을 완료한다.
+
+- 공고 등록 직후 자동 수집을 접수하며 실패해도 지원 정보는 유지한다. 상세 화면에서 진행 상태를 polling하고 자동 재시도 또는 100~100,000자의 수동 원문 저장을 실행할 수 있다.
+- `job_posting_collection_runs`와 불변 `job_posting_snapshots`를 추가했다. 공고별 활성 실행은 하나로 제한하고 동일 SHA-256 콘텐츠는 기존 스냅샷을 재사용한다.
+- Worker는 모든 JSON-LD script의 객체·배열·`@graph`에서 `JobPosting`을 찾고 URL·제목·회사·본문을 검증한다. 입력한 회사명·공고명은 덮어쓰지 않고 추출값과 차이만 관리자 화면에 표시한다.
+- n8n은 양방향 HMAC 검증, 즉시 202 응답, 리다이렉트 금지, 10초 timeout, 600KB 제한과 SSRF 보호를 적용한다. 비공개 API, 브라우저 위장, CAPTCHA 우회와 자동 반복 재시도는 사용하지 않는다.
+- 원격 migration과 schema lint, 생성 DB 타입, rollback 통합 SQL을 검증했다. 로컬 Supabase는 다른 프로젝트가 54322 포트를 사용해 시작하지 못했지만 동일 DB 규칙은 원격 rollback 테스트로 검증했다.
+- n8n의 잘못된 서명 401, 올바른 서명 202, 실제 Wanted 200 HTML 수집과 Worker callback HMAC 통과를 확인했다. 테스트 callback은 의도적으로 존재하지 않는 실행 ID를 사용해 저장 직전 404에서 종료했다.
+- 실제 관리자 로그인으로 공고 등록부터 수동 fallback까지 확인하는 브라우저 수동 검증은 환경이 가능할 때 수행한다. 신규 비밀 환경변수는 없다.
 
 ### 11단계 — OpenAI 구조화 분석 Workflow
 
@@ -490,24 +498,25 @@
 
 3단계에서는 아래 표의 `document_versions`와 `document_publications`만 생성한다. 나머지 엔터티는 각 기능 단계에서 후속 migration으로 추가한다.
 
-| 테이블                       | 핵심 필드                                                                                                                                                                   | 비고                           |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `companies`                  | `name`, `website_url`, `notes`                                                                                                                                              | 같은 회사의 여러 공고 연결     |
-| `job_postings`               | `company_id`, `source`, `external_id`, `canonical_url`, `title`, `status`, `slack_channel_id`, `slack_thread_ts`                                                            | `(source, external_id)` unique |
-| `job_posting_snapshots`      | `job_posting_id`, `raw_content`, `normalized_content`, `content_hash`, `parser_version`, `fetched_at`                                                                       | 공고 변경과 분석 재현성        |
-| `applications`               | `job_posting_id`, `status`, `applied_at`, `interview_at`, `archived_at`                                                                                                     | 현재 지원 상태                 |
-| `application_status_history` | `application_id`, `from_status`, `to_status`, `changed_at`, `note`                                                                                                          | 상태 변경 감사 이력            |
-| `document_versions`          | `document_type`, `label`, `storage_path`, `original_filename`, `mime_type`, `file_size`, `content_hash`, `extracted_text`, `extraction_status`, `is_default`, `archived_at` | 이력서·포트폴리오 버전 통합    |
-| `document_publications`      | `document_type`, `document_version_id`, `published_at`                                                                                                                      | 유형별 현재 공개 버전 1개      |
-| `application_documents`      | `application_id`, `resume_version_id`, `portfolio_version_id`, `selected_at`                                                                                                | 공고별 제출 자료 고정          |
-| `api_idempotency_records`    | `owner_id`, `idempotency_key`, `request_fingerprint`, `execution_id`, `status`, `response_status`, `response_body`, `expires_at`                                            | 외부 변경 요청 중복 실행 방지  |
-| `analysis_jobs`              | `job_posting_id`, `resume_version_id`, `portfolio_version_id`, `status`, `stage`, `request_id`, `idempotency_key`, `attempt_count`, `last_error_code`                       | 비동기 작업 기준 상태          |
-| `analysis_job_events`        | `analysis_job_id`, `event_id`, `event_type`, `payload`, `occurred_at`                                                                                                       | callback 멱등성·타임라인       |
-| `analysis_results`           | `analysis_job_id`, `schema_version`, `prompt_version`, `model`, `result jsonb`, `usage jsonb`                                                                               | 원본 구조화 결과 보존          |
-| `interview_questions`        | `analysis_result_id`, `category`, `question`, `intent`, `evidence`, `priority`                                                                                              | 생성 질문                      |
-| `interview_answers`          | `question_id`, `answer`, `revision`, `is_current`                                                                                                                           | 답변 수정 이력                 |
-| `interview_notes`            | `application_id`, `interviewed_at`, `round`, `content`, `lessons`                                                                                                           | 면접 회고                      |
-| `audit_events`               | `actor_id`, `action`, `entity_type`, `entity_id`, `request_id`, `metadata`                                                                                                  | 민감값 제외 운영 추적          |
+| 테이블                        | 핵심 필드                                                                                                                                                                   | 비고                           |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `companies`                   | `name`, `website_url`, `notes`                                                                                                                                              | 같은 회사의 여러 공고 연결     |
+| `job_postings`                | `company_id`, `source`, `external_id`, `canonical_url`, `title`, `status`, `slack_channel_id`, `slack_thread_ts`                                                            | `(source, external_id)` unique |
+| `job_posting_snapshots`       | `job_posting_id`, `raw_content`, `normalized_content`, `content_hash`, `parser_version`, `fetched_at`                                                                       | 공고 변경과 분석 재현성        |
+| `job_posting_collection_runs` | `job_posting_id`, `mode`, `status`, `request_id`, `error_code`, `snapshot_id`, `started_at`, `finished_at`                                                                  | 수집 실행 상태와 오류 추적     |
+| `applications`                | `job_posting_id`, `status`, `applied_at`, `interview_at`, `archived_at`                                                                                                     | 현재 지원 상태                 |
+| `application_status_history`  | `application_id`, `from_status`, `to_status`, `changed_at`, `note`                                                                                                          | 상태 변경 감사 이력            |
+| `document_versions`           | `document_type`, `label`, `storage_path`, `original_filename`, `mime_type`, `file_size`, `content_hash`, `extracted_text`, `extraction_status`, `is_default`, `archived_at` | 이력서·포트폴리오 버전 통합    |
+| `document_publications`       | `document_type`, `document_version_id`, `published_at`                                                                                                                      | 유형별 현재 공개 버전 1개      |
+| `application_documents`       | `application_id`, `resume_version_id`, `portfolio_version_id`, `selected_at`                                                                                                | 공고별 제출 자료 고정          |
+| `api_idempotency_records`     | `owner_id`, `idempotency_key`, `request_fingerprint`, `execution_id`, `status`, `response_status`, `response_body`, `expires_at`                                            | 외부 변경 요청 중복 실행 방지  |
+| `analysis_jobs`               | `job_posting_id`, `resume_version_id`, `portfolio_version_id`, `status`, `stage`, `request_id`, `idempotency_key`, `attempt_count`, `last_error_code`                       | 비동기 작업 기준 상태          |
+| `analysis_job_events`         | `analysis_job_id`, `event_id`, `event_type`, `payload`, `occurred_at`                                                                                                       | callback 멱등성·타임라인       |
+| `analysis_results`            | `analysis_job_id`, `schema_version`, `prompt_version`, `model`, `result jsonb`, `usage jsonb`                                                                               | 원본 구조화 결과 보존          |
+| `interview_questions`         | `analysis_result_id`, `category`, `question`, `intent`, `evidence`, `priority`                                                                                              | 생성 질문                      |
+| `interview_answers`           | `question_id`, `answer`, `revision`, `is_current`                                                                                                                           | 답변 수정 이력                 |
+| `interview_notes`             | `application_id`, `interviewed_at`, `round`, `content`, `lessons`                                                                                                           | 면접 회고                      |
+| `audit_events`                | `actor_id`, `action`, `entity_type`, `entity_id`, `request_id`, `metadata`                                                                                                  | 민감값 제외 운영 추적          |
 
 ### 상태 enum
 
@@ -544,25 +553,30 @@
 
 ### 공개 관리자 API
 
-| Method  | Path                                 | 역할                           |
-| ------- | ------------------------------------ | ------------------------------ |
-| `POST`  | `/v1/document-versions/uploads`      | 문서 버전과 signed upload 준비 |
-| `POST`  | `/v1/document-versions/:id/complete` | 업로드 검증 및 버전 확정       |
-| `GET`   | `/v1/document-versions`              | 문서 유형별 버전 목록 조회     |
-| `PATCH` | `/v1/document-versions/:id`          | 이름·기본값·archive 상태 변경  |
-| `PUT`   | `/v1/document-publications/:type`    | 유형별 현재 공개 버전 지정     |
-| `POST`  | `/v1/job-postings`                   | Wanted URL 또는 수동 원문 등록 |
-| `GET`   | `/v1/job-postings`                   | 공고 목록 조회                 |
-| `GET`   | `/v1/job-postings/:id`               | 공고 상세 조회                 |
-| `POST`  | `/v1/analysis-jobs`                  | 비동기 분석 작업 생성          |
-| `GET`   | `/v1/analysis-jobs/:id`              | 작업 상태와 결과 조회          |
-| `POST`  | `/v1/analysis-jobs/:id/retry`        | 실패 작업 수동 재시도          |
-| `POST`  | `/v1/analysis-jobs/:id/cancel`       | 가능한 단계에서 작업 취소      |
-| `PATCH` | `/v1/applications/:id`               | 지원 상태·일정 수정            |
+| Method  | Path                                             | 역할                           |
+| ------- | ------------------------------------------------ | ------------------------------ |
+| `POST`  | `/v1/document-versions/uploads`                  | 문서 버전과 signed upload 준비 |
+| `POST`  | `/v1/document-versions/:id/complete`             | 업로드 검증 및 버전 확정       |
+| `GET`   | `/v1/document-versions`                          | 문서 유형별 버전 목록 조회     |
+| `PATCH` | `/v1/document-versions/:id`                      | 이름·기본값·archive 상태 변경  |
+| `PUT`   | `/v1/document-publications/:type`                | 유형별 현재 공개 버전 지정     |
+| `POST`  | `/v1/job-postings`                               | Wanted URL 또는 수동 원문 등록 |
+| `GET`   | `/v1/job-postings`                               | 공고 목록 조회                 |
+| `GET`   | `/v1/job-postings/:id`                           | 공고 상세 조회                 |
+| `POST`  | `/v1/job-postings/:id/collections`               | 자동 또는 수동 원문 수집 접수  |
+| `GET`   | `/v1/job-postings/:id/collections`               | 최근 수집 실행·스냅샷 조회     |
+| `GET`   | `/v1/job-postings/:id/collections/:collectionId` | 수집 실행 상태 조회            |
+| `POST`  | `/v1/analysis-jobs`                              | 비동기 분석 작업 생성          |
+| `GET`   | `/v1/analysis-jobs/:id`                          | 작업 상태와 결과 조회          |
+| `POST`  | `/v1/analysis-jobs/:id/retry`                    | 실패 작업 수동 재시도          |
+| `POST`  | `/v1/analysis-jobs/:id/cancel`                   | 가능한 단계에서 작업 취소      |
+| `PATCH` | `/v1/applications/:id`                           | 지원 상태·일정 수정            |
 
 작업 생성 요청에는 `Authorization: Bearer <Supabase access token>`과 `Idempotency-Key`가 필요하다. 응답은 `202 Accepted`와 `jobId`, `requestId`, `statusUrl`을 반환한다.
 
 ### 내부 n8n 콜백 API
+
+- `POST /v1/internal/job-posting-collections/:id/complete`: n8n 수집 결과를 양방향 HMAC으로 검증하고 실행 완료와 스냅샷 저장을 원자적으로 처리한다.
 
 | Method | Path                            | 역할                              |
 | ------ | ------------------------------- | --------------------------------- |
@@ -806,4 +820,4 @@ Vercel은 기존 Git Integration 배포를 유지하므로 별도 CLI token, org
 
 ## 14. 다음 작업
 
-다음 작업은 **10단계 — Wanted 공고 수집과 수동 fallback**이다. Wanted URL 정규화와 SSRF 방어, 제한된 HTML 수집·본문 추출, 수집 결과의 provenance 저장, 실패 유형 분류를 구현한다. 자동 수집이 차단되거나 공고가 만료된 경우에도 관리자가 원문을 직접 입력해 이후 분석을 계속할 수 있게 한다.
+다음 작업은 **11단계 — OpenAI 구조화 분석 Workflow**다. 저장된 공고 스냅샷과 선택한 이력서·포트폴리오 버전을 입력으로 사용해 공고 사실 추출과 개인 적합도 분석을 분리하고, 근거·불확실성·모델 및 프롬프트 버전을 포함한 구조화 결과를 생성한다.

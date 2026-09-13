@@ -32,9 +32,201 @@ export const WantedJobPostingUrlSchema = UrlSchema.refine((value) => {
   return (
     url.protocol === "https:" &&
     url.hostname === "www.wanted.co.kr" &&
+    url.port === "" &&
+    url.username === "" &&
+    url.password === "" &&
+    url.search === "" &&
+    url.hash === "" &&
     /^\/wd\/\d+$/.test(url.pathname)
   );
 }, "A valid HTTPS Wanted job URL is required");
+
+export const JOB_POSTING_MANUAL_CONTENT_MIN_LENGTH = 100;
+export const JOB_POSTING_MANUAL_CONTENT_MAX_LENGTH = 100_000;
+export const JOB_POSTING_FETCH_MAX_BYTES = 600_000;
+
+export const JobPostingCollectionModeSchema = z.enum(["automatic", "manual"]);
+export type JobPostingCollectionMode = z.infer<
+  typeof JobPostingCollectionModeSchema
+>;
+
+export const JobPostingCollectionStatusSchema = z.enum([
+  "queued",
+  "running",
+  "succeeded",
+  "needs_input",
+  "failed",
+]);
+export type JobPostingCollectionStatus = z.infer<
+  typeof JobPostingCollectionStatusSchema
+>;
+
+export const JobPostingCollectionErrorCodeSchema = z.enum([
+  "ACCESS_BLOCKED",
+  "JOB_EXPIRED",
+  "REDIRECT_NOT_ALLOWED",
+  "INVALID_CONTENT_TYPE",
+  "CONTENT_TOO_LARGE",
+  "INVALID_JOB_POSTING",
+  "PARSER_STRUCTURE_CHANGED",
+  "URL_MISMATCH",
+  "TIMEOUT",
+  "NETWORK_ERROR",
+  "RATE_LIMITED",
+  "UPSTREAM_ERROR",
+  "DISPATCH_FAILED",
+]);
+export type JobPostingCollectionErrorCode = z.infer<
+  typeof JobPostingCollectionErrorCodeSchema
+>;
+
+export const JobPostingSnapshotSourceSchema = z.enum([
+  "wanted_json_ld",
+  "manual",
+]);
+export type JobPostingSnapshotSource = z.infer<
+  typeof JobPostingSnapshotSourceSchema
+>;
+
+const JobPostingManualContentSchema = z
+  .string()
+  .trim()
+  .min(JOB_POSTING_MANUAL_CONTENT_MIN_LENGTH)
+  .max(JOB_POSTING_MANUAL_CONTENT_MAX_LENGTH);
+
+export const CreateJobPostingCollectionRequestSchema = z.strictObject({
+  manualContent: JobPostingManualContentSchema.nullable(),
+});
+export type CreateJobPostingCollectionRequest = z.infer<
+  typeof CreateJobPostingCollectionRequestSchema
+>;
+
+export const JobPostingSourceMetadataSchema = z.strictObject({
+  title: z.string().max(500).nullable(),
+  companyName: z.string().max(500).nullable(),
+  datePosted: z.string().max(100).nullable(),
+  validThrough: z.string().max(100).nullable(),
+  employmentType: z.string().max(300).nullable(),
+  location: z.string().max(1_000).nullable(),
+  industry: z.string().max(500).nullable(),
+  occupationalCategory: z.string().max(500).nullable(),
+});
+export type JobPostingSourceMetadata = z.infer<
+  typeof JobPostingSourceMetadataSchema
+>;
+
+export const JobPostingSnapshotSchema = z.strictObject({
+  id: UuidSchema,
+  jobPostingId: UuidSchema,
+  source: JobPostingSnapshotSourceSchema,
+  rawContent: z.string().min(1).max(JOB_POSTING_MANUAL_CONTENT_MAX_LENGTH),
+  normalizedContent: z
+    .string()
+    .min(1)
+    .max(JOB_POSTING_MANUAL_CONTENT_MAX_LENGTH + 2_000),
+  contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+  parserVersion: z.string().min(1).max(100),
+  sourceMetadata: JobPostingSourceMetadataSchema,
+  fetchedAt: Rfc3339TimestampSchema,
+  createdAt: Rfc3339TimestampSchema,
+});
+export type JobPostingSnapshot = z.infer<typeof JobPostingSnapshotSchema>;
+
+export const JobPostingCollectionRunSchema = z.strictObject({
+  id: UuidSchema,
+  jobPostingId: UuidSchema,
+  mode: JobPostingCollectionModeSchema,
+  status: JobPostingCollectionStatusSchema,
+  requestId: UuidSchema,
+  errorCode: JobPostingCollectionErrorCodeSchema.nullable(),
+  retryable: z.boolean(),
+  httpStatus: z.int().min(100).max(599).nullable(),
+  snapshot: JobPostingSnapshotSchema.nullable(),
+  createdAt: Rfc3339TimestampSchema,
+  startedAt: Rfc3339TimestampSchema.nullable(),
+  finishedAt: Rfc3339TimestampSchema.nullable(),
+  updatedAt: Rfc3339TimestampSchema,
+});
+export type JobPostingCollectionRun = z.infer<
+  typeof JobPostingCollectionRunSchema
+>;
+
+export const JobPostingCollectionResponseSchema = z.strictObject({
+  data: JobPostingCollectionRunSchema,
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type JobPostingCollectionResponse = z.infer<
+  typeof JobPostingCollectionResponseSchema
+>;
+
+export const JobPostingCollectionListResponseSchema = z.strictObject({
+  data: z.strictObject({
+    items: z.array(JobPostingCollectionRunSchema).max(20),
+  }),
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type JobPostingCollectionListResponse = z.infer<
+  typeof JobPostingCollectionListResponseSchema
+>;
+
+export const N8nJobPostingCollectionDispatchPayloadSchema = z.strictObject({
+  kind: z.literal("job_posting_collection"),
+  schemaVersion: z.literal(CONTRACT_VERSION),
+  eventId: UuidSchema,
+  requestId: UuidSchema,
+  collectionRunId: UuidSchema,
+  jobPosting: z.strictObject({
+    id: UuidSchema,
+    source: z.literal("wanted"),
+    url: WantedJobPostingUrlSchema,
+    manualContent: JobPostingManualContentSchema.nullable(),
+  }),
+  callbackPath: z
+    .string()
+    .regex(/^\/v1\/internal\/job-posting-collections\/[0-9a-f-]+\/complete$/),
+});
+export type N8nJobPostingCollectionDispatchPayload = z.infer<
+  typeof N8nJobPostingCollectionDispatchPayloadSchema
+>;
+
+export const JobPostingCollectionCallbackOutcomeSchema = z.enum([
+  "response",
+  "manual",
+  "network_error",
+  "timeout",
+]);
+
+export const JobPostingCollectionCallbackSchema = z
+  .strictObject({
+    schemaVersion: z.literal(CONTRACT_VERSION),
+    eventId: UuidSchema,
+    requestId: UuidSchema,
+    collectionRunId: UuidSchema,
+    outcome: JobPostingCollectionCallbackOutcomeSchema,
+    occurredAt: Rfc3339TimestampSchema,
+    response: z
+      .strictObject({
+        status: z.int().min(100).max(599),
+        contentType: z.string().max(500).nullable(),
+        contentLength: z.int().nonnegative().nullable(),
+        body: z.string().max(1_000_000),
+      })
+      .nullable(),
+  })
+  .superRefine((value, context) => {
+    const responseRequired =
+      value.outcome === "response" || value.outcome === "manual";
+    if (responseRequired !== (value.response !== null)) {
+      context.addIssue({
+        code: "custom",
+        message: "The callback response must match its outcome",
+        path: ["response"],
+      });
+    }
+  });
+export type JobPostingCollectionCallback = z.infer<
+  typeof JobPostingCollectionCallbackSchema
+>;
 
 export const ApplicationStatusSchema = z.enum([
   "interested",

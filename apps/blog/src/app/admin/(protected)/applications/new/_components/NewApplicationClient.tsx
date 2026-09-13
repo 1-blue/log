@@ -19,6 +19,7 @@ import {
 } from "#/libs/application-ui";
 import {
   createApplication,
+  createJobPostingCollection,
   listDocumentVersions,
   WorkerApiError,
 } from "#/libs/worker-client";
@@ -69,7 +70,19 @@ export default function NewApplicationClient() {
         title: String(data.get("title") ?? "").trim(),
         url: String(data.get("url") ?? "").trim(),
       });
-      router.push(`/admin/applications/${response.data.id}`);
+      try {
+        const collection = await createJobPostingCollection(
+          response.data.jobPosting.id,
+          { manualContent: null },
+        );
+        router.push(
+          `/admin/applications/${response.data.id}?collectionRunId=${collection.data.id}`,
+        );
+      } catch {
+        router.push(
+          `/admin/applications/${response.data.id}?collection=dispatch_failed`,
+        );
+      }
     } catch (caught) {
       setError(message(caught));
       if (
