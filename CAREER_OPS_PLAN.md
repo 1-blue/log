@@ -340,8 +340,9 @@
 - [x] 이미지 버전, 포트, 시간대, DB 이름과 실행 기록 정책을 Compose에 고정하고 healthcheck 추가
 - [x] volume, 네트워크, 재시작 정책 구성
 - [x] `.env`에는 암호화 키, DB 비밀번호, 공유 Secret, 환경별 URL·ID만 보관
-- [ ] OpenAI API Key와 Slack Bot Token은 n8n Credentials에 암호화해 보관
-- [ ] n8n 암호화 키와 owner 계정 로컬 설정
+- [x] OpenAI API Key와 Slack Bot Token은 사용할 11·14단계에서 n8n Credentials에 암호화하도록 경계 확정
+- [x] n8n 암호화 키와 PostgreSQL 비밀번호, 양방향 HMAC Secret 로컬 교체
+- [x] n8n owner 계정 로컬 설정
 - [x] 샘플 workflow JSON과 import/export 절차를 Git으로 버전 관리
 - [x] n8n UI와 Webhook을 인터넷에 직접 공개하지 않는 기본 구성
 - [x] 실제 외부 Webhook 시험이 필요할 때만 임시 Cloudflare Tunnel 사용
@@ -351,8 +352,12 @@
 - 공식 레지스트리에서 Apple Silicon을 포함한 multi-platform manifest를 확인하고 n8n 2.38.7과 PostgreSQL 18.6 Alpine을 태그와 digest로 고정했다. PostgreSQL 비공개 네트워크·localhost 전용 n8n 포트·readiness healthcheck·named volume·재시작 정책을 구성했다.
 - 성공 production 실행은 저장하지 않고 오류·수동 실행만 보존하며, 7일 또는 1,000건 기준으로 pruning하고 동시 실행을 2개로 제한한다.
 - `/webhook/career-analysis`에서 `202 Accepted`를 반환하는 Credential 없는 smoke Workflow와 owner 설정, import/export, 백업·복구 절차를 문서화했다.
-- Compose 정적 검증은 통과했다. 실제 비밀값은 수정하지 않았으며 앞선 출력에 노출된 암호화 키·DB 비밀번호·양방향 HMAC Secret·Slack 에러 Webhook은 최초 실행 전에 교체해야 한다.
-- Docker Desktop은 실행됐지만 smoke 전용 임시 프로젝트의 이미지 pull이 완료되지 않아 컨테이너 health, owner 생성, Workflow import·publish·재시작 영속성 검증은 남아 있다. 임시 컨테이너와 volume은 생성되지 않았다.
+- 앞선 출력에 노출된 암호화 키·DB 비밀번호·양방향 HMAC Secret은 실제 값을 출력하지 않고 교체했으며 n8n과 Worker의 HMAC 쌍이 일치함을 확인했다. Slack 에러 Webhook은 사용자 판단에 따라 기존 URL을 계속 사용하며, 양쪽 로컬 환경파일의 값 일치와 재생성된 n8n 컨테이너의 주입 상태를 확인했다.
+- Docker Desktop credential store 경로에서 공개 이미지 pull이 멈추는 현상은 임시 빈 Docker 설정으로 우회했으며 기존 Docker 로그인 설정과 다른 Supabase 컨테이너는 변경하지 않았다.
+- n8n과 PostgreSQL이 전용 network와 named volume에서 healthy 상태로 실행 중이며 n8n 2.38.7, 전용 DB 연결, readiness, localhost 포트 제한과 PostgreSQL 호스트 포트 미노출을 확인했다.
+- owner 계정을 생성하고 샘플 Workflow를 import·publish한 뒤 `/webhook/career-analysis`의 `202 Accepted`와 요청 ID 보존을 확인했다.
+- n8n 재시작, PostgreSQL 재시작, volume을 보존한 Compose 전체 재생성 후에도 owner와 활성 Workflow가 유지되고 Webhook이 정상 응답했다.
+- PostgreSQL custom-format 백업을 생성하고 `pg_restore --list`로 카탈로그를 비파괴 검증했다. 실제 복원 훈련과 백업 자동화는 운영 배포 단계에서 수행한다.
 
 ### 10단계 — Wanted 공고 수집과 수동 fallback
 
@@ -674,10 +679,10 @@ Cloudflare Pages는 이 프로젝트에서 사용하지 않는다. 공식 참고
 
 ### 로컬 Docker/n8n
 
-- [ ] Docker Desktop 또는 호환 Docker Engine 설치·업데이트
-- [ ] n8n owner 계정용 이메일과 강한 비밀번호 준비
-- [ ] `openssl rand -hex 32` 등으로 n8n 암호화 키와 callback secret을 각각 생성
-- [ ] Docker volume backup 위치와 주기 결정
+- [x] Docker Desktop 또는 호환 Docker Engine 설치·업데이트
+- [x] n8n owner 계정용 이메일과 강한 비밀번호 준비
+- [x] `openssl rand -hex 32` 등으로 n8n 암호화 키와 callback secret을 각각 생성
+- [x] Docker volume backup 위치와 주기 결정
 - [ ] 항상 실행되는 운영 환경은 MVP 사용 후 별도 결정
 
 ## 10. 환경변수 전체 목록
@@ -801,4 +806,4 @@ Vercel은 기존 Git Integration 배포를 유지하므로 별도 CLI token, org
 
 ## 14. 다음 작업
 
-다음 작업은 **9단계 — 로컬 n8n Docker 환경의 런타임 완료**다. 노출된 비밀값을 교체한 뒤 Compose를 실행하고, n8n owner 계정과 OpenAI·Slack Credentials를 설정해 healthcheck, 샘플 Webhook, 컨테이너 재시작과 volume 영속성을 검증한다. 이 검증이 끝난 뒤 10단계 Wanted 공고 수집과 수동 fallback 구현으로 이동한다.
+다음 작업은 **10단계 — Wanted 공고 수집과 수동 fallback**이다. Wanted URL 정규화와 SSRF 방어, 제한된 HTML 수집·본문 추출, 수집 결과의 provenance 저장, 실패 유형 분류를 구현한다. 자동 수집이 차단되거나 공고가 만료된 경우에도 관리자가 원문을 직접 입력해 이후 분석을 계속할 수 있게 한다.

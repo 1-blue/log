@@ -35,7 +35,7 @@ docker compose logs --tail=100 n8n
 docker compose logs --tail=100 postgres
 ```
 
-브라우저에서 `http://localhost:5678`을 열어 owner 계정을 한 번 생성한다. 이후 OpenAI API Key는 OpenAI Credential, Slack Bot Token은 Slack API Credential로 등록하며 `.env`나 Workflow JSON에 넣지 않는다.
+브라우저에서 `http://localhost:5678`을 열어 owner 계정을 한 번 생성한다. OpenAI API Key는 11단계에서 OpenAI Credential로, Slack Bot Token은 14단계에서 Slack API Credential로 등록하며 `.env`나 Workflow JSON에 넣지 않는다.
 
 ## 샘플 Webhook
 
@@ -96,7 +96,10 @@ docker compose up -d
 mkdir -p backups
 n8n_backup_file="backups/n8n-$(date +%Y%m%d-%H%M%S).dump"
 docker compose exec -T postgres pg_dump -U n8n -d n8n -Fc > "$n8n_backup_file"
+docker compose exec -T postgres pg_restore --list < "$n8n_backup_file" >/dev/null
 ```
+
+마지막 명령은 기존 DB를 변경하지 않고 백업 카탈로그를 읽어 파일 형식을 검증한다.
 
 복구는 기존 DB 내용을 덮어쓸 수 있으므로 n8n을 중지하고 대상 파일을 확인한 뒤 실행한다.
 
