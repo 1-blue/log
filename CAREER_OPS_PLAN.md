@@ -2,7 +2,7 @@
 
 > 기준일: 2026-09-13
 > 작업 브랜치: `codex/career-ops-foundation`  
-> 현재 범위: 11단계 코드·DB 구현 완료, OpenAI Credential 연결 및 실제 분석 확인 대기
+> 현재 범위: 11단계 코드·DB 구현 완료, 12~15단계 외부 연동 없는 개발 우선 진행
 
 ## 1. 프로젝트 정의
 
@@ -128,6 +128,14 @@
 
 각 단계는 바로 다음 단계가 의존하는 최소 결과를 만든다. 체크박스는 구현과 검증을 모두 마친 후에만 완료 처리한다.
 
+진행 순서는 다음 원칙으로 고정한다.
+
+1. 12~15단계에서 실제 외부 API 호출·운영 배포 없이 코드, 계약, migration, fixture, mock, 로컬 UI를 완성한다.
+2. 개발 중 타입 검사·단위 테스트·fixture 테스트는 계속 실행하되 실제 Credential과 운영 서비스가 필요한 검증은 보류한다.
+3. 16단계에서 OpenAI, Slack, Vercel, Cloudflare, Supabase, 운영 n8n을 한 번에 연결한다.
+4. 17단계에서 실제 외부 서비스가 포함된 통합·장애·보안 테스트를 수행한다.
+5. 이후 실사용 보완, 블로그 글 작성, 이력서·포트폴리오 반영을 순서대로 진행한다.
+
 ### 1단계 — 기존 블로그와 배포 기준선 점검 `완료`
 
 목표: 기능 추가 전 현재 구조, 빌드 상태, 배포 전제, 민감 파일 위험을 기록한다.
@@ -226,7 +234,7 @@
 - contracts 7개, Next.js 인증 16개, Worker 17개 테스트와 전체 타입 검사·lint·production build가 통과했다.
 - 로컬 HTTP에서 `/health` 200, 미인증 `/v1/auth/me` 401, 보호 API preflight 204, 미인증 `/admin` 로그인 redirect와 보안 헤더를 확인했다.
 - 실제 브라우저에서 로그인 폼의 접근성 구조와 다크모드 렌더링을 확인하고 기존 `next-themes` hydration 경고를 제거했다.
-- Turnstile·MFA는 15단계로 미루고 비밀번호 복구는 Supabase Dashboard에서만 수행한다.
+- Turnstile·MFA는 현재 1인용 MVP의 필수 조건이 아니다. 운영 연동 후 위험을 다시 평가해 필요할 때만 적용하고, 비밀번호 복구는 Supabase Dashboard에서만 수행한다.
 
 ### 5단계 — 이력서·포트폴리오 업로드 및 버전 관리
 
@@ -340,7 +348,7 @@
 - [x] 이미지 버전, 포트, 시간대, DB 이름과 실행 기록 정책을 Compose에 고정하고 healthcheck 추가
 - [x] volume, 네트워크, 재시작 정책 구성
 - [x] `.env`에는 암호화 키, DB 비밀번호, 공유 Secret, 환경별 URL·ID만 보관
-- [x] OpenAI API Key와 Slack Bot Token은 사용할 11·14단계에서 n8n Credentials에 암호화하도록 경계 확정
+- [x] OpenAI API Key와 Slack Bot Token은 16단계 외부 연동 시 n8n Credentials에 암호화하도록 경계 확정
 - [x] n8n 암호화 키와 PostgreSQL 비밀번호, 양방향 HMAC Secret 로컬 교체
 - [x] n8n owner 계정 로컬 설정
 - [x] 샘플 workflow JSON과 import/export 절차를 Git으로 버전 관리
@@ -407,7 +415,7 @@
 - `analysis_jobs`, 불변 `analysis_results`, `analysis_step_executions`, 원자적 완료·상태 이벤트 RPC와 소유자 RLS를 원격 Supabase에 적용했다. 원격 rollback 통합 테스트와 schema lint를 통과했다.
 - 관리자 상세 화면에서 분석 준비 조건, 수동 시작, 2초 polling, 최소 점수·요약·건수·구조화 JSON·최근 이력을 확인할 수 있다. 상세 결과 UX는 13단계에서 구현한다.
 - n8n 소스 Workflow는 기존 수집 분기를 유지하며 두 OpenAI V2.2 노드, `store: false`, 고정 model snapshot, prompt version과 HMAC callback을 포함한다. 현재 실행 중인 Workflow는 OpenAI Credential이 없어 교체·게시하지 않았다.
-- OpenAI Credential 연결과 실제 API 호출은 외부 연동 일괄 작업까지 보류한다. 그전에는 fixture와 임시 키로 계약·상태 전이·재시도 동작을 자동 검증하며 12단계 이후 구현을 계속할 수 있다.
+- OpenAI Credential 연결과 실제 API 호출은 외부 연동 일괄 작업까지 보류한다. 그전에는 fixture와 mock으로 계약·상태 전이·재시도 동작을 자동 검증하며 12단계 이후 구현을 계속할 수 있다.
 - 외부 연동 시 n8n에 `OpenAI Career Analysis` Credential 생성, 두 OpenAI 노드 연결, 소스 Workflow import·게시, 실제 공고 1건 분석과 비용·오류 확인을 순서대로 수행한다.
 
 ### 12단계 — 비동기 상태·콜백·재시도
@@ -440,20 +448,20 @@
 
 종료 기준: 분석 결과 확인부터 답변 작성과 면접 회고까지 관리자 화면에서 이어진다.
 
-### 14단계 — Slack 단계 알림
+### 14단계 — Slack 알림 기능 개발
 
-목표: 화면을 계속 보고 있지 않아도 의미 있는 상태 변화를 알 수 있게 한다.
+목표: 실제 Slack을 호출하지 않고도 알림 생성·라우팅·중복 방지 로직을 완성한다.
 
-- [ ] 공고 알림용 `#채용공고`와 장애 알림용 `#시스템-에러` 채널 생성
-- [ ] 공고 채널은 Bot API로 공고마다 루트 메시지를 한 번만 생성
+- [ ] Slack 발송 adapter와 mock transport를 분리
+- [ ] 공고마다 루트 메시지를 한 번만 생성하는 상태 모델 구현
 - [ ] 공고 등록, 분석 완료, 지원 상태, 면접 관련 알림은 해당 공고의 스레드에 기록
 - [ ] Bot API 응답의 channel ID와 message `ts`를 공고 데이터에 저장해 스레드 재사용
-- [ ] 시스템 에러 채널은 권한이 제한된 Incoming Webhook으로 Worker와 n8n이 함께 사용
 - [ ] 알림 본문에 환경, 회사/공고, 작업 ID, 상태, 경과 시간, 관리자 링크 포함
 - [ ] 성공 메시지는 요약과 핵심 부족 역량만 포함하고 전체 개인정보는 제외
 - [ ] 실패 메시지는 오류 코드, 실패 단계, 재시도 여부 포함
 - [ ] Slack 실패가 본 작업을 실패시키지 않도록 분리
 - [ ] 같은 event ID의 중복 알림 방지
+- [ ] Bot API와 Incoming Webhook의 성공·429·5xx·잘못된 인증 응답 fixture 테스트
 - [ ] Slack 메시지나 스레드 답글을 읽는 Events API 연동은 MVP 범위에서 제외
 
 알림 기준:
@@ -468,37 +476,98 @@
 | Worker가 n8n 호출 자체에 실패 | 시스템 에러 채널           | Worker        |
 | 면접 일정 임박                | 해당 공고 스레드, MVP 이후 | 예약 Workflow |
 
-종료 기준: 완료·실패·사용자 조치 필요 이벤트가 중복 없이 Slack에 도착한다.
+종료 기준: 실제 Token이나 Webhook 없이도 완료·실패·사용자 조치 필요 이벤트의 payload, 라우팅, 중복 방지와 실패 격리가 자동 검증된다.
 
-### 15단계 — 테스트·보안·관측성 강화
+### 15단계 — 외부 연동 전 개발 완결성 확보
 
-목표: 포트폴리오 데모가 아니라 지속 사용 가능한 품질을 확보한다.
+목표: 외부 Credential을 등록하기 전에 구현·설정·복구 절차를 배포 가능한 상태로 완성한다.
 
 - [ ] 계약 스키마와 상태 전이 단위 테스트
 - [ ] Worker 인증, CORS, SSRF, HMAC, 멱등성, Rate Limit 테스트
 - [ ] Wanted fixture 기반 parser 회귀 테스트
-- [ ] n8n 성공·수집 실패·AI 429·callback 실패 workflow 테스트
+- [ ] n8n 성공·수집 실패·AI 429·callback 실패 fixture Workflow 테스트
 - [ ] 민감값 redaction과 로그 구조 검증
-- [ ] DB index 및 느린 query 확인
-- [ ] n8n workflow export와 Supabase backup 절차 검증
+- [ ] DB migration, RLS, index와 주요 query 계획 검증
+- [ ] Vercel·Worker·n8n의 환경별 설정 template과 배포 전 체크리스트 작성
+- [ ] n8n Workflow export와 Supabase backup·복구 절차 작성
 - [ ] 의존성 및 컨테이너 이미지 보안 업데이트 절차 작성
 - [ ] 장애 대응 runbook과 수동 복구 절차 작성
+- [ ] 전체 타입 검사, lint, test, production build와 정적 보안 검사를 한 번에 실행하는 검증 명령 구성
 
-종료 기준: 핵심 실패 시나리오를 재현하고 로그만으로 작업 ID 기준 원인을 추적할 수 있다.
+종료 기준: 외부 서비스 접속 없이 자동 검증이 통과하고, 이후 단계에서는 코드 개발보다 Credential 등록과 실제 연동 확인에 집중할 수 있다.
 
-### 16단계 — 배포·실사용·포트폴리오화
+### 16단계 — 외부 요소 연결 및 운영 배포
 
-목표: 최소 운영비로 배포하고 실제 지원 과정에서 개선 근거를 수집한다.
+목표: 개발이 끝난 코드를 실제 외부 서비스와 연결하고 운영 환경에 배포한다.
 
+- [ ] 외부 연동에 필요한 계정, Credential, URL, Secret 최종 목록 확인
+- [ ] n8n에 `OpenAI Career Analysis` Credential 생성 후 두 OpenAI 노드에 연결
+- [ ] 최신 n8n Workflow를 백업 후 import·게시
+- [ ] Slack에 `#채용공고`, `#시스템-에러` 채널과 최소 권한 Bot·Incoming Webhook 연결
 - [ ] Vercel에 Next.js 환경변수와 관리자 redirect URL 설정
 - [ ] Cloudflare Worker 개발/운영 환경 분리 및 secret 등록
 - [ ] n8n 운영 위치는 로컬 사용량·안정성 측정 후 결정
 - [ ] 운영 n8n 선택 시 Docker, HTTPS, 방화벽, backup, update 정책 적용
-- [ ] 실제 공고 5개 이상으로 사용성·비용·실패율 측정
-- [ ] 개인정보 제거 후 아키텍처, 트레이드오프, 장애 대응 내용을 사례로 작성
-- [ ] README에 로컬 실행, 테스트, 배포, 시스템 흐름 추가
+- [ ] Supabase 운영 환경, Auth redirect URL, Storage와 migration 상태 최종 확인
+- [ ] 환경별 Origin, callback URL, Webhook URL과 Secret 조합 검증
+- [ ] 배포 전 Secret rotation과 최소 권한 확인
 
-종료 기준: 실지원 데이터로 안정적으로 사용하며, 구현과 운영 판단을 근거와 함께 설명할 수 있다.
+종료 기준: 모든 운영 서비스가 연결되고 실제 테스트를 시작할 수 있는 배포 상태가 된다.
+
+### 17단계 — 외부 연동 통합 테스트
+
+목표: 운영과 동일한 연결을 사용해 전체 흐름과 장애 복구를 검증한다.
+
+- [ ] 관리자 로그인부터 문서 등록, 공고 수집, AI 분석, 결과 조회까지 E2E 확인
+- [ ] 실제 Wanted 공고 1건으로 OpenAI 구조화 결과와 근거 무결성 검증
+- [ ] Slack 루트 메시지·스레드·에러 채널 알림 수신 확인
+- [ ] OpenAI 429·5xx, n8n 중단, callback 실패와 재시도·취소·stale 복구 확인
+- [ ] Vercel ↔ Worker ↔ n8n ↔ Supabase의 CORS, 인증, HMAC, Rate Limit 확인
+- [ ] 로그의 Request ID 추적과 민감값 redaction 확인
+- [ ] DB backup 복구와 n8n Workflow rollback을 실제 절차로 검증
+- [ ] 처리 시간, token 사용량, API 비용과 실패율 기준선 기록
+
+종료 기준: 실제 외부 서비스가 포함된 정상·실패 흐름이 모두 재현되고 치명적인 운영 문제가 없다.
+
+### 18단계 — 실제 사용 및 보완
+
+목표: 실제 취업 준비 과정에서 사용하며 기술 검증만으로 찾기 어려운 문제를 개선한다.
+
+- [ ] 실제 지원 공고 5개 이상 등록·분석
+- [ ] 공고별 이력서·포트폴리오 선택과 분석 결과 활용성 확인
+- [ ] 면접 질문 답변과 면접 회고를 실제로 작성
+- [ ] 분석 품질, 처리 시간, 비용, 실패율과 수동 개입 횟수 기록
+- [ ] 불편 사항과 반복 오류를 우선순위 backlog로 정리
+- [ ] 필요한 코드·Workflow·프롬프트를 보완하고 회귀 테스트
+- [ ] MVP 완료 범위와 후속 기능을 확정
+
+종료 기준: 실제 사용 데이터로 핵심 기능의 효용과 안정성을 확인하고 주요 불편을 보완한다.
+
+### 19단계 — 기술 블로그 글 작성
+
+목표: 구현 나열이 아니라 문제, 판단, 실패와 운영 경험을 재현 가능한 사례로 정리한다.
+
+- [ ] 개인정보와 회사 지원 정보를 제거한 아키텍처 다이어그램 작성
+- [ ] Next.js, Worker, n8n, Supabase의 역할 분리와 선택 이유 설명
+- [ ] 인증, HMAC, 멱등성, 재시도, 상태 머신과 근거 기반 AI 분석 사례 정리
+- [ ] 실제 장애와 개선 과정 및 비용·처리 시간 지표 포함
+- [ ] 로컬 실행과 검증 가능한 범위를 README와 연결
+- [ ] 기존 블로그 형식에 맞춰 게시하고 모바일·다크모드·링크 검수
+
+종료 기준: 프로젝트의 문제 해결 과정과 기술적 판단을 면접에서 설명할 수 있는 공개 글이 완성된다.
+
+### 20단계 — 이력서 및 포트폴리오 반영
+
+목표: 프로젝트 경험을 채용 담당자가 짧은 시간 안에 이해할 수 있는 성과 중심 자료로 변환한다.
+
+- [ ] 프로젝트 한 줄 소개, 담당 범위와 아키텍처 요약 작성
+- [ ] 기능 나열 대신 자동화 시간, 처리 건수, 실패율, 비용 등 측정 결과 반영
+- [ ] API Gateway, n8n Workflow, Docker 운영, 보안·재시도 경험을 구체적인 bullet로 작성
+- [ ] 지원 공고 역량과 프로젝트 근거를 연결하되 과장하지 않음
+- [ ] 개인정보를 제거한 화면, 흐름도, 기술 블로그 링크를 포트폴리오에 추가
+- [ ] 새 이력서·포트폴리오 PDF를 문서 버전 관리 기능에 등록하고 공개 버전 선택
+
+종료 기준: 실사용과 검증 근거가 포함된 최신 이력서·포트폴리오가 공개된다.
 
 ## 6. 데이터 모델 초안
 
@@ -827,7 +896,9 @@ Vercel은 기존 Git Integration 배포를 유지하므로 별도 CLI token, org
 - [ ] 핵심 실패 시나리오와 보안 경계가 자동 테스트 또는 재현 절차로 검증된다.
 - [ ] 로컬 실행, secret 등록, migration, workflow import/export, 장애 복구 문서가 있다.
 - [ ] 실제 지원 공고 5개 이상을 처리하고 품질·비용·실패 사례를 회고한다.
+- [ ] 개인정보를 제거한 기술 블로그 글을 게시한다.
+- [ ] 측정 가능한 성과를 반영한 이력서·포트폴리오 최신 버전을 공개한다.
 
 ## 14. 다음 작업
 
-다음 작업은 **12단계 — 비동기 상태·콜백·재시도**다. 11단계의 기본 HMAC callback과 최대 2회 시도를 확장해 retry 가능한 오류만 지수 backoff로 재시도하고, 실패 callback·heartbeat·수동 재시도·취소·오래 멈춘 작업 감지를 구현한다. OpenAI Credential 연결과 실제 분석 확인은 선행 조건으로 두지 않고 fixture 기반 구현을 먼저 마친 뒤 외부 연동 작업에서 일괄 처리한다.
+다음 작업은 **12단계 — 비동기 상태·콜백·재시도**다. 실제 OpenAI, Slack, 운영 n8n이나 배포 환경에 연결하지 않고 fixture와 mock으로 retry 가능한 오류의 지수 backoff, 실패 callback, heartbeat, 수동 재시도, 취소와 오래 멈춘 작업 감지를 먼저 구현한다. 외부 Credential 등록·Workflow 게시·운영 배포는 모든 개발이 끝난 16단계에서 일괄 처리한다.
