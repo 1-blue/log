@@ -33,6 +33,7 @@
           "maxLength": 5000
         },
         "requirements": {
+          "maxItems": 40,
           "type": "array",
           "items": {
             "type": "object",
@@ -69,17 +70,10 @@
                         "portfolio"
                       ]
                     },
-                    "documentVersionId": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                    "sourceVersionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                     },
                     "section": {
                       "anyOf": [
@@ -100,7 +94,7 @@
                   },
                   "required": [
                     "source",
-                    "documentVersionId",
+                    "sourceVersionId",
                     "section",
                     "excerpt"
                   ],
@@ -118,6 +112,7 @@
           }
         },
         "technologies": {
+          "maxItems": 40,
           "type": "array",
           "items": {
             "type": "object",
@@ -153,17 +148,10 @@
                         "portfolio"
                       ]
                     },
-                    "documentVersionId": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                    "sourceVersionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                     },
                     "section": {
                       "anyOf": [
@@ -184,7 +172,7 @@
                   },
                   "required": [
                     "source",
-                    "documentVersionId",
+                    "sourceVersionId",
                     "section",
                     "excerpt"
                   ],
@@ -201,6 +189,7 @@
           }
         },
         "traits": {
+          "maxItems": 20,
           "type": "array",
           "items": {
             "type": "object",
@@ -225,17 +214,10 @@
                         "portfolio"
                       ]
                     },
-                    "documentVersionId": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                    "sourceVersionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                     },
                     "section": {
                       "anyOf": [
@@ -256,7 +238,7 @@
                   },
                   "required": [
                     "source",
-                    "documentVersionId",
+                    "sourceVersionId",
                     "section",
                     "excerpt"
                   ],
@@ -270,6 +252,15 @@
             ],
             "additionalProperties": false
           }
+        },
+        "warnings": {
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
         }
       },
       "required": [
@@ -278,24 +269,21 @@
         "summary",
         "requirements",
         "technologies",
-        "traits"
+        "traits",
+        "warnings"
       ],
       "additionalProperties": false
     },
-    "fit": {
+    "comparison": {
       "type": "object",
       "properties": {
-        "score": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
-        },
         "summary": {
           "type": "string",
           "minLength": 1,
           "maxLength": 3000
         },
         "matches": {
+          "maxItems": 40,
           "type": "array",
           "items": {
             "type": "object",
@@ -333,17 +321,10 @@
                         "portfolio"
                       ]
                     },
-                    "documentVersionId": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "format": "uuid",
-                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                        },
-                        {
-                          "type": "null"
-                        }
-                      ]
+                    "sourceVersionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                     },
                     "section": {
                       "anyOf": [
@@ -364,7 +345,7 @@
                   },
                   "required": [
                     "source",
-                    "documentVersionId",
+                    "sourceVersionId",
                     "section",
                     "excerpt"
                   ],
@@ -380,173 +361,184 @@
             ],
             "additionalProperties": false
           }
-        }
-      },
-      "required": [
-        "score",
-        "summary",
-        "matches"
-      ],
-      "additionalProperties": false
-    },
-    "gaps": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "title": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 300
-          },
-          "description": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 2000
-          },
-          "priority": {
-            "type": "string",
-            "enum": [
-              "high",
-              "medium",
-              "low"
-            ]
-          },
-          "evidence": {
-            "maxItems": 10,
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "source": {
+        },
+        "gaps": {
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "priority": {
+                "type": "string",
+                "enum": [
+                  "high",
+                  "medium",
+                  "low"
+                ]
+              },
+              "requirementIds": {
+                "maxItems": 10,
+                "type": "array",
+                "items": {
                   "type": "string",
-                  "enum": [
-                    "job_posting",
-                    "resume",
-                    "portfolio"
-                  ]
-                },
-                "documentVersionId": {
-                  "anyOf": [
-                    {
+                  "minLength": 1,
+                  "maxLength": 100
+                }
+              },
+              "evidence": {
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "job_posting",
+                        "resume",
+                        "portfolio"
+                      ]
+                    },
+                    "sourceVersionId": {
                       "type": "string",
                       "format": "uuid",
                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                     },
-                    {
-                      "type": "null"
-                    }
-                  ]
-                },
-                "section": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "maxLength": 200
+                    "section": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
-                    {
-                      "type": "null"
+                    "excerpt": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000
                     }
-                  ]
-                },
-                "excerpt": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 2000
+                  },
+                  "required": [
+                    "source",
+                    "sourceVersionId",
+                    "section",
+                    "excerpt"
+                  ],
+                  "additionalProperties": false
                 }
               },
-              "required": [
-                "source",
-                "documentVersionId",
-                "section",
-                "excerpt"
-              ],
-              "additionalProperties": false
-            }
-          },
-          "actions": {
-            "maxItems": 10,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 1000
-            }
+              "actions": {
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                }
+              }
+            },
+            "required": [
+              "title",
+              "description",
+              "priority",
+              "requirementIds",
+              "evidence",
+              "actions"
+            ],
+            "additionalProperties": false
           }
         },
-        "required": [
-          "title",
-          "description",
-          "priority",
-          "evidence",
-          "actions"
-        ],
-        "additionalProperties": false
-      }
-    },
-    "interviewQuestions": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "category": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
-          },
-          "question": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 2000
-          },
-          "intent": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 2000
-          },
-          "priority": {
-            "type": "string",
-            "enum": [
-              "high",
-              "medium",
-              "low"
-            ]
-          },
-          "requirementIds": {
-            "maxItems": 10,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 100
-            }
+        "interviewQuestions": {
+          "maxItems": 30,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "category": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "question": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "intent": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "priority": {
+                "type": "string",
+                "enum": [
+                  "high",
+                  "medium",
+                  "low"
+                ]
+              },
+              "requirementIds": {
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                }
+              }
+            },
+            "required": [
+              "category",
+              "question",
+              "intent",
+              "priority",
+              "requirementIds"
+            ],
+            "additionalProperties": false
           }
         },
-        "required": [
-          "category",
-          "question",
-          "intent",
-          "priority",
-          "requirementIds"
-        ],
-        "additionalProperties": false
-      }
+        "warnings": {
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        }
+      },
+      "required": [
+        "summary",
+        "matches",
+        "gaps",
+        "interviewQuestions",
+        "warnings"
+      ],
+      "additionalProperties": false
     },
-    "warnings": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 1000
-      }
+    "fitScore": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
     }
   },
   "required": [
     "job",
-    "fit",
-    "gaps",
-    "interviewQuestions",
-    "warnings"
+    "comparison",
+    "fitScore"
   ],
   "additionalProperties": false
 }

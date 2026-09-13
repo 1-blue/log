@@ -7,7 +7,9 @@ import {
   AnalysisEventCallbackSchema,
   AnalysisResultCallbackSchema,
   AnalysisResultSchema,
-  N8nDispatchPayloadSchema
+  JobPostingFactsSchema,
+  N8nDispatchPayloadSchema,
+  ProfileComparisonSchema,
 } from "../src/index.js";
 
 const rootDirectory = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -16,16 +18,18 @@ const checkOnly = process.argv.includes("--check");
 
 const schemas = {
   "analysis-event-callback.schema.json": AnalysisEventCallbackSchema,
+  "job-posting-facts.schema.json": JobPostingFactsSchema,
   "analysis-result-callback.schema.json": AnalysisResultCallbackSchema,
   "analysis-result.schema.json": AnalysisResultSchema,
-  "n8n-dispatch.schema.json": N8nDispatchPayloadSchema
+  "n8n-dispatch.schema.json": N8nDispatchPayloadSchema,
+  "profile-comparison.schema.json": ProfileComparisonSchema,
 } as const;
 
 for (const [filename, schema] of Object.entries(schemas)) {
   const generated = `${JSON.stringify(
     z.toJSONSchema(schema, { target: "draft-07" }),
     null,
-    2
+    2,
   )}\n`;
   const destination = join(schemaDirectory, filename);
 

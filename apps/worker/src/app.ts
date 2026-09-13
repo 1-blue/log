@@ -1,8 +1,11 @@
 import {
+  AnalysisEventCallbackSchema,
+  AnalysisResultCallbackSchema,
   ApiErrorCodeSchema,
   ApplicationListQuerySchema,
   ApplicationStateInputSchema,
   CompleteDocumentUploadRequestSchema,
+  CreateAnalysisJobRequestSchema,
   CreateApplicationRequestSchema,
   CreateDocumentDownloadUrlRequestSchema,
   CreateJobPostingCollectionRequestSchema,
@@ -22,6 +25,11 @@ import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import * as z from "zod";
 
+import {
+  type AnalysisJobService,
+  AnalysisJobServiceError,
+  createAnalysisJobService,
+} from "./analysis-jobs.js";
 import {
   type ApplicationService,
   ApplicationServiceError,
@@ -93,6 +101,7 @@ function errorResponse(
 }
 
 type AppDependencies = {
+  analysisJobServiceFactory?: (env: CloudflareBindings) => AnalysisJobService;
   applicationServiceFactory?: (env: CloudflareBindings) => ApplicationService;
   documentServiceFactory?: (env: CloudflareBindings) => DocumentService;
   idempotencyServiceFactory?: (env: CloudflareBindings) => IdempotencyService;
@@ -324,6 +333,52 @@ function collectionServiceErrorResponse(
   );
 }
 
+function analysisServiceErrorResponse(
+  c: Context<WorkerAppEnv>,
+  error: unknown,
+): Response {
+  if (!(error instanceof AnalysisJobServiceError)) throw error;
+  if (error.kind === "not_found") {
+    return errorResponse(c, 404, "NOT_FOUND", "분석 작업을 찾을 수 없습니다.");
+  }
+  if (error.kind === "validation") {
+    return errorResponse(
+      c,
+      400,
+      "VALIDATION_ERROR",
+      "분석 결과가 계약 또는 원문 근거와 일치하지 않습니다.",
+      false,
+      error.details,
+    );
+  }
+  if (error.kind === "conflict") {
+    const reason = error.details?.reason;
+    const messages: Record<string, string> = {
+      analysis_in_progress: "이 지원 공고를 이미 분석하고 있습니다.",
+      collection_required: "먼저 채용공고 원문 수집을 완료해 주세요.",
+      document_selection_required: "이력서와 포트폴리오를 모두 선택해 주세요.",
+      document_text_required:
+        "선택한 문서의 분석용 텍스트를 먼저 등록해 주세요.",
+    };
+    return errorResponse(
+      c,
+      409,
+      "CONFLICT",
+      (reason && messages[reason]) ??
+        "현재 상태에서는 분석을 시작할 수 없습니다.",
+      false,
+      error.details,
+    );
+  }
+  return errorResponse(
+    c,
+    503,
+    "UPSTREAM_UNAVAILABLE",
+    "분석 서비스를 사용할 수 없습니다.",
+    true,
+  );
+}
+
 function jsonData<T>(
   c: Context<WorkerAppEnv>,
   data: T,
@@ -547,6 +602,9 @@ export function createApp(dependencies: AppDependencies = {}) {
   const getApplicationService = (env: CloudflareBindings) =>
     dependencies.applicationServiceFactory?.(env) ??
     createApplicationService(env);
+  const getAnalysisJobService = (env: CloudflareBindings) =>
+    dependencies.analysisJobServiceFactory?.(env) ??
+    createAnalysisJobService(env);
   const getDocumentService = (env: CloudflareBindings) =>
     dependencies.documentServiceFactory?.(env) ?? createDocumentService(env);
   const getIdempotencyService = (env: CloudflareBindings) =>
@@ -812,6 +870,59 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
+  app.post("/v1/applications/:id/analysis-jobs", requireAdmin, async (c) => {
+    const applicationId = parseResourceId(c, "지원");
+    if (applicationId instanceof Response) return applicationId;
+    const input = await parseJsonBody(c, CreateAnalysisJobRequestSchema);
+    if (input instanceof Response) return input;
+
+    return executeIdempotently(
+      c,
+      getIdempotencyService(c.env),
+      input,
+      async () => {
+        try {
+          const job = await getAnalysisJobService(c.env).create(
+            c.get("adminUserId"),
+            applicationId,
+            getRequestId(c),
+          );
+          return jsonData(c, { job }, 202);
+        } catch (error) {
+          return analysisServiceErrorResponse(c, error);
+        }
+      },
+    );
+  });
+
+  app.get("/v1/applications/:id/analysis-jobs", requireAdmin, async (c) => {
+    const applicationId = parseResourceId(c, "지원");
+    if (applicationId instanceof Response) return applicationId;
+    try {
+      const items = await getAnalysisJobService(c.env).list(
+        c.get("adminUserId"),
+        applicationId,
+      );
+      return jsonData(c, { items });
+    } catch (error) {
+      return analysisServiceErrorResponse(c, error);
+    }
+  });
+
+  app.get("/v1/analysis-jobs/:id", requireAdmin, async (c) => {
+    const analysisJobId = parseResourceId(c, "분석 작업");
+    if (analysisJobId instanceof Response) return analysisJobId;
+    try {
+      const data = await getAnalysisJobService(c.env).get(
+        c.get("adminUserId"),
+        analysisJobId,
+      );
+      return jsonData(c, data);
+    } catch (error) {
+      return analysisServiceErrorResponse(c, error);
+    }
+  });
+
   app.patch("/v1/applications/:id", requireAdmin, async (c) => {
     const applicationId = parseResourceId(c, "지원");
     if (applicationId instanceof Response) return applicationId;
@@ -954,6 +1065,62 @@ export function createApp(dependencies: AppDependencies = {}) {
       return jsonData(c, data);
     } catch (error) {
       return collectionServiceErrorResponse(c, error);
+    }
+  });
+
+  app.post("/v1/internal/analysis-jobs/:id/events", async (c) => {
+    const analysisJobId = parseResourceId(c, "분석 작업");
+    if (analysisJobId instanceof Response) return analysisJobId;
+    const input = await parseJsonBody(
+      c,
+      AnalysisEventCallbackSchema,
+      INTERNAL_CALLBACK_MAX_BYTES,
+    );
+    if (input instanceof Response) return input;
+    if (
+      input.analysisJobId !== analysisJobId ||
+      input.eventId !== c.get("signedEventId") ||
+      input.requestId !== getRequestId(c)
+    ) {
+      return errorResponse(
+        c,
+        401,
+        "INVALID_SIGNATURE",
+        "내부 요청 식별자가 일치하지 않습니다.",
+      );
+    }
+    try {
+      return jsonData(c, await getAnalysisJobService(c.env).event(input));
+    } catch (error) {
+      return analysisServiceErrorResponse(c, error);
+    }
+  });
+
+  app.post("/v1/internal/analysis-jobs/:id/result", async (c) => {
+    const analysisJobId = parseResourceId(c, "분석 작업");
+    if (analysisJobId instanceof Response) return analysisJobId;
+    const input = await parseJsonBody(
+      c,
+      AnalysisResultCallbackSchema,
+      INTERNAL_CALLBACK_MAX_BYTES,
+    );
+    if (input instanceof Response) return input;
+    if (
+      input.analysisJobId !== analysisJobId ||
+      input.eventId !== c.get("signedEventId") ||
+      input.requestId !== getRequestId(c)
+    ) {
+      return errorResponse(
+        c,
+        401,
+        "INVALID_SIGNATURE",
+        "내부 요청 식별자가 일치하지 않습니다.",
+      );
+    }
+    try {
+      return jsonData(c, await getAnalysisJobService(c.env).complete(input));
+    } catch (error) {
+      return analysisServiceErrorResponse(c, error);
     }
   });
 

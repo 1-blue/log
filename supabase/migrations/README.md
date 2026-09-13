@@ -6,7 +6,8 @@
 
 - 문서 버전, 지원 공고·지원 이력, API 멱등성 구조가 원격에 적용되어 있다.
 - 10단계에서는 `job_posting_collection_runs`, 불변 `job_posting_snapshots`, 원자적 완료 RPC와 소유자 조회 RLS를 추가했다.
-- 분석·면접 테이블은 각 기능을 구현하는 단계에서 별도 migration으로 추가한다.
+- 11단계에서는 `analysis_jobs`, 불변 `analysis_results`, 단계별 실행 메타데이터와 원자적 완료·상태 이벤트 RPC를 추가했다.
+- 면접 및 사용자 메모 테이블은 해당 기능을 구현하는 단계에서 별도 migration으로 추가한다.
 - 로컬 Supabase는 다른 프로젝트와 기본 포트가 겹칠 수 있으므로 해당 프로젝트를 중지하지 않고 원격 rollback 통합 SQL을 사용할 수 있다.
 
 ## 원격 적용 순서

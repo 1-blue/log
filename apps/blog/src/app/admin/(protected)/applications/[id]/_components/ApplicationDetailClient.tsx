@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import {
+  type AnalysisJobResponse,
   type ApplicationDetail,
   type ApplicationStatus,
   applicationStatusRequiresDocuments,
@@ -40,10 +41,13 @@ import {
   toUtcTimestamp,
 } from "#/libs/application-ui";
 import {
+  createAnalysisJob,
   createApplicationAttempt,
   createJobPostingCollection,
+  getAnalysisJob,
   getApplication,
   getJobPostingCollection,
+  listAnalysisJobs,
   listDocumentVersions,
   listJobPostingCollections,
   updateApplication,
@@ -86,6 +90,25 @@ function upsertCollection(
     .slice(0, 20);
 }
 
+function upsertAnalysis(
+  current: AnalysisJobResponse[],
+  next: AnalysisJobResponse,
+) {
+  return [next, ...current.filter((item) => item.id !== next.id)]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 20);
+}
+
+const ANALYSIS_STATUS_LABELS: Record<AnalysisJobResponse["status"], string> = {
+  cancelled: "취소됨",
+  failed: "분석 실패",
+  needs_input: "추가 입력 필요",
+  queued: "분석 대기 중",
+  retrying: "분석 재시도 중",
+  running: "분석 중",
+  succeeded: "분석 완료",
+};
+
 export default function ApplicationDetailClient({
   applicationId,
 }: Readonly<{ applicationId: string }>) {
@@ -95,6 +118,7 @@ export default function ApplicationDetailClient({
   );
   const [documents, setDocuments] = useState<DocumentVersion[]>([]);
   const [collections, setCollections] = useState<JobPostingCollectionRun[]>([]);
+  const [analysisJobs, setAnalysisJobs] = useState<AnalysisJobResponse[]>([]);
   const [manualContent, setManualContent] = useState("");
   const [status, setStatus] = useState<ApplicationStatus>("interested");
   const [loading, setLoading] = useState(true);
@@ -113,10 +137,12 @@ export default function ApplicationDetailClient({
       setStatus(applicationResponse.data.status);
       setDocuments(documentsResponse.data.items);
       try {
-        const collectionsResponse = await listJobPostingCollections(
-          applicationResponse.data.jobPosting.id,
-        );
+        const [collectionsResponse, analysisResponse] = await Promise.all([
+          listJobPostingCollections(applicationResponse.data.jobPosting.id),
+          listAnalysisJobs(applicationId),
+        ]);
         setCollections(collectionsResponse.data.items);
+        setAnalysisJobs(analysisResponse.data.items);
       } catch (caught) {
         setError(message(caught));
       }
@@ -135,6 +161,10 @@ export default function ApplicationDetailClient({
     (item) => item.status === "queued" || item.status === "running",
   );
   const activeCollectionId = activeCollection?.id ?? null;
+  const activeAnalysis = analysisJobs.find((item) =>
+    ["queued", "running", "retrying"].includes(item.status),
+  );
+  const activeAnalysisId = activeAnalysis?.id ?? null;
 
   useEffect(() => {
     if (!application || !activeCollectionId) return;
@@ -161,6 +191,44 @@ export default function ApplicationDetailClient({
       window.clearTimeout(timeout);
     };
   }, [activeCollectionId, application]);
+
+  useEffect(() => {
+    if (!activeAnalysisId) return;
+    let stopped = false;
+    const refresh = async () => {
+      try {
+        const response = await getAnalysisJob(activeAnalysisId);
+        if (!stopped) {
+          setAnalysisJobs((current) => upsertAnalysis(current, response.data));
+        }
+      } catch (caught) {
+        if (!stopped) setError(message(caught));
+      }
+    };
+    const interval = window.setInterval(() => void refresh(), 2_000);
+    const timeout = window.setTimeout(() => {
+      stopped = true;
+      window.clearInterval(interval);
+    }, 5 * 60_000);
+    return () => {
+      stopped = true;
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+    };
+  }, [activeAnalysisId]);
+
+  async function analyze() {
+    setPending("analyze");
+    setError(null);
+    try {
+      const response = await createAnalysisJob(applicationId);
+      setAnalysisJobs((current) => upsertAnalysis(current, response.data.job));
+    } catch (caught) {
+      setError(message(caught));
+    } finally {
+      setPending(null);
+    }
+  }
 
   async function collect(content: string | null) {
     if (!application) return;
@@ -302,6 +370,20 @@ export default function ApplicationDetailClient({
       (latestSnapshot.sourceMetadata.title !== null &&
         latestSnapshot.sourceMetadata.title !== application.jobPosting.title)
     : false;
+  const selectedResume = documents.find(
+    (item) => item.id === application.documents.resume?.id,
+  );
+  const selectedPortfolio = documents.find(
+    (item) => item.id === application.documents.portfolio?.id,
+  );
+  const analysisReady = Boolean(
+    latestSnapshot &&
+      selectedResume?.extractionStatus === "ready" &&
+      selectedResume.extractedText?.trim() &&
+      selectedPortfolio?.extractionStatus === "ready" &&
+      selectedPortfolio.extractedText?.trim(),
+  );
+  const latestAnalysis = analysisJobs[0] ?? null;
 
   return (
     <section className="flex max-w-4xl flex-col gap-6">
@@ -556,6 +638,133 @@ export default function ApplicationDetailClient({
                   <span>
                     {item.mode === "manual" ? "직접 입력" : "자동 수집"} ·{" "}
                     {item.status}
+                  </span>
+                  <time className="text-muted-foreground">
+                    {formatApplicationDate(item.createdAt)}
+                  </time>
+                </li>
+              ))}
+            </ol>
+          </details>
+        ) : null}
+      </div>
+
+      <div className="border-border bg-card rounded-lg border p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold">공고 적합도 분석</h3>
+            <p className="text-muted-foreground mt-1 text-sm">
+              현재 공고 원문과 선택한 이력서·포트폴리오의 고정본을 AI가
+              비교합니다.
+            </p>
+          </div>
+          <Button
+            disabled={disabled || Boolean(activeAnalysis) || !analysisReady}
+            onClick={() => void analyze()}
+            type="button"
+          >
+            {pending === "analyze" || activeAnalysis ? (
+              <LoaderCircleIcon className="animate-spin" />
+            ) : null}
+            {latestAnalysis ? "다시 분석" : "분석 시작"}
+          </Button>
+        </div>
+
+        {!analysisReady ? (
+          <div className="border-border bg-muted/30 mt-4 rounded-md border p-4 text-sm">
+            <p className="font-medium">분석 준비가 필요합니다.</p>
+            <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-xs">
+              {!latestSnapshot ? (
+                <li>채용공고 원문을 먼저 수집해 주세요.</li>
+              ) : null}
+              {!application.documents.resume ||
+              !application.documents.portfolio ? (
+                <li>이력서와 포트폴리오를 모두 선택하고 저장해 주세요.</li>
+              ) : null}
+              {application.documents.resume &&
+              selectedResume?.extractionStatus !== "ready" ? (
+                <li>
+                  선택한 이력서의 문서 상세 화면에서 분석용 텍스트를 등록해
+                  주세요.
+                </li>
+              ) : null}
+              {application.documents.portfolio &&
+              selectedPortfolio?.extractionStatus !== "ready" ? (
+                <li>
+                  선택한 포트폴리오의 문서 상세 화면에서 분석용 텍스트를 등록해
+                  주세요.
+                </li>
+              ) : null}
+            </ul>
+            <Button asChild className="mt-3" size="sm" variant="outline">
+              <Link href="/admin/documents">문서 관리로 이동</Link>
+            </Button>
+          </div>
+        ) : null}
+
+        {latestAnalysis ? (
+          <div className="border-border mt-4 rounded-md border p-4 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-medium">
+                {ANALYSIS_STATUS_LABELS[latestAnalysis.status]}
+              </span>
+              <time className="text-muted-foreground text-xs">
+                {formatApplicationDate(latestAnalysis.updatedAt)}
+              </time>
+            </div>
+            {latestAnalysis.lastError ? (
+              <p className="text-destructive mt-2 text-xs">
+                {latestAnalysis.lastError.message}
+              </p>
+            ) : null}
+            {latestAnalysis.result ? (
+              <div className="mt-4 grid gap-3">
+                <div className="flex flex-wrap items-end gap-3">
+                  <strong className="text-primary text-3xl">
+                    {latestAnalysis.result.fitScore}점
+                  </strong>
+                  <span className="text-muted-foreground text-xs">
+                    요구사항 {latestAnalysis.result.job.requirements.length}개 ·
+                    부족 역량 {latestAnalysis.result.comparison.gaps.length}개 ·
+                    면접 질문{" "}
+                    {latestAnalysis.result.comparison.interviewQuestions.length}
+                    개
+                  </span>
+                </div>
+                <p className="leading-6">
+                  {latestAnalysis.result.comparison.summary}
+                </p>
+                <details>
+                  <summary className="cursor-pointer font-medium">
+                    구조화 분석 원문 보기
+                  </summary>
+                  <pre className="border-border bg-background mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded-md border p-4 text-xs leading-5">
+                    {JSON.stringify(latestAnalysis.result, null, 2)}
+                  </pre>
+                </details>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-muted-foreground mt-4 text-sm">
+            아직 실행한 분석이 없습니다.
+          </p>
+        )}
+
+        {analysisJobs.length > 1 ? (
+          <details className="mt-4 text-sm">
+            <summary className="cursor-pointer font-medium">
+              최근 분석 이력 {analysisJobs.length}건
+            </summary>
+            <ol className="mt-3 grid gap-2">
+              {analysisJobs.map((item) => (
+                <li
+                  className="border-border flex justify-between gap-2 border-b py-2 last:border-0"
+                  key={item.id}
+                >
+                  <span>
+                    {ANALYSIS_STATUS_LABELS[item.status]}
+                    {item.result ? ` · ${item.result.fitScore}점` : ""}
                   </span>
                   <time className="text-muted-foreground">
                     {formatApplicationDate(item.createdAt)}

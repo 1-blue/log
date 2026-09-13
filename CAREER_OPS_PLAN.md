@@ -1,8 +1,8 @@
 # 취업 준비 관리·자동화 확장 프로젝트 계획
 
-> 기준일: 2026-09-12
+> 기준일: 2026-09-13
 > 작업 브랜치: `codex/career-ops-foundation`  
-> 현재 범위: 7단계 기능 구현 완료·실제 관리자 통합 확인 대기
+> 현재 범위: 11단계 코드·DB 구현 완료, OpenAI Credential 연결 및 실제 분석 확인 대기
 
 ## 1. 프로젝트 정의
 
@@ -30,18 +30,18 @@
 
 ## 2. 확정한 기술 및 운영 결정
 
-| 영역            | 선택                                   | 이유                                                      |
-| --------------- | -------------------------------------- | --------------------------------------------------------- |
-| 웹 애플리케이션 | 기존 `apps/blog`의 Next.js             | 공개 블로그와 관리자 화면의 디자인·코드 재사용            |
-| 웹 배포         | 기존 Vercel 유지                       | 현재 배포 흐름을 보존하고 Cloudflare Pages 중복 도입 방지 |
-| API Gateway     | `apps/worker`의 Cloudflare Worker      | 관리자 인증, 검증, 멱등성, Rate Limit, n8n 은닉           |
-| 자동화          | `apps/n8n`의 Docker Compose 기반 n8n   | 로컬 무료 개발 후 운영 호스팅은 사용량을 보고 결정        |
-| 데이터베이스    | Supabase PostgreSQL + Storage          | Auth, 데이터, 비공개 문서 버전을 한 서비스에서 시작       |
-| 인증            | Supabase Auth, 관리자 1명              | 브라우저에 비밀번호를 포함하지 않고 확장 가능한 세션 사용 |
-| AI              | OpenAI Responses API + `gpt-5.6-terra` | 구조화 출력과 분석 품질을 우선                            |
-| 알림            | Slack Incoming Webhook                 | 비동기 완료·실패를 기다리지 않고 확인                     |
-| 최초 공고 소스  | Wanted                                 | MVP 파서와 검증 범위를 한 사이트로 제한                   |
-| 공유 계약       | `packages/contracts`                   | Next.js, Worker, n8n 입출력 형식의 불일치 방지            |
+| 영역            | 선택                                             | 이유                                                           |
+| --------------- | ------------------------------------------------ | -------------------------------------------------------------- |
+| 웹 애플리케이션 | 기존 `apps/blog`의 Next.js                       | 공개 블로그와 관리자 화면의 디자인·코드 재사용                 |
+| 웹 배포         | 기존 Vercel 유지                                 | 현재 배포 흐름을 보존하고 Cloudflare Pages 중복 도입 방지      |
+| API Gateway     | `apps/worker`의 Cloudflare Worker                | 관리자 인증, 검증, 멱등성, Rate Limit, n8n 은닉                |
+| 자동화          | `apps/n8n`의 Docker Compose 기반 n8n             | 로컬 무료 개발 후 운영 호스팅은 사용량을 보고 결정             |
+| 데이터베이스    | Supabase PostgreSQL + Storage                    | Auth, 데이터, 비공개 문서 버전을 한 서비스에서 시작            |
+| 인증            | Supabase Auth, 관리자 1명                        | 브라우저에 비밀번호를 포함하지 않고 확장 가능한 세션 사용      |
+| AI              | OpenAI Responses API + `gpt-5.4-mini-2026-03-17` | 비용·속도와 구조화 분석 품질의 균형, 재현 가능한 snapshot 고정 |
+| 알림            | Slack Incoming Webhook                           | 비동기 완료·실패를 기다리지 않고 확인                          |
+| 최초 공고 소스  | Wanted                                           | MVP 파서와 검증 범위를 한 사이트로 제한                        |
+| 공유 계약       | `packages/contracts`                             | Next.js, Worker, n8n 입출력 형식의 불일치 방지                 |
 
 ### MVP에서 하지 않는 것
 
@@ -329,7 +329,7 @@
 - 완료 응답은 24시간 보존하고 동일 요청에는 원래 응답과 `Idempotency-Replayed: true`를 반환한다. 실패한 실행은 claim을 해제하며 실행 UUID가 일치하는 요청만 완료·해제할 수 있다.
 - Cloudflare Rate Limiting binding은 공개 문서 API를 IP·경로별 분당 60회, 인증된 관리자 API를 관리자 UUID별 분당 120회로 제한한다. `/health`는 제한하지 않으며 binding 장애 시 우회하지 않고 retry 가능한 503을 반환한다.
 - Worker와 n8n 사이에는 HMAC-SHA256으로 timestamp, event ID, request ID, method, path, body hash를 서명한다. 내부 API는 POST·JSON·600KB 이하·±5분 서명만 허용한다.
-- n8n dispatch client는 5초 안의 2xx만 접수 성공으로 처리하며 timeout, 네트워크·429·5xx, 그 외 4xx를 구분한다. 실제 분석 dispatch route와 callback event 중복 저장·상태 전이는 n8n Workflow와 `analysis_jobs`가 생기는 12단계에서 연결한다.
+- n8n dispatch client는 5초 안의 2xx만 접수 성공으로 처리하며 timeout, 네트워크·429·5xx, 그 외 4xx를 구분한다. 11단계에서 분석 dispatch route, HMAC callback, 결과 원자적 저장을 연결했으며 고급 재시도·취소·stale 감지는 12단계에서 보완한다.
 - 원격 Supabase에 멱등성 migration을 적용하고 schema lint와 rollback 통합 SQL을 통과했다. contracts 14개, Next.js 27개, Worker 56개 테스트와 타입 검사가 통과했으며 신규 환경변수는 없다.
 
 ### 9단계 — 로컬 n8n Docker 환경
@@ -387,18 +387,28 @@
 
 목표: 공고와 개인 자료를 근거 기반의 안정적인 JSON 결과로 변환한다.
 
-- [ ] 1차 호출에서 공고의 사실 정보만 추출
-- [ ] 2차 호출에서 개인 자료와 비교하고 적합도·격차·질문 생성
-- [ ] Responses API Structured Outputs와 공통 JSON Schema 사용
+- [x] 1차 호출에서 공고의 사실 정보만 추출
+- [x] 2차 호출에서 개인 자료와 비교하고 적합도·격차·질문 생성
+- [x] Responses API Structured Outputs와 공통 JSON Schema 사용
 - [ ] OpenAI API Key는 환경변수가 아니라 n8n Credentials로 연결
-- [ ] 모든 주장에 공고 또는 개인 자료의 근거 snippet/section 연결
-- [ ] `unknown`과 추론을 명시하고 없는 경험을 생성하지 않도록 프롬프트 설계
-- [ ] model, prompt version, schema version, token 사용량, latency 저장
-- [ ] 입력 길이 제한, 문서 trimming, timeout, 재시도, 비용 상한 구현
+- [x] 모든 주장에 공고 또는 개인 자료의 근거 snippet/section 연결
+- [x] `unknown`과 추론을 명시하고 없는 경험을 생성하지 않도록 프롬프트 설계
+- [x] model, prompt version, schema version, token 사용량, latency 저장
+- [x] 입력 길이 제한, 문서 trimming, timeout, 최대 2회 시도, 출력 token 상한 구현
 - [ ] 응답 스키마 불일치 시 제한된 횟수로 자동 복구
-- [ ] 평가용 실제 공고 fixture와 기대 필드 검사 작성
+- [x] Wanted 공고·이력서·포트폴리오 대표 fixture와 기대 필드 검사 작성
 
 종료 기준: 같은 입력의 결과가 스키마를 항상 만족하며 UI가 임의 텍스트 파싱 없이 렌더링한다.
+
+- 지원서별 최신 공고 스냅샷과 선택 문서 버전을 `analysis_jobs`에 복사해 이후 원문이 바뀌어도 분석 입력을 재현할 수 있다.
+- 이력서·포트폴리오는 `ready` 상태의 수동 추출 텍스트만 사용한다. 각 문서는 최대 80,000자로 제한하고 초과 시 앞 40,000자·중간 20,000자·끝 20,000자를 결정론적으로 보존한다.
+- `JobPostingFactsSchema`와 `ProfileComparisonSchema`를 분리하고 OpenAI용 JSON Schema를 Zod 원본에서 생성한다. 모든 객체는 required와 `additionalProperties: false`를 재귀 검증한다.
+- Worker가 요구사항 ID, 출처 버전 ID, 실제 원문에 존재하는 excerpt, 참조 무결성, matched/partial의 개인 근거를 검증한다. 적합도는 필수 70%·우대 30% 규칙으로 Worker와 n8n에서 동일하게 계산한다.
+- `analysis_jobs`, 불변 `analysis_results`, `analysis_step_executions`, 원자적 완료·상태 이벤트 RPC와 소유자 RLS를 원격 Supabase에 적용했다. 원격 rollback 통합 테스트와 schema lint를 통과했다.
+- 관리자 상세 화면에서 분석 준비 조건, 수동 시작, 2초 polling, 최소 점수·요약·건수·구조화 JSON·최근 이력을 확인할 수 있다. 상세 결과 UX는 13단계에서 구현한다.
+- n8n 소스 Workflow는 기존 수집 분기를 유지하며 두 OpenAI V2.2 노드, `store: false`, 고정 model snapshot, prompt version과 HMAC callback을 포함한다. 현재 실행 중인 Workflow는 OpenAI Credential이 없어 교체·게시하지 않았다.
+- OpenAI Credential 연결과 실제 API 호출은 외부 연동 일괄 작업까지 보류한다. 그전에는 fixture와 임시 키로 계약·상태 전이·재시도 동작을 자동 검증하며 12단계 이후 구현을 계속할 수 있다.
+- 외부 연동 시 n8n에 `OpenAI Career Analysis` Credential 생성, 두 OpenAI 노드 연결, 소스 Workflow import·게시, 실제 공고 1건 분석과 비용·오류 확인을 순서대로 수행한다.
 
 ### 12단계 — 비동기 상태·콜백·재시도
 
@@ -625,7 +635,7 @@
 
 공식 참고:
 
-- [GPT-5.6 Terra 모델](https://developers.openai.com/api/docs/models/gpt-5.6-terra)
+- [GPT-5.4 Mini 모델](https://developers.openai.com/api/docs/models/gpt-5.4-mini)
 - [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
 - [OpenAI API Quickstart](https://platform.openai.com/docs/quickstart/make-your-first-api-request)
 
@@ -820,4 +830,4 @@ Vercel은 기존 Git Integration 배포를 유지하므로 별도 CLI token, org
 
 ## 14. 다음 작업
 
-다음 작업은 **11단계 — OpenAI 구조화 분석 Workflow**다. 저장된 공고 스냅샷과 선택한 이력서·포트폴리오 버전을 입력으로 사용해 공고 사실 추출과 개인 적합도 분석을 분리하고, 근거·불확실성·모델 및 프롬프트 버전을 포함한 구조화 결과를 생성한다.
+다음 작업은 **12단계 — 비동기 상태·콜백·재시도**다. 11단계의 기본 HMAC callback과 최대 2회 시도를 확장해 retry 가능한 오류만 지수 backoff로 재시도하고, 실패 callback·heartbeat·수동 재시도·취소·오래 멈춘 작업 감지를 구현한다. OpenAI Credential 연결과 실제 분석 확인은 선행 조건으로 두지 않고 fixture 기반 구현을 먼저 마친 뒤 외부 연동 작업에서 일괄 처리한다.

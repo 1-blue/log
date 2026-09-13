@@ -7,7 +7,7 @@
     "check-types": "turbo check-types",
     "dev": "turbo dev",
     "lint": "turbo lint",
-    "test": "turbo test",
+    "test": "turbo test && node apps/n8n/scripts/validate-workflow.mjs",
     "db:migrations": "supabase migration list",
     "db:push:dry-run": "supabase db push --dry-run",
     "db:push": "supabase db push",

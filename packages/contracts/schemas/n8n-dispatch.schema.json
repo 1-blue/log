@@ -2,6 +2,10 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
+    "kind": {
+      "type": "string",
+      "const": "application_analysis"
+    },
     "schemaVersion": {
       "type": "string",
       "const": "1.0.0"
@@ -29,6 +33,11 @@
           "format": "uuid",
           "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
         },
+        "snapshotId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
         "source": {
           "type": "string",
           "enum": [
@@ -39,23 +48,35 @@
           "type": "string",
           "format": "uri"
         },
-        "manualContent": {
-          "anyOf": [
-            {
-              "type": "string",
-              "maxLength": 100000
-            },
-            {
-              "type": "null"
-            }
-          ]
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "companyName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "contentHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100000
         }
       },
       "required": [
         "id",
+        "snapshotId",
         "source",
         "url",
-        "manualContent"
+        "title",
+        "companyName",
+        "contentHash",
+        "text"
       ],
       "additionalProperties": false
     },
@@ -72,19 +93,28 @@
             },
             "contentHash": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 128
+              "pattern": "^[0-9a-f]{64}$"
             },
-            "extractedText": {
+            "text": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 200000
+              "maxLength": 80100
+            },
+            "originalLength": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "truncated": {
+              "type": "boolean"
             }
           },
           "required": [
             "versionId",
             "contentHash",
-            "extractedText"
+            "text",
+            "originalLength",
+            "truncated"
           ],
           "additionalProperties": false
         },
@@ -98,19 +128,28 @@
             },
             "contentHash": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 128
+              "pattern": "^[0-9a-f]{64}$"
             },
-            "extractedText": {
+            "text": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 200000
+              "maxLength": 80100
+            },
+            "originalLength": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "truncated": {
+              "type": "boolean"
             }
           },
           "required": [
             "versionId",
             "contentHash",
-            "extractedText"
+            "text",
+            "originalLength",
+            "truncated"
           ],
           "additionalProperties": false
         }
@@ -121,19 +160,59 @@
       ],
       "additionalProperties": false
     },
-    "callbackUrl": {
-      "type": "string",
-      "format": "uri"
+    "callbacks": {
+      "type": "object",
+      "properties": {
+        "eventPath": {
+          "type": "string",
+          "pattern": "^\\/v1\\/internal\\/analysis-jobs\\/[0-9a-f-]+\\/events$"
+        },
+        "resultPath": {
+          "type": "string",
+          "pattern": "^\\/v1\\/internal\\/analysis-jobs\\/[0-9a-f-]+\\/result$"
+        }
+      },
+      "required": [
+        "eventPath",
+        "resultPath"
+      ],
+      "additionalProperties": false
+    },
+    "outputSchemas": {
+      "type": "object",
+      "properties": {
+        "jobPostingFacts": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "profileComparison": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "jobPostingFacts",
+        "profileComparison"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [
+    "kind",
     "schemaVersion",
     "eventId",
     "requestId",
     "analysisJobId",
     "jobPosting",
     "profile",
-    "callbackUrl"
+    "callbacks",
+    "outputSchemas"
   ],
   "additionalProperties": false
 }

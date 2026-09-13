@@ -6,11 +6,13 @@ import { describe, expect, it } from "vitest";
 import {
   AdminLoginInputSchema,
   AdminSessionResponseSchema,
+  type AnalysisResult,
   AnalysisResultSchema,
   ApplicationListQuerySchema,
   ApplicationResponseSchema,
   ApplicationStateInputSchema,
   ApplicationStatusSchema,
+  calculateAnalysisFitScore,
   CreateApplicationRequestSchema,
   CreateJobPostingCollectionRequestSchema,
   CreateJobPostingRequestSchema,
@@ -32,7 +34,24 @@ import {
 const validUuid = "00000000-0000-4000-8000-000000000001";
 const validWantedUrl = "https://www.wanted.co.kr/wd/384409";
 
-const validAnalysisResult = {
+function expectStrictJsonSchemaObjects(value: unknown): void {
+  if (!value || typeof value !== "object") return;
+  const schema = value as Record<string, unknown>;
+  if (schema.type === "object") {
+    const properties = (schema.properties ?? {}) as Record<string, unknown>;
+    expect(schema.additionalProperties).toBe(false);
+    expect(schema.required).toEqual(Object.keys(properties));
+  }
+  for (const nested of Object.values(schema)) {
+    if (Array.isArray(nested)) {
+      nested.forEach(expectStrictJsonSchemaObjects);
+    } else {
+      expectStrictJsonSchemaObjects(nested);
+    }
+  }
+}
+
+const validAnalysisResult: AnalysisResult = {
   job: {
     title: "AX Engineer - Infra",
     companyName: "미리디",
@@ -45,7 +64,7 @@ const validAnalysisResult = {
         evidence: [
           {
             source: "job_posting",
-            documentVersionId: null,
+            sourceVersionId: validUuid,
             section: "자격요건",
             excerpt: "클라우드 인프라 운영 경험",
           },
@@ -54,9 +73,9 @@ const validAnalysisResult = {
     ],
     technologies: [],
     traits: [],
+    warnings: [],
   },
-  fit: {
-    score: 72,
+  comparison: {
     summary: "관련 경험이 일부 확인되지만 운영 자동화 경험을 보완해야 합니다.",
     matches: [
       {
@@ -67,17 +86,18 @@ const validAnalysisResult = {
         profileEvidence: [
           {
             source: "portfolio",
-            documentVersionId: validUuid,
+            sourceVersionId: validUuid,
             section: "프로젝트 경험",
             excerpt: "배포 및 모니터링 환경을 구성했습니다.",
           },
         ],
       },
     ],
+    gaps: [],
+    interviewQuestions: [],
+    warnings: [],
   },
-  gaps: [],
-  interviewQuestions: [],
-  warnings: [],
+  fitScore: 50,
 };
 
 describe("career operations contracts", () => {
@@ -457,7 +477,7 @@ describe("career operations contracts", () => {
     expect(
       AnalysisResultSchema.safeParse({
         ...validAnalysisResult,
-        fit: { ...validAnalysisResult.fit, score: 101 },
+        fitScore: 101,
       }).success,
     ).toBe(false);
 
@@ -467,6 +487,14 @@ describe("career operations contracts", () => {
         job: { ...validAnalysisResult.job, extra: "not allowed" },
       }).success,
     ).toBe(false);
+  });
+
+  it("computes a deterministic weighted fit score", () => {
+    expect(
+      calculateAnalysisFitScore(validAnalysisResult.job.requirements, [
+        ...validAnalysisResult.comparison.matches,
+      ]),
+    ).toBe(50);
   });
 
   it("enforces the analysis job state machine", () => {
@@ -490,14 +518,23 @@ describe("career operations contracts", () => {
 
     expect(schema.additionalProperties).toBe(false);
     expect(schema.required).toEqual(
-      expect.arrayContaining([
-        "job",
-        "fit",
-        "gaps",
-        "interviewQuestions",
-        "warnings",
-      ]),
+      expect.arrayContaining(["job", "comparison", "fitScore"]),
     );
-    expect(schema.properties).toHaveProperty("fit");
+    expect(schema.properties).toHaveProperty("comparison");
+
+    for (const filename of [
+      "job-posting-facts.schema.json",
+      "profile-comparison.schema.json",
+    ]) {
+      const generated = JSON.parse(
+        await readFile(
+          join(
+            fileURLToPath(new URL(`../schemas/${filename}`, import.meta.url)),
+          ),
+          "utf8",
+        ),
+      );
+      expectStrictJsonSchemaObjects(generated);
+    }
   });
 });

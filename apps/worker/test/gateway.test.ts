@@ -393,23 +393,39 @@ describe("n8n request signing", () => {
 describe("n8n dispatch client", () => {
   const payload: N8nDispatchPayload = {
     analysisJobId: APPLICATION_ID,
-    callbackUrl: "https://api.example.com/v1/internal",
+    callbacks: {
+      eventPath: `/v1/internal/analysis-jobs/${APPLICATION_ID}/events`,
+      resultPath: `/v1/internal/analysis-jobs/${APPLICATION_ID}/result`,
+    },
     eventId: EVENT_ID,
     jobPosting: {
+      companyName: "미리디",
+      contentHash: "c".repeat(64),
       id: POSTING_ID,
-      manualContent: null,
+      snapshotId: "00000000-0000-4000-8000-000000000008",
       source: "wanted",
+      text: "채용공고 본문",
+      title: "AX Engineer - Infra",
       url: "https://www.wanted.co.kr/wd/384409",
+    },
+    kind: "application_analysis",
+    outputSchemas: {
+      jobPostingFacts: { type: "object" },
+      profileComparison: { type: "object" },
     },
     profile: {
       portfolio: {
         contentHash: "b".repeat(64),
-        extractedText: "포트폴리오 본문",
+        originalLength: 9,
+        text: "포트폴리오 본문",
+        truncated: false,
         versionId: "00000000-0000-4000-8000-000000000006",
       },
       resume: {
         contentHash: "a".repeat(64),
-        extractedText: "이력서 본문",
+        originalLength: 7,
+        text: "이력서 본문",
+        truncated: false,
         versionId: "00000000-0000-4000-8000-000000000007",
       },
     },

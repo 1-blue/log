@@ -295,7 +295,7 @@ export const EvidenceSourceSchema = z.enum([
 
 export const EvidenceSchema = z.strictObject({
   source: EvidenceSourceSchema,
-  documentVersionId: UuidSchema.nullable(),
+  sourceVersionId: UuidSchema,
   section: z.string().max(200).nullable(),
   excerpt: z.string().min(1).max(2_000),
 });
@@ -753,27 +753,24 @@ export type ApplicationListResponse = z.infer<
   typeof ApplicationListResponseSchema
 >;
 
-export const CreateAnalysisJobRequestSchema = z.strictObject({
-  jobPostingId: UuidSchema,
-  resumeVersionId: UuidSchema,
-  portfolioVersionId: UuidSchema,
-});
+export const CreateAnalysisJobRequestSchema = z.strictObject({});
 export type CreateAnalysisJobRequest = z.infer<
   typeof CreateAnalysisJobRequestSchema
 >;
 
 export const CreateAnalysisJobResponseSchema = z.strictObject({
-  data: z.strictObject({
-    jobId: UuidSchema,
-    status: z.literal("queued"),
-    statusUrl: UrlSchema,
-  }),
+  data: z.strictObject({ job: z.lazy(() => AnalysisJobResponseSchema) }),
   meta: z.strictObject({ requestId: UuidSchema }),
 });
+export type CreateAnalysisJobResponse = z.infer<
+  typeof CreateAnalysisJobResponseSchema
+>;
 
 export const AnalysisJobResponseSchema = z.strictObject({
   id: UuidSchema,
+  applicationId: UuidSchema,
   jobPostingId: UuidSchema,
+  jobPostingSnapshotId: UuidSchema,
   resumeVersionId: UuidSchema,
   portfolioVersionId: UuidSchema,
   status: AnalysisJobStatusSchema,
@@ -781,8 +778,10 @@ export const AnalysisJobResponseSchema = z.strictObject({
   requestId: UuidSchema,
   attemptCount: z.number().int().nonnegative(),
   lastError: ApiErrorInfoSchema.nullable(),
-  result: z.unknown().nullable(),
+  result: z.lazy(() => AnalysisResultSchema).nullable(),
   createdAt: Rfc3339TimestampSchema,
+  startedAt: Rfc3339TimestampSchema.nullable(),
+  finishedAt: Rfc3339TimestampSchema.nullable(),
   updatedAt: Rfc3339TimestampSchema,
 });
 export type AnalysisJobResponse = z.infer<typeof AnalysisJobResponseSchema>;
@@ -791,29 +790,58 @@ export const AnalysisJobStatusResponseSchema = z.strictObject({
   data: AnalysisJobResponseSchema,
   meta: z.strictObject({ requestId: UuidSchema }),
 });
+export type AnalysisJobStatusResponse = z.infer<
+  typeof AnalysisJobStatusResponseSchema
+>;
 
-const ProfileSnapshotSchema = z.strictObject({
+export const AnalysisJobListResponseSchema = z.strictObject({
+  data: z.strictObject({ items: z.array(AnalysisJobResponseSchema).max(20) }),
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type AnalysisJobListResponse = z.infer<
+  typeof AnalysisJobListResponseSchema
+>;
+
+export const AnalysisInputDocumentSchema = z.strictObject({
   versionId: UuidSchema,
-  contentHash: z.string().min(1).max(128),
-  extractedText: z.string().min(1).max(200_000),
+  contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+  text: z.string().min(1).max(80_100),
+  originalLength: z.int().positive(),
+  truncated: z.boolean(),
 });
 
 export const N8nDispatchPayloadSchema = z.strictObject({
+  kind: z.literal("application_analysis"),
   schemaVersion: z.literal(CONTRACT_VERSION),
   eventId: UuidSchema,
   requestId: UuidSchema,
   analysisJobId: UuidSchema,
   jobPosting: z.strictObject({
     id: UuidSchema,
+    snapshotId: UuidSchema,
     source: JobPostingSourceSchema,
     url: WantedJobPostingUrlSchema,
-    manualContent: z.string().max(100_000).nullable(),
+    title: z.string().min(1).max(500),
+    companyName: z.string().min(1).max(500),
+    contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+    text: z.string().min(1).max(100_000),
   }),
   profile: z.strictObject({
-    resume: ProfileSnapshotSchema,
-    portfolio: ProfileSnapshotSchema,
+    resume: AnalysisInputDocumentSchema,
+    portfolio: AnalysisInputDocumentSchema,
   }),
-  callbackUrl: UrlSchema,
+  callbacks: z.strictObject({
+    eventPath: z
+      .string()
+      .regex(/^\/v1\/internal\/analysis-jobs\/[0-9a-f-]+\/events$/),
+    resultPath: z
+      .string()
+      .regex(/^\/v1\/internal\/analysis-jobs\/[0-9a-f-]+\/result$/),
+  }),
+  outputSchemas: z.strictObject({
+    jobPostingFacts: z.record(z.string(), z.unknown()),
+    profileComparison: z.record(z.string(), z.unknown()),
+  }),
 });
 export type N8nDispatchPayload = z.infer<typeof N8nDispatchPayloadSchema>;
 
@@ -842,43 +870,91 @@ export const RequirementMatchSchema = z.strictObject({
   profileEvidence: z.array(EvidenceSchema).max(10),
 });
 
-export const FitAssessmentSchema = z.strictObject({
-  score: z.number().int().min(0).max(100),
+export const ProfileComparisonSchema = z.strictObject({
   summary: z.string().min(1).max(3_000),
-  matches: z.array(RequirementMatchSchema),
+  matches: z.array(RequirementMatchSchema).max(40),
+  gaps: z
+    .array(
+      z.strictObject({
+        title: z.string().min(1).max(300),
+        description: z.string().min(1).max(2_000),
+        priority: PrioritySchema,
+        requirementIds: z.array(z.string().min(1).max(100)).max(10),
+        evidence: z.array(EvidenceSchema).max(10),
+        actions: z.array(z.string().min(1).max(1_000)).max(10),
+      }),
+    )
+    .max(20),
+  interviewQuestions: z
+    .array(
+      z.strictObject({
+        category: z.string().min(1).max(200),
+        question: z.string().min(1).max(2_000),
+        intent: z.string().min(1).max(2_000),
+        priority: PrioritySchema,
+        requirementIds: z.array(z.string().min(1).max(100)).max(10),
+      }),
+    )
+    .max(30),
+  warnings: z.array(z.string().min(1).max(1_000)).max(20),
 });
+export type ProfileComparison = z.infer<typeof ProfileComparisonSchema>;
 
-export const CapabilityGapSchema = z.strictObject({
-  title: z.string().min(1).max(300),
-  description: z.string().min(1).max(2_000),
-  priority: PrioritySchema,
-  evidence: z.array(EvidenceSchema).max(10),
-  actions: z.array(z.string().min(1).max(1_000)).max(10),
+export const JobPostingFactsSchema = z.strictObject({
+  title: z.string().max(500).nullable(),
+  companyName: z.string().max(500).nullable(),
+  summary: z.string().min(1).max(5_000),
+  requirements: z.array(AnalysisRequirementSchema).max(40),
+  technologies: z.array(AnalysisTechnologySchema).max(40),
+  traits: z.array(AnalysisTraitSchema).max(20),
+  warnings: z.array(z.string().min(1).max(1_000)).max(20),
 });
-
-export const InterviewQuestionSchema = z.strictObject({
-  category: z.string().min(1).max(200),
-  question: z.string().min(1).max(2_000),
-  intent: z.string().min(1).max(2_000),
-  priority: PrioritySchema,
-  requirementIds: z.array(z.string().min(1).max(100)).max(10),
-});
+export type JobPostingFacts = z.infer<typeof JobPostingFactsSchema>;
 
 export const AnalysisResultSchema = z.strictObject({
-  job: z.strictObject({
-    title: z.string().max(500).nullable(),
-    companyName: z.string().max(500).nullable(),
-    summary: z.string().min(1).max(5_000),
-    requirements: z.array(AnalysisRequirementSchema),
-    technologies: z.array(AnalysisTechnologySchema),
-    traits: z.array(AnalysisTraitSchema),
-  }),
-  fit: FitAssessmentSchema,
-  gaps: z.array(CapabilityGapSchema),
-  interviewQuestions: z.array(InterviewQuestionSchema),
-  warnings: z.array(z.string().min(1).max(1_000)),
+  job: JobPostingFactsSchema,
+  comparison: ProfileComparisonSchema,
+  fitScore: z.number().int().min(0).max(100),
 });
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
+
+const MATCH_WEIGHTS: Record<z.infer<typeof MatchStatusSchema>, number> = {
+  matched: 1,
+  partial: 0.5,
+  missing: 0,
+  unknown: 0,
+};
+
+export function calculateAnalysisFitScore(
+  requirements: JobPostingFacts["requirements"],
+  matches: ProfileComparison["matches"],
+): number {
+  const matchByRequirement = new Map(
+    matches.map((match) => [match.requirementId, match.status]),
+  );
+  const scoreKind = (kind: z.infer<typeof AnalysisRequirementKindSchema>) => {
+    const relevant = requirements.filter(
+      (requirement) => requirement.kind === kind,
+    );
+    if (relevant.length === 0) return null;
+    return (
+      relevant.reduce(
+        (total, requirement) =>
+          total +
+          (MATCH_WEIGHTS[matchByRequirement.get(requirement.id) ?? "unknown"] ??
+            0),
+        0,
+      ) / relevant.length
+    );
+  };
+
+  const required = scoreKind("required");
+  const preferred = scoreKind("preferred");
+  if (required === null && preferred === null) return 0;
+  if (required === null) return Math.round((preferred ?? 0) * 100);
+  if (preferred === null) return Math.round(required * 100);
+  return Math.round((required * 0.7 + preferred * 0.3) * 100);
+}
 
 export const AnalysisEventTypeSchema = z.enum([
   "progress",
@@ -903,12 +979,14 @@ export const AnalysisEventCallbackSchema = z.strictObject({
 export type AnalysisEventCallback = z.infer<typeof AnalysisEventCallbackSchema>;
 
 export const AnalysisStepSchema = z.strictObject({
-  step: z.enum(["extracting", "matching", "generating_questions"]),
+  step: z.enum(["job_facts", "profile_comparison"]),
   model: z.string().min(1).max(200),
   promptVersion: z.string().min(1).max(100),
+  responseId: z.string().min(1).max(300).nullable(),
   inputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
   latencyMs: z.number().int().nonnegative(),
+  attemptCount: z.number().int().min(1).max(2),
 });
 
 export const AnalysisResultCallbackSchema = z.strictObject({
