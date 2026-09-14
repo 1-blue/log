@@ -2,7 +2,7 @@
 
 > 기준일: 2026-09-14
 > 작업 브랜치: `codex/career-ops-foundation`  
-> 현재 범위: 14단계 코드·DB 구현 완료, 15단계 외부 연동 전 검증 진행 예정
+> 현재 범위: 15단계 외부 연동 전 개발 검증 완료, 16단계 외부 요소 연결 예정
 
 ## 1. 프로젝트 정의
 
@@ -502,23 +502,33 @@
 - 로컬 migration reset·schema lint·총 131개 DB 테스트, 계약 27개·Worker 89개·Blog 34개 테스트, n8n 정적 검증, 전체 타입 검사·lint·production build와 Wrangler dry-run을 통과했다.
 - 원격 migration, n8n Workflow 게시, Slack Credential 연결과 실제 채널 수신 확인은 16~17단계로 보류한다.
 
-### 15단계 — 외부 연동 전 개발 완결성 확보
+### 15단계 — 외부 연동 전 개발 완결성 확보 `완료`
 
 목표: 외부 Credential을 등록하기 전에 구현·설정·복구 절차를 배포 가능한 상태로 완성한다.
 
-- [ ] 계약 스키마와 상태 전이 단위 테스트
-- [ ] Worker 인증, CORS, SSRF, HMAC, 멱등성, Rate Limit 테스트
-- [ ] Wanted fixture 기반 parser 회귀 테스트
-- [ ] n8n 성공·수집 실패·AI 429·callback 실패 fixture Workflow 테스트
-- [ ] 민감값 redaction과 로그 구조 검증
-- [ ] DB migration, RLS, index와 주요 query 계획 검증
-- [ ] Vercel·Worker·n8n의 환경별 설정 template과 배포 전 체크리스트 작성
-- [ ] n8n Workflow export와 Supabase backup·복구 절차 작성
-- [ ] 의존성 및 컨테이너 이미지 보안 업데이트 절차 작성
-- [ ] 장애 대응 runbook과 수동 복구 절차 작성
-- [ ] 전체 타입 검사, lint, test, production build와 정적 보안 검사를 한 번에 실행하는 검증 명령 구성
+- [x] 계약 스키마와 상태 전이 단위 테스트
+- [x] Worker 인증, CORS, SSRF, HMAC, 멱등성, Rate Limit 테스트
+- [x] Wanted fixture 기반 parser 회귀 테스트
+- [x] n8n 성공·수집 실패·AI 429·callback 실패 fixture Workflow 테스트
+- [x] 민감값 redaction과 로그 구조 검증
+- [x] DB migration, RLS, index와 주요 query 계획 검증
+- [x] Vercel·Worker·n8n의 환경별 설정 template과 배포 전 체크리스트 작성
+- [x] n8n Workflow export와 Supabase backup·복구 절차 작성
+- [x] 의존성 및 컨테이너 이미지 보안 업데이트 절차 작성
+- [x] 장애 대응 runbook과 수동 복구 절차 작성
+- [x] 전체 타입 검사, lint, test, production build와 정적 보안 검사를 한 번에 실행하는 검증 명령 구성
 
 종료 기준: 외부 서비스 접속 없이 자동 검증이 통과하고, 이후 단계에서는 코드 개발보다 Credential 등록과 실제 연동 확인에 집중할 수 있다.
+
+- `pnpm verify:offline`은 환경 template·Secret 패턴, Docker Compose, 타입·lint·test·build, Wrangler 타입, 로컬 migration reset·lint·pgTAP, DB 타입 동기화와 `git diff --check`를 한 번에 검증한다.
+- 분석·수집·Slack 상태 전이 행렬과 Wanted HTML 회귀 fixture를 추가하고, n8n Workflow `versionId`·정책 버전을 성공·실패 fixture에 결합해 테스트 드리프트를 차단했다.
+- Worker 로그는 허용 필드 기반 구조화 logger로 통일했으며 오류 원문, JWT, 이메일, 문서·공고 원문, 답변과 Secret을 기록하지 않는다.
+- 문서 metadata의 `authenticated` 직접 쓰기 정책과 권한을 후속 migration에서 제거해 Worker service role만 쓰도록 현재 구조와 일치시켰다. Storage PDF upload 정책은 유지한다.
+- 전체 public 테이블 RLS, 직접 쓰기 차단, service RPC 권한, 빈 `search_path`와 지원·분석·문서·수집·stale·Slack queue의 index 사용을 pgTAP으로 검증한다.
+- n8n audit 결과 필요한 Code·HTTP Request 노드만 유지하고 Community Packages, Templates, Public API, 버전 알림과 진단 telemetry를 비활성화했다.
+- 배포 체크리스트와 운영 Runbook에 환경변수 대응, 배포 순서, n8n·Supabase DB·Storage backup, rollback, Secret 노출과 장애별 복구 절차를 기록했다.
+- 계약 28개, Worker 97개, Blog 39개, DB 143개 테스트와 전체 타입 검사·lint·production build, Wrangler dry-run, DB 타입 동기화가 통과했다.
+- 원격 migration, 최신 Workflow 게시, Credential 등록과 실제 외부 호출은 계획대로 16~17단계에 남겼다.
 
 ### 16단계 — 외부 요소 연결 및 운영 배포
 
@@ -944,4 +954,4 @@ Vercel은 기존 Git Integration 배포를 유지하므로 별도 CLI token, org
 
 ## 14. 다음 작업
 
-다음 작업은 **15단계 — 외부 연동 전 개발 완결성 확보**다. 전체 계약·Worker·DB·n8n 검증을 한 명령으로 실행하고, 환경별 배포 체크리스트, 로그 redaction, 보안 점검, 백업·복구 및 장애 대응 runbook을 완성한다. 외부 Credential 등록·Workflow 게시·운영 배포는 16단계에서 일괄 처리한다.
+다음 작업은 **16단계 — 외부 요소 연결 및 운영 배포**다. OpenAI·Slack Credential, Supabase 원격 migration, 최신 n8n Workflow 게시, Cloudflare Worker와 Vercel 운영 환경을 배포 체크리스트 순서로 연결한다. 실제 정상·장애 흐름 검증은 17단계에서 수행한다.

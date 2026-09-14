@@ -8,6 +8,8 @@
     "dev": "turbo dev",
     "lint": "turbo lint",
     "test": "turbo test && node apps/n8n/scripts/validate-workflow.mjs",
+    "check:security": "node scripts/check-repository-security.mjs",
+    "verify:offline": "node scripts/verify-offline.mjs",
     "db:migrations": "supabase migration list",
     "db:push:dry-run": "supabase db push --dry-run",
     "db:push": "supabase db push",

@@ -10,7 +10,8 @@
 - 12단계에서는 분석 이벤트 revision, 단계별 재시도, heartbeat, 논리적 취소와 정체 작업 정리 RPC를 추가했다.
 - 13단계에서는 분석 사용자 검토, 요구사항 판정, 면접 질문·append-only 답변, 준비 체크리스트, 구조화 회고 테이블과 자동 생성·backfill 로직을 추가했다.
 - 14단계에서는 `slack_notifications` Outbox, 공고별 `slack_job_threads`, 도메인 이벤트 trigger, 채널별 claim·완료·stale 처리 RPC와 조회 전용 RLS를 추가했다.
-- 로컬 Supabase는 다른 프로젝트와 기본 포트가 겹칠 수 있으므로 해당 프로젝트를 중지하지 않고 원격 rollback 통합 SQL을 사용할 수 있다.
+- 15단계에서는 문서 metadata 쓰기를 Worker service role로만 제한하고, 전체 public 테이블의 RLS·권한·`security definer` 설정과 주요 query index 사용을 pgTAP으로 검증한다.
+- 로컬 Supabase는 다른 프로젝트와 충돌하지 않도록 `5532x` 포트를 사용한다. 원격 검증 전에는 `db reset --local`, schema lint와 pgTAP을 우선 실행한다.
 
 ## 원격 적용 순서
 
@@ -22,6 +23,12 @@ pnpm db:push:dry-run
 pnpm db:push
 pnpm db:lint
 pnpm db:types
+```
+
+로컬 전체 검증은 저장소 루트에서 실행한다.
+
+```bash
+pnpm verify:offline
 ```
 
 `db:push` 전에 project ref와 프로젝트 이름이 현재 사용 중인 Supabase 프로젝트와 일치하는지 확인한다. 원격 DB를 Dashboard의 Table Editor나 SQL Editor에서 직접 변경하지 않는다.

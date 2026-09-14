@@ -73,7 +73,17 @@ Workflow JSON 자체는 다음 명령으로 비밀값 없이 정적 검증할 �
 node scripts/validate-workflow.mjs
 ```
 
+`workflow-policy-fixtures.json`은 Workflow `versionId`와 `careerOpsPolicyVersion`에 묶여 있으며 수집 성공·실패, OpenAI 429·quota·schema 오류, callback 실패와 Slack 응답 분류를 검증한다. Workflow를 변경할 때는 fixture 기대값과 두 버전을 함께 검토한다.
+
 Code 노드는 서명 처리에 Node 내장 `crypto`만 사용할 수 있다. SSRF 보호는 기본 차단 범위와 `100.64.0.0/10`을 차단하며 로컬 Worker callback을 위한 `host.docker.internal`만 예외로 허용한다. Wanted 호스트를 allowlist에 추가하지 않는다.
+
+보안 audit은 로컬 컨테이너에서 실행한다.
+
+```bash
+docker compose exec -T n8n n8n audit
+```
+
+Community Packages, Templates, Public API, 버전 알림과 진단 telemetry는 비활성화한다. audit에 표시되는 Code·HTTP Request 노드는 HMAC, 응답 분류와 허용된 외부 요청에 필요하므로 제거하지 않고 Workflow 정적 검사, 내장 모듈 `crypto` 제한과 SSRF 보호로 통제한다.
 
 UI에서 수정한 Workflow는 Credential 값과 인증 헤더가 없는지 확인한 다음 게시 버전을 다시 export한다.
 

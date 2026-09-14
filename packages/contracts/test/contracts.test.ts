@@ -30,7 +30,10 @@ import {
   DocumentVersionResponseSchema,
   IdempotencyKeySchema,
   isValidAnalysisJobTransition,
+  isValidJobPostingCollectionTransition,
+  isValidSlackNotificationTransition,
   JobPostingCollectionCallbackSchema,
+  JobPostingCollectionStatusSchema,
   N8nSlackNotificationDispatchPayloadSchema,
   PatchApplicationRequestSchema,
   PatchInterviewChecklistItemRequestSchema,
@@ -40,6 +43,7 @@ import {
   SaveInterviewAnswerRequestSchema,
   SlackNotificationResponseSchema,
   SlackNotificationResultCallbackSchema,
+  SlackNotificationStatusSchema,
   UpdateAnalysisReviewRequestSchema,
   UpdateDocumentVersionRequestSchema,
 } from "../src/index.js";
@@ -511,13 +515,80 @@ describe("career operations contracts", () => {
   });
 
   it("enforces the analysis job state machine", () => {
-    expect(isValidAnalysisJobTransition("queued", "running")).toBe(true);
-    expect(isValidAnalysisJobTransition("running", "running")).toBe(true);
-    expect(isValidAnalysisJobTransition("failed", "queued")).toBe(true);
-    expect(isValidAnalysisJobTransition("running", "succeeded")).toBe(true);
-    expect(isValidAnalysisJobTransition("needs_input", "queued")).toBe(false);
-    expect(isValidAnalysisJobTransition("succeeded", "running")).toBe(false);
-    expect(isValidAnalysisJobTransition("cancelled", "running")).toBe(false);
+    const allowed = new Set([
+      "failed:queued",
+      "queued:cancelled",
+      "queued:failed",
+      "queued:running",
+      "retrying:cancelled",
+      "retrying:failed",
+      "retrying:running",
+      "running:cancelled",
+      "running:failed",
+      "running:needs_input",
+      "running:retrying",
+      "running:running",
+      "running:succeeded",
+    ]);
+    for (const from of [
+      "queued",
+      "running",
+      "needs_input",
+      "retrying",
+      "succeeded",
+      "failed",
+      "cancelled",
+    ] as const) {
+      for (const to of [
+        "queued",
+        "running",
+        "needs_input",
+        "retrying",
+        "succeeded",
+        "failed",
+        "cancelled",
+      ] as const) {
+        expect(isValidAnalysisJobTransition(from, to)).toBe(
+          allowed.has(`${from}:${to}`),
+        );
+      }
+    }
+  });
+
+  it("enforces collection and Slack notification terminal states", () => {
+    const collectionAllowed = new Set([
+      "queued:failed",
+      "queued:needs_input",
+      "queued:running",
+      "queued:succeeded",
+      "running:failed",
+      "running:needs_input",
+      "running:succeeded",
+    ]);
+    for (const from of JobPostingCollectionStatusSchema.options) {
+      for (const to of JobPostingCollectionStatusSchema.options) {
+        expect(isValidJobPostingCollectionTransition(from, to)).toBe(
+          collectionAllowed.has(`${from}:${to}`),
+        );
+      }
+    }
+
+    const slackAllowed = new Set([
+      "dispatching:delivery_unknown",
+      "dispatching:failed",
+      "dispatching:sent",
+      "dispatching:skipped",
+      "queued:dispatching",
+      "queued:failed",
+      "queued:skipped",
+    ]);
+    for (const from of SlackNotificationStatusSchema.options) {
+      for (const to of SlackNotificationStatusSchema.options) {
+        expect(isValidSlackNotificationTransition(from, to)).toBe(
+          slackAllowed.has(`${from}:${to}`),
+        );
+      }
+    }
   });
 
   it("validates analysis retry and cancellation action bodies strictly", () => {

@@ -65,8 +65,8 @@ select is(
      where schemaname = 'public'
        and tablename = 'document_versions'
   ),
-  3,
-  'document_versions has select, insert, and update policies'
+  1,
+  'document_versions exposes only its owner select policy'
 );
 
 select is(
@@ -76,8 +76,8 @@ select is(
      where schemaname = 'public'
        and tablename = 'document_publications'
   ),
-  4,
-  'document_publications has select, insert, update, and delete policies'
+  1,
+  'document_publications exposes only its owner select policy'
 );
 
 select is(

@@ -71,6 +71,7 @@ import {
   type JobPostingCollectionService,
   JobPostingCollectionServiceError,
 } from "./job-posting-collections.js";
+import { logError, logInfo } from "./logger.js";
 import { verifySignedRequest } from "./n8n.js";
 import {
   createSlackNotificationService,
@@ -785,16 +786,14 @@ export function createApp(dependencies?: AppDependencies) {
 
     await next();
 
-    console.log(
-      JSON.stringify({
-        event: "worker_request",
-        requestId: getRequestId(c),
-        method: c.req.method,
-        path: new URL(c.req.url).pathname,
-        status: c.res.status,
-        durationMs: Date.now() - startedAt,
-      }),
-    );
+    logInfo({
+      event: "worker_request",
+      requestId: getRequestId(c),
+      method: c.req.method,
+      path: new URL(c.req.url).pathname,
+      status: c.res.status,
+      durationMs: Date.now() - startedAt,
+    });
   });
 
   app.use("/v1/internal/*", async (c, next) => {
@@ -867,12 +866,10 @@ export function createApp(dependencies?: AppDependencies) {
     const drain = getSlackNotificationService(c.env)
       .drain(2)
       .catch(() => {
-        console.error(
-          JSON.stringify({
-            event: "slack_notification_drain_failed",
-            requestId: getRequestId(c),
-          }),
-        );
+        logError({
+          event: "slack_notification_drain_failed",
+          requestId: getRequestId(c),
+        });
       });
     try {
       c.executionCtx.waitUntil(drain);
@@ -1802,14 +1799,12 @@ export function createApp(dependencies?: AppDependencies) {
     errorResponse(c, 404, "NOT_FOUND", "요청한 경로를 찾을 수 없습니다."),
   );
 
-  app.onError((error, c) => {
-    console.error(
-      JSON.stringify({
-        event: "worker_error",
-        requestId: getRequestId(c),
-        errorName: error.name,
-      }),
-    );
+  app.onError((_error, c) => {
+    logError({
+      event: "worker_error",
+      requestId: getRequestId(c),
+      errorCode: "INTERNAL_ERROR",
+    });
 
     return errorResponse(
       c,

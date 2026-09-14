@@ -1658,6 +1658,43 @@ export function isValidAnalysisJobTransition(
   return AllowedAnalysisTransitions[from].includes(to);
 }
 
+const AllowedJobPostingCollectionTransitions: Record<
+  JobPostingCollectionStatus,
+  readonly JobPostingCollectionStatus[]
+> = {
+  failed: [],
+  needs_input: [],
+  queued: ["running", "succeeded", "needs_input", "failed"],
+  running: ["succeeded", "needs_input", "failed"],
+  succeeded: [],
+};
+
+export function isValidJobPostingCollectionTransition(
+  from: JobPostingCollectionStatus,
+  to: JobPostingCollectionStatus,
+): boolean {
+  return AllowedJobPostingCollectionTransitions[from].includes(to);
+}
+
+const AllowedSlackNotificationTransitions: Record<
+  SlackNotificationStatus,
+  readonly SlackNotificationStatus[]
+> = {
+  delivery_unknown: [],
+  dispatching: ["sent", "failed", "delivery_unknown", "skipped"],
+  failed: [],
+  queued: ["dispatching", "failed", "skipped"],
+  sent: [],
+  skipped: [],
+};
+
+export function isValidSlackNotificationTransition(
+  from: SlackNotificationStatus,
+  to: SlackNotificationStatus,
+): boolean {
+  return AllowedSlackNotificationTransitions[from].includes(to);
+}
+
 export type {
   AnalysisJobResponse as AnalysisJobResponseType,
   AnalysisJobStage as AnalysisJobStageType,

@@ -3,6 +3,7 @@ import {
   createAnalysisJobService,
 } from "./analysis-jobs.js";
 import { app } from "./app.js";
+import { logInfo } from "./logger.js";
 import {
   createSlackNotificationService,
   type SlackNotificationService,
@@ -23,13 +24,11 @@ export async function runStaleAnalysisSweep(
     cutoff,
     ANALYSIS_STALE_SWEEP_LIMIT,
   );
-  console.log(
-    JSON.stringify({
-      event: "analysis_stale_sweep",
-      failedCount: failedJobIds.length,
-      scheduledAt: new Date(scheduledAt).toISOString(),
-    }),
-  );
+  logInfo({
+    event: "analysis_stale_sweep",
+    failedCount: failedJobIds.length,
+    scheduledAt: new Date(scheduledAt).toISOString(),
+  });
   return failedJobIds;
 }
 
@@ -50,13 +49,11 @@ export async function runSlackNotificationSweep(
     dispatchedCount: dispatched.length,
     staleCount: staleIds.length,
   };
-  console.log(
-    JSON.stringify({
-      event: "slack_notification_sweep",
-      ...result,
-      scheduledAt: new Date(scheduledAt).toISOString(),
-    }),
-  );
+  logInfo({
+    event: "slack_notification_sweep",
+    ...result,
+    scheduledAt: new Date(scheduledAt).toISOString(),
+  });
   return result;
 }
 

@@ -4,6 +4,7 @@ import {
   classifyCallbackFailure,
   classifyOpenAiFailure,
 } from "./analysis-retry-policy.mjs";
+import { classifyCollectionFetch } from "./collection-policy.mjs";
 import { classifySlackDelivery } from "./slack-notification-policy.mjs";
 
 const workflow = JSON.parse(
@@ -12,11 +13,26 @@ const workflow = JSON.parse(
     "utf8",
   ),
 );
+const fixtures = JSON.parse(
+  await readFile(
+    new URL("./workflow-policy-fixtures.json", import.meta.url),
+    "utf8",
+  ),
+);
 const nodes = new Map(workflow.nodes.map((node) => [node.name, node]));
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
+
+assert(
+  workflow.versionId === fixtures.workflowVersionId,
+  "fixture가 현재 Workflow versionId와 동기화되지 않았습니다.",
+);
+assert(
+  workflow.meta?.careerOpsPolicyVersion === fixtures.policyVersion,
+  "fixture와 Workflow 정책 버전이 일치하지 않습니다.",
+);
 
 for (const name of [
   "HMAC 요청 검증",
@@ -241,6 +257,81 @@ for (const name of nodes.keys()) {
 }
 
 const fixtureNow = Date.parse("2026-09-13T00:00:00.000Z");
+for (const fixture of fixtures.collection) {
+  const input = { ...fixture.input };
+  if (Number.isInteger(input.bodyRepeat))
+    input.body = "x".repeat(input.bodyRepeat);
+  const result = classifyCollectionFetch(input);
+  assert(
+    result.outcome === fixture.expected.outcome,
+    `수집 fixture 실패 (${fixture.name}): outcome`,
+  );
+  if (fixture.expected.responseNull) {
+    assert(
+      result.response === null,
+      `수집 fixture 실패 (${fixture.name}): response`,
+    );
+  }
+  if (fixture.expected.status) {
+    assert(
+      result.response?.status === fixture.expected.status,
+      `수집 fixture 실패 (${fixture.name}): status`,
+    );
+  }
+  if (typeof fixture.expected.bodyPresent === "boolean") {
+    assert(
+      Boolean(result.response?.body) === fixture.expected.bodyPresent,
+      `수집 fixture 실패 (${fixture.name}): body`,
+    );
+  }
+}
+
+for (const fixture of fixtures.openAi) {
+  const result = classifyOpenAiFailure({
+    ...fixture.input,
+    nowMs: fixtureNow,
+    seed: fixture.name,
+  });
+  assert(
+    result.code === fixture.expected.code,
+    `OpenAI fixture 실패 (${fixture.name}): code`,
+  );
+  assert(
+    result.automaticRetry === fixture.expected.automaticRetry,
+    `OpenAI fixture 실패 (${fixture.name}): retry`,
+  );
+}
+
+for (const fixture of fixtures.callback) {
+  const result = classifyCallbackFailure(fixture.input);
+  assert(
+    result.retryable === fixture.expected.retryable,
+    `Callback fixture 실패 (${fixture.name}): retryable`,
+  );
+  assert(
+    result.shouldRetry === fixture.expected.shouldRetry,
+    `Callback fixture 실패 (${fixture.name}): retry`,
+  );
+}
+
+for (const fixture of fixtures.slack) {
+  const result = classifySlackDelivery(fixture.input);
+  assert(
+    result.outcome === fixture.expected.outcome,
+    `Slack fixture 실패 (${fixture.name}): outcome`,
+  );
+  assert(
+    result.shouldRetry === fixture.expected.shouldRetry,
+    `Slack fixture 실패 (${fixture.name}): retry`,
+  );
+  if (fixture.expected.errorCode) {
+    assert(
+      result.error?.code === fixture.expected.errorCode,
+      `Slack fixture 실패 (${fixture.name}): error code`,
+    );
+  }
+}
+
 const transient = classifyOpenAiFailure({
   attempt: 1,
   error: { status: 503 },

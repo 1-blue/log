@@ -66,13 +66,28 @@ export async function sha256Hex(value: string | Uint8Array): Promise<string> {
   ).join("");
 }
 
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value) ?? "null";
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => canonicalJson(item ?? null)).join(",")}]`;
+  }
+  const object = value as Record<string, unknown>;
+  return `{${Object.keys(object)
+    .filter((key) => object[key] !== undefined)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(object[key])}`)
+    .join(",")}}`;
+}
+
 export async function createRequestFingerprint(input: {
   body: unknown;
   method: string;
   path: string;
 }): Promise<string> {
   return sha256Hex(
-    `${input.method.toUpperCase()}\n${input.path}\n${JSON.stringify(input.body)}`,
+    `${input.method.toUpperCase()}\n${input.path}\n${canonicalJson(input.body)}`,
   );
 }
 

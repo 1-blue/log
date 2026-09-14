@@ -1,0 +1,133 @@
+{
+  "policyVersion": "career-ops-2026-09-15-v1",
+  "workflowVersionId": "12000000-0000-4000-8000-000000000098",
+  "collection": [
+    {
+      "name": "html success",
+      "input": {
+        "statusCode": 200,
+        "headers": { "content-type": "text/html; charset=utf-8" },
+        "body": "<html><body>fixture</body></html>"
+      },
+      "expected": { "outcome": "response", "status": 200, "bodyPresent": true }
+    },
+    {
+      "name": "timeout",
+      "input": { "error": { "message": "request timed out" } },
+      "expected": { "outcome": "timeout", "responseNull": true }
+    },
+    {
+      "name": "network failure",
+      "input": { "error": { "message": "ECONNRESET" } },
+      "expected": { "outcome": "network_error", "responseNull": true }
+    },
+    {
+      "name": "oversized response",
+      "input": {
+        "statusCode": 200,
+        "headers": { "content-type": "text/html" },
+        "bodyRepeat": 600001
+      },
+      "expected": { "outcome": "response", "status": 200, "bodyPresent": false }
+    }
+  ],
+  "openAi": [
+    {
+      "name": "429 retry",
+      "input": { "attempt": 1, "error": { "status": 429, "retryAfter": 3 } },
+      "expected": { "code": "OPENAI_RATE_LIMITED", "automaticRetry": true }
+    },
+    {
+      "name": "quota does not retry",
+      "input": {
+        "attempt": 1,
+        "error": { "status": 429, "message": "insufficient_quota" }
+      },
+      "expected": { "code": "OPENAI_BILLING_LIMIT", "automaticRetry": false }
+    },
+    {
+      "name": "schema failure does not retry",
+      "input": {
+        "attempt": 1,
+        "error": { "message": "structured schema invalid" }
+      },
+      "expected": { "code": "OPENAI_SCHEMA_INVALID", "automaticRetry": false }
+    },
+    {
+      "name": "second 5xx is terminal",
+      "input": { "attempt": 2, "error": { "status": 503 } },
+      "expected": { "code": "OPENAI_UNAVAILABLE", "automaticRetry": false }
+    }
+  ],
+  "callback": [
+    {
+      "name": "first 5xx retries",
+      "input": { "attempt": 1, "status": 503 },
+      "expected": { "retryable": true, "shouldRetry": true }
+    },
+    {
+      "name": "third 5xx stops",
+      "input": { "attempt": 3, "status": 503 },
+      "expected": { "retryable": true, "shouldRetry": false }
+    },
+    {
+      "name": "timeout retries",
+      "input": {
+        "attempt": 1,
+        "status": 0,
+        "error": { "message": "callback timeout" }
+      },
+      "expected": { "retryable": true, "shouldRetry": true }
+    },
+    {
+      "name": "4xx stops",
+      "input": { "attempt": 1, "status": 400 },
+      "expected": { "retryable": false, "shouldRetry": false }
+    }
+  ],
+  "slack": [
+    {
+      "name": "bot success",
+      "input": {
+        "attempt": 1,
+        "status": 200,
+        "target": "job_root",
+        "body": {
+          "ok": true,
+          "channel": "C0123456789",
+          "ts": "1710000000.000001"
+        }
+      },
+      "expected": { "outcome": "sent", "shouldRetry": false }
+    },
+    {
+      "name": "short 429 retries once",
+      "input": {
+        "attempt": 1,
+        "status": 429,
+        "target": "job_thread",
+        "headers": { "retry-after": "30" }
+      },
+      "expected": { "outcome": null, "shouldRetry": true }
+    },
+    {
+      "name": "5xx delivery is unknown",
+      "input": { "attempt": 1, "status": 503, "target": "job_root" },
+      "expected": { "outcome": "delivery_unknown", "shouldRetry": false }
+    },
+    {
+      "name": "authentication failure",
+      "input": {
+        "attempt": 1,
+        "status": 200,
+        "target": "job_root",
+        "body": { "ok": false, "error": "invalid_auth" }
+      },
+      "expected": {
+        "outcome": "failed",
+        "shouldRetry": false,
+        "errorCode": "SLACK_AUTHENTICATION_FAILED"
+      }
+    }
+  ]
+}

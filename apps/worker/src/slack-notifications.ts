@@ -11,6 +11,7 @@ import type { Database, Json } from "@workspace/contracts/database";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
+import { logError } from "./logger.js";
 import { dispatchToN8n, N8nDispatchError } from "./n8n.js";
 
 type NotificationRow =
@@ -117,12 +118,10 @@ export async function sendSlackErrorWebhook(input: {
     if (!response.ok) throw new Error("Slack webhook rejected the request");
     return true;
   } catch {
-    console.error(
-      JSON.stringify({
-        event: "slack_error_webhook_failed",
-        requestId: input.requestId,
-      }),
-    );
+    logError({
+      event: "slack_error_webhook_failed",
+      requestId: input.requestId,
+    });
     return false;
   }
 }

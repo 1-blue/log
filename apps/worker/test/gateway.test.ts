@@ -12,6 +12,7 @@ import type {
   IdempotencyClaim,
   IdempotencyService,
 } from "../src/idempotency.js";
+import { createRequestFingerprint } from "../src/idempotency.js";
 import {
   createSignedHeaders,
   dispatchToN8n,
@@ -219,6 +220,7 @@ describe("worker idempotency", () => {
   });
 
   it("releases a claim and preserves the internal error boundary", async () => {
+    const errorOutput = vi.spyOn(console, "error").mockImplementation(() => {});
     const service = applicationService();
     vi.mocked(service.create).mockRejectedValue(new Error("database secret"));
     const idempotency = idempotencyService({
@@ -248,6 +250,31 @@ describe("worker idempotency", () => {
     expect(response.status).toBe(500);
     expect(idempotency.release).toHaveBeenCalledOnce();
     expect(body).not.toContain("database secret");
+    expect(JSON.stringify(errorOutput.mock.calls)).not.toContain(
+      "database secret",
+    );
+    errorOutput.mockRestore();
+  });
+
+  it("fingerprints the same body deterministically and separates changed input", async () => {
+    const first = await createRequestFingerprint({
+      body: createInput,
+      method: "POST",
+      path: "/v1/applications",
+    });
+    const changed = await createRequestFingerprint({
+      body: { ...createInput, title: "다른 공고명" },
+      method: "POST",
+      path: "/v1/applications",
+    });
+    const reordered = await createRequestFingerprint({
+      body: Object.fromEntries(Object.entries(createInput).reverse()),
+      method: "POST",
+      path: "/v1/applications",
+    });
+
+    expect(first).toBe(reordered);
+    expect(first).not.toBe(changed);
   });
 });
 
@@ -387,6 +414,59 @@ describe("n8n request signing", () => {
     expect(accepted.status).toBe(404);
     expect(accepted.headers.get("X-Request-Id")).toBe(REQUEST_ID);
     expect(wrongMethod.status).toBe(405);
+  });
+
+  it("rejects non-JSON and declared oversized callback bodies before verification", async () => {
+    const testApp = createApp();
+    const invalidContentType = await testApp.request(
+      "http://localhost:8787/v1/internal/test",
+      {
+        body: "fixture",
+        headers: { "Content-Type": "text/plain" },
+        method: "POST",
+      },
+      baseEnv,
+    );
+    const oversized = await testApp.request(
+      "http://localhost:8787/v1/internal/test",
+      {
+        body: "{}",
+        headers: {
+          "Content-Length": "1250001",
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
+      baseEnv,
+    );
+
+    expect(invalidContentType.status).toBe(400);
+    expect(oversized.status).toBe(400);
+  });
+
+  it("rejects a correctly shaped signature made with another secret", async () => {
+    const headers = await createSignedHeaders({
+      body,
+      eventId: EVENT_ID,
+      method: "POST",
+      path: "/v1/internal/test",
+      requestId: REQUEST_ID,
+      secret: "different-callback-secret",
+      timestamp,
+    });
+    const request = new Request("http://localhost:8787/v1/internal/test", {
+      body,
+      headers,
+      method: "POST",
+    });
+
+    await expect(
+      verifySignedRequest({
+        now: timestamp,
+        request,
+        secret: baseEnv.N8N_CALLBACK_SECRET,
+      }),
+    ).resolves.toBeNull();
   });
 });
 

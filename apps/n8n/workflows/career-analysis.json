@@ -1242,9 +1242,18 @@
           "parameters": [
             { "name": "Content-Type", "value": "application/json" },
             { "name": "X-Event-Id", "value": "={{ $json.headers.eventId }}" },
-            { "name": "X-Request-Id", "value": "={{ $json.headers.requestId }}" },
-            { "name": "X-Signature", "value": "={{ $json.headers.signature }}" },
-            { "name": "X-Signature-Timestamp", "value": "={{ $json.headers.timestamp }}" }
+            {
+              "name": "X-Request-Id",
+              "value": "={{ $json.headers.requestId }}"
+            },
+            {
+              "name": "X-Signature",
+              "value": "={{ $json.headers.signature }}"
+            },
+            {
+              "name": "X-Signature-Timestamp",
+              "value": "={{ $json.headers.timestamp }}"
+            }
           ]
         },
         "sendBody": true,
@@ -2235,7 +2244,8 @@
   "staticData": null,
   "versionId": "12000000-0000-4000-8000-000000000098",
   "meta": {
-    "templateCredsSetupCompleted": true
+    "templateCredsSetupCompleted": true,
+    "careerOpsPolicyVersion": "career-ops-2026-09-15-v1"
   },
   "triggerCount": 0,
   "tags": []

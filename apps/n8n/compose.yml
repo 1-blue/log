@@ -47,6 +47,10 @@ services:
       N8N_SECURE_COOKIE: "false"
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
       N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_COMMUNITY_PACKAGES_ENABLED: "false"
+      N8N_PUBLIC_API_DISABLED: "true"
+      N8N_TEMPLATES_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
       GENERIC_TIMEZONE: Asia/Seoul
       TZ: Asia/Seoul
 
