@@ -1027,6 +1027,173 @@ export type Database = {
         }
         Relationships: []
       }
+      slack_job_threads: {
+        Row: {
+          channel_id: string | null
+          created_at: string
+          job_posting_id: string
+          owner_id: string
+          root_notification_id: string
+          status: Database["public"]["Enums"]["slack_thread_status"]
+          thread_ts: string | null
+          updated_at: string
+        }
+        Insert: {
+          channel_id?: string | null
+          created_at?: string
+          job_posting_id: string
+          owner_id: string
+          root_notification_id: string
+          status?: Database["public"]["Enums"]["slack_thread_status"]
+          thread_ts?: string | null
+          updated_at?: string
+        }
+        Update: {
+          channel_id?: string | null
+          created_at?: string
+          job_posting_id?: string
+          owner_id?: string
+          root_notification_id?: string
+          status?: Database["public"]["Enums"]["slack_thread_status"]
+          thread_ts?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slack_job_threads_notification_fk"
+            columns: ["root_notification_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "slack_notifications"
+            referencedColumns: ["id", "owner_id"]
+          },
+          {
+            foreignKeyName: "slack_job_threads_posting_fk"
+            columns: ["job_posting_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id", "owner_id"]
+          },
+        ]
+      }
+      slack_notifications: {
+        Row: {
+          analysis_job_id: string | null
+          application_id: string | null
+          attempt_count: number
+          channel_id: string | null
+          collection_run_id: string | null
+          completion_event_id: string | null
+          context: Json
+          created_at: string
+          dedupe_key: string
+          dispatched_at: string | null
+          error_code: string | null
+          error_message: string | null
+          error_retryable: boolean
+          event_id: string
+          event_type: Database["public"]["Enums"]["slack_notification_event_type"]
+          finished_at: string | null
+          http_status: number | null
+          id: string
+          job_posting_id: string
+          message_ts: string | null
+          not_before: string
+          owner_id: string
+          request_id: string
+          route_key: string
+          status: Database["public"]["Enums"]["slack_notification_status"]
+          target: Database["public"]["Enums"]["slack_notification_target"]
+          updated_at: string
+        }
+        Insert: {
+          analysis_job_id?: string | null
+          application_id?: string | null
+          attempt_count?: number
+          channel_id?: string | null
+          collection_run_id?: string | null
+          completion_event_id?: string | null
+          context?: Json
+          created_at?: string
+          dedupe_key: string
+          dispatched_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          error_retryable?: boolean
+          event_id: string
+          event_type: Database["public"]["Enums"]["slack_notification_event_type"]
+          finished_at?: string | null
+          http_status?: number | null
+          id?: string
+          job_posting_id: string
+          message_ts?: string | null
+          not_before?: string
+          owner_id: string
+          request_id: string
+          route_key: string
+          status?: Database["public"]["Enums"]["slack_notification_status"]
+          target: Database["public"]["Enums"]["slack_notification_target"]
+          updated_at?: string
+        }
+        Update: {
+          analysis_job_id?: string | null
+          application_id?: string | null
+          attempt_count?: number
+          channel_id?: string | null
+          collection_run_id?: string | null
+          completion_event_id?: string | null
+          context?: Json
+          created_at?: string
+          dedupe_key?: string
+          dispatched_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          error_retryable?: boolean
+          event_id?: string
+          event_type?: Database["public"]["Enums"]["slack_notification_event_type"]
+          finished_at?: string | null
+          http_status?: number | null
+          id?: string
+          job_posting_id?: string
+          message_ts?: string | null
+          not_before?: string
+          owner_id?: string
+          request_id?: string
+          route_key?: string
+          status?: Database["public"]["Enums"]["slack_notification_status"]
+          target?: Database["public"]["Enums"]["slack_notification_target"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slack_notifications_analysis_fk"
+            columns: ["analysis_job_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_jobs"
+            referencedColumns: ["id", "owner_id"]
+          },
+          {
+            foreignKeyName: "slack_notifications_application_fk"
+            columns: ["application_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id", "owner_id"]
+          },
+          {
+            foreignKeyName: "slack_notifications_collection_fk"
+            columns: ["collection_run_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "job_posting_collection_runs"
+            referencedColumns: ["id", "owner_id"]
+          },
+          {
+            foreignKeyName: "slack_notifications_posting_fk"
+            columns: ["job_posting_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id", "owner_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1150,6 +1317,44 @@ export type Database = {
           stored_response_status: number
         }[]
       }
+      claim_slack_notifications: {
+        Args: { p_limit?: number }
+        Returns: {
+          analysis_job_id: string | null
+          application_id: string | null
+          attempt_count: number
+          channel_id: string | null
+          collection_run_id: string | null
+          completion_event_id: string | null
+          context: Json
+          created_at: string
+          dedupe_key: string
+          dispatched_at: string | null
+          error_code: string | null
+          error_message: string | null
+          error_retryable: boolean
+          event_id: string
+          event_type: Database["public"]["Enums"]["slack_notification_event_type"]
+          finished_at: string | null
+          http_status: number | null
+          id: string
+          job_posting_id: string
+          message_ts: string | null
+          not_before: string
+          owner_id: string
+          request_id: string
+          route_key: string
+          status: Database["public"]["Enums"]["slack_notification_status"]
+          target: Database["public"]["Enums"]["slack_notification_target"]
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "slack_notifications"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       complete_analysis_job: {
         Args: {
           p_analysis_job_id: string
@@ -1258,6 +1463,56 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      complete_slack_notification: {
+        Args: {
+          p_channel_id: string
+          p_completion_event_id: string
+          p_error_code: string
+          p_error_message: string
+          p_error_retryable: boolean
+          p_http_status: number
+          p_message_ts: string
+          p_notification_event_id: string
+          p_notification_id: string
+          p_occurred_at?: string
+          p_outcome: Database["public"]["Enums"]["slack_notification_status"]
+        }
+        Returns: {
+          analysis_job_id: string | null
+          application_id: string | null
+          attempt_count: number
+          channel_id: string | null
+          collection_run_id: string | null
+          completion_event_id: string | null
+          context: Json
+          created_at: string
+          dedupe_key: string
+          dispatched_at: string | null
+          error_code: string | null
+          error_message: string | null
+          error_retryable: boolean
+          event_id: string
+          event_type: Database["public"]["Enums"]["slack_notification_event_type"]
+          finished_at: string | null
+          http_status: number | null
+          id: string
+          job_posting_id: string
+          message_ts: string | null
+          not_before: string
+          owner_id: string
+          request_id: string
+          route_key: string
+          status: Database["public"]["Enums"]["slack_notification_status"]
+          target: Database["public"]["Enums"]["slack_notification_target"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "slack_notifications"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_application_attempt: {
         Args: {
           p_applied_on: string
@@ -1326,7 +1581,53 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      fail_slack_notification_dispatch: {
+        Args: {
+          p_error_message: string
+          p_notification_id: string
+          p_retryable: boolean
+        }
+        Returns: {
+          analysis_job_id: string | null
+          application_id: string | null
+          attempt_count: number
+          channel_id: string | null
+          collection_run_id: string | null
+          completion_event_id: string | null
+          context: Json
+          created_at: string
+          dedupe_key: string
+          dispatched_at: string | null
+          error_code: string | null
+          error_message: string | null
+          error_retryable: boolean
+          event_id: string
+          event_type: Database["public"]["Enums"]["slack_notification_event_type"]
+          finished_at: string | null
+          http_status: number | null
+          id: string
+          job_posting_id: string
+          message_ts: string | null
+          not_before: string
+          owner_id: string
+          request_id: string
+          route_key: string
+          status: Database["public"]["Enums"]["slack_notification_status"]
+          target: Database["public"]["Enums"]["slack_notification_target"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "slack_notifications"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       fail_stale_analysis_jobs: {
+        Args: { p_cutoff: string; p_limit?: number }
+        Returns: string[]
+      }
+      fail_stale_slack_notifications: {
         Args: { p_cutoff: string; p_limit?: number }
         Returns: string[]
       }
@@ -1649,6 +1950,27 @@ export type Database = {
         | "failed"
       job_posting_snapshot_source: "wanted_json_ld" | "manual"
       job_posting_source: "wanted"
+      slack_notification_event_type:
+        | "job_posting_registered"
+        | "collection_succeeded"
+        | "collection_needs_input"
+        | "collection_failed"
+        | "analysis_queued"
+        | "analysis_succeeded"
+        | "analysis_retrying"
+        | "analysis_failed"
+        | "analysis_cancelled"
+        | "application_status_changed"
+        | "interview_scheduled"
+      slack_notification_status:
+        | "queued"
+        | "dispatching"
+        | "sent"
+        | "failed"
+        | "delivery_unknown"
+        | "skipped"
+      slack_notification_target: "job_root" | "job_thread" | "error_channel"
+      slack_thread_status: "pending" | "ready" | "failed" | "delivery_unknown"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1836,6 +2158,29 @@ export const Constants = {
       ],
       job_posting_snapshot_source: ["wanted_json_ld", "manual"],
       job_posting_source: ["wanted"],
+      slack_notification_event_type: [
+        "job_posting_registered",
+        "collection_succeeded",
+        "collection_needs_input",
+        "collection_failed",
+        "analysis_queued",
+        "analysis_succeeded",
+        "analysis_retrying",
+        "analysis_failed",
+        "analysis_cancelled",
+        "application_status_changed",
+        "interview_scheduled",
+      ],
+      slack_notification_status: [
+        "queued",
+        "dispatching",
+        "sent",
+        "failed",
+        "delivery_unknown",
+        "skipped",
+      ],
+      slack_notification_target: ["job_root", "job_thread", "error_channel"],
+      slack_thread_status: ["pending", "ready", "failed", "delivery_unknown"],
     },
   },
 } as const

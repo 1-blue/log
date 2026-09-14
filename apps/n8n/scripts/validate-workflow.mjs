@@ -4,6 +4,7 @@ import {
   classifyCallbackFailure,
   classifyOpenAiFailure,
 } from "./analysis-retry-policy.mjs";
+import { classifySlackDelivery } from "./slack-notification-policy.mjs";
 
 const workflow = JSON.parse(
   await readFile(
@@ -19,6 +20,21 @@ function assert(condition, message) {
 
 for (const name of [
   "HMAC 요청 검증",
+  "Slack 알림 요청 여부",
+  "Slack 에러 채널 여부",
+  "Slack Bot 메시지 전송",
+  "Slack 에러 Webhook 전송",
+  "Slack 결과 분류",
+  "Slack 429 재시도 여부",
+  "Slack 재시도 대기",
+  "Slack 재시도 회차 증가",
+  "Slack 재시도 에러 채널 여부",
+  "Slack Bot 메시지 재시도",
+  "Slack 에러 Webhook 재시도",
+  "Slack 재시도 결과 분류",
+  "Slack Callback 구성",
+  "Slack Callback 서명",
+  "Slack Callback 전송",
   "분석 요청 여부",
   "수동 원문 여부",
   "Wanted HTML 수집",
@@ -53,6 +69,10 @@ assert(
 assert(
   hmacCode.includes("application_analysis"),
   "분석 payload 검증이 없습니다.",
+);
+assert(
+  hmacCode.includes("slack_notification"),
+  "Slack 알림 payload 검증이 없습니다.",
 );
 assert(hmacCode.includes("payload?.runAttempt"), "실행 회차 검증이 없습니다.");
 
@@ -153,6 +173,43 @@ assert(
   "Callback의 선택적 최대 3회 재시도 정책이 없습니다.",
 );
 
+for (const name of ["Slack Bot 메시지 전송", "Slack Bot 메시지 재시도"]) {
+  const node = nodes.get(name);
+  assert(
+    node.parameters.url === "https://slack.com/api/chat.postMessage",
+    `${name}은 Slack 공식 메시지 API를 사용해야 합니다.`,
+  );
+  assert(
+    node.parameters.nodeCredentialType === "slackApi",
+    `${name}은 n8n Slack Credential을 사용해야 합니다.`,
+  );
+  assert(
+    node.parameters.body.includes("thread_ts") &&
+      node.parameters.body.includes("reply_broadcast: false") &&
+      node.parameters.body.includes("unfurl_links: false"),
+    `${name}의 스레드 또는 unfurl 정책이 없습니다.`,
+  );
+}
+for (const name of ["Slack 에러 Webhook 전송", "Slack 에러 Webhook 재시도"]) {
+  const node = nodes.get(name);
+  assert(
+    node.parameters.url === "={{ $env.SLACK_ERROR_WEBHOOK_URL }}",
+    `${name}은 에러 채널 Webhook 환경변수를 사용해야 합니다.`,
+  );
+}
+const slackClassifier = nodes.get("Slack 결과 분류").parameters.jsCode;
+assert(
+  slackClassifier.includes("status === 429") &&
+    slackClassifier.includes("retryAfter <= 60") &&
+    slackClassifier.includes("SLACK_DELIVERY_UNKNOWN"),
+  "Slack 응답의 단일 재시도와 불명확 전송 분류가 없습니다.",
+);
+assert(
+  nodes.get("Slack Callback 전송").parameters.options.response.response
+    .neverError === true,
+  "Slack 결과 callback은 Worker 응답 상태를 오류 원문 없이 종료해야 합니다.",
+);
+
 const ids = workflow.nodes.map((node) => node.id);
 assert(new Set(ids).size === ids.length, "중복된 n8n 노드 ID가 있습니다.");
 for (const [source, outputs] of Object.entries(workflow.connections)) {
@@ -236,6 +293,54 @@ assert(
   "Callback 4xx는 재시도하면 안 됩니다.",
 );
 
+const slackSuccess = classifySlackDelivery({
+  attempt: 1,
+  body: { channel: "C0123456789", ok: true, ts: "1710000000.000001" },
+  status: 200,
+  target: "job_root",
+});
+assert(
+  slackSuccess.outcome === "sent" &&
+    slackSuccess.channelId === "C0123456789" &&
+    slackSuccess.messageTs === "1710000000.000001",
+  "Slack Bot 성공 응답의 channel과 ts를 보존해야 합니다.",
+);
+assert(
+  classifySlackDelivery({
+    attempt: 1,
+    headers: { "retry-after": "30" },
+    status: 429,
+    target: "job_thread",
+  }).shouldRetry,
+  "60초 이하의 Slack 429는 한 번 재시도해야 합니다.",
+);
+assert(
+  !classifySlackDelivery({
+    attempt: 2,
+    headers: { "retry-after": "1" },
+    status: 429,
+    target: "job_thread",
+  }).shouldRetry,
+  "Slack 알림은 두 번을 초과해 전송하면 안 됩니다.",
+);
+assert(
+  classifySlackDelivery({
+    attempt: 1,
+    networkError: true,
+    target: "job_root",
+  }).outcome === "delivery_unknown",
+  "네트워크 오류는 중복 방지를 위해 delivery_unknown이어야 합니다.",
+);
+assert(
+  classifySlackDelivery({
+    attempt: 1,
+    body: { error: "invalid_auth", ok: false },
+    status: 200,
+    target: "job_root",
+  }).error.code === "SLACK_AUTHENTICATION_FAILED",
+  "Slack 설정 오류를 구체적인 코드로 분류해야 합니다.",
+);
+
 const serialized = JSON.stringify(workflow);
 assert(
   !/sk-[A-Za-z0-9_-]{16,}/.test(serialized),
@@ -244,6 +349,14 @@ assert(
 assert(
   !serialized.includes("OPENAI_API_KEY"),
   "Workflow가 OpenAI 환경변수에 의존합니다.",
+);
+assert(
+  !/xox[baprs]-[A-Za-z0-9-]+/.test(serialized),
+  "Workflow에 Slack Token이 포함되어 있습니다.",
+);
+assert(
+  !/hooks\.slack\.com\/services\/[A-Za-z0-9/]+/.test(serialized),
+  "Workflow에 Slack Webhook URL이 포함되어 있습니다.",
 );
 assert(
   !serialized.includes("message.slice(0, 500)"),

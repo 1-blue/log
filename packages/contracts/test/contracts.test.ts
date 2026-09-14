@@ -31,12 +31,15 @@ import {
   IdempotencyKeySchema,
   isValidAnalysisJobTransition,
   JobPostingCollectionCallbackSchema,
+  N8nSlackNotificationDispatchPayloadSchema,
   PatchApplicationRequestSchema,
   PatchInterviewChecklistItemRequestSchema,
   PrepareDocumentUploadResponseSchema,
   PublicDocumentAccessResponseSchema,
   ReorderInterviewChecklistRequestSchema,
   SaveInterviewAnswerRequestSchema,
+  SlackNotificationResponseSchema,
+  SlackNotificationResultCallbackSchema,
   UpdateAnalysisReviewRequestSchema,
   UpdateDocumentVersionRequestSchema,
 } from "../src/index.js";
@@ -812,5 +815,101 @@ describe("career operations contracts", () => {
       );
       expectStrictJsonSchemaObjects(generated);
     }
+  });
+});
+
+describe("Slack notification contracts", () => {
+  const timestamp = "2026-09-14T00:00:00.000Z";
+  const dispatch = {
+    blocks: [
+      {
+        text: { text: "*미리디* AX Engineer", type: "mrkdwn", verbatim: true },
+        type: "section",
+      },
+    ],
+    callbackPath: `/v1/internal/slack-notifications/${validUuid}/result`,
+    eventId: validUuid,
+    jobPostingId: validUuid,
+    kind: "slack_notification",
+    notificationId: validUuid,
+    requestId: validUuid,
+    schemaVersion: "1.0.0",
+    target: "job_thread",
+    text: "미리디 AX Engineer 분석이 완료되었습니다.",
+    threadTs: "1710000000.000001",
+  };
+
+  it("validates thread routing and rejects unknown fields", () => {
+    expect(
+      N8nSlackNotificationDispatchPayloadSchema.safeParse(dispatch).success,
+    ).toBe(true);
+    expect(
+      N8nSlackNotificationDispatchPayloadSchema.safeParse({
+        ...dispatch,
+        threadTs: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      N8nSlackNotificationDispatchPayloadSchema.safeParse({
+        ...dispatch,
+        extra: true,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("requires callback errors only for unsuccessful outcomes", () => {
+    const callback = {
+      channelId: "C0123456789",
+      error: null,
+      eventId: validUuid,
+      httpStatus: 200,
+      messageTs: "1710000000.000001",
+      notificationEventId: validUuid,
+      notificationId: validUuid,
+      occurredAt: timestamp,
+      outcome: "sent",
+      requestId: validUuid,
+      schemaVersion: "1.0.0",
+    };
+    expect(
+      SlackNotificationResultCallbackSchema.safeParse(callback).success,
+    ).toBe(true);
+    expect(
+      SlackNotificationResultCallbackSchema.safeParse({
+        ...callback,
+        error: {
+          code: "SLACK_RATE_LIMITED",
+          message: "Slack 호출 제한에 도달했습니다.",
+          retryable: true,
+        },
+        outcome: "failed",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("validates persisted notification responses", () => {
+    expect(
+      SlackNotificationResponseSchema.safeParse({
+        analysisJobId: null,
+        applicationId: null,
+        attemptCount: 0,
+        channelId: null,
+        collectionRunId: null,
+        createdAt: timestamp,
+        dispatchedAt: null,
+        error: null,
+        eventId: validUuid,
+        eventType: "job_posting_registered",
+        finishedAt: null,
+        id: validUuid,
+        jobPostingId: validUuid,
+        httpStatus: null,
+        messageTs: null,
+        requestId: validUuid,
+        status: "queued",
+        target: "job_root",
+        updatedAt: timestamp,
+      }).success,
+    ).toBe(true);
   });
 });

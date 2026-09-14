@@ -9,6 +9,7 @@
 - 11단계에서는 `analysis_jobs`, 불변 `analysis_results`, 단계별 실행 메타데이터와 원자적 완료·상태 이벤트 RPC를 추가했다.
 - 12단계에서는 분석 이벤트 revision, 단계별 재시도, heartbeat, 논리적 취소와 정체 작업 정리 RPC를 추가했다.
 - 13단계에서는 분석 사용자 검토, 요구사항 판정, 면접 질문·append-only 답변, 준비 체크리스트, 구조화 회고 테이블과 자동 생성·backfill 로직을 추가했다.
+- 14단계에서는 `slack_notifications` Outbox, 공고별 `slack_job_threads`, 도메인 이벤트 trigger, 채널별 claim·완료·stale 처리 RPC와 조회 전용 RLS를 추가했다.
 - 로컬 Supabase는 다른 프로젝트와 기본 포트가 겹칠 수 있으므로 해당 프로젝트를 중지하지 않고 원격 rollback 통합 SQL을 사용할 수 있다.
 
 ## 원격 적용 순서

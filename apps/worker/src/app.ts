@@ -26,6 +26,7 @@ import {
   ReorderInterviewChecklistRequestSchema,
   SaveInterviewAnswerRequestSchema,
   SetDocumentPublicationRequestSchema,
+  SlackNotificationResultCallbackSchema,
   UpdateAnalysisReviewRequestSchema,
   UpdateDocumentVersionRequestSchema,
 } from "@workspace/contracts";
@@ -71,6 +72,11 @@ import {
   JobPostingCollectionServiceError,
 } from "./job-posting-collections.js";
 import { verifySignedRequest } from "./n8n.js";
+import {
+  createSlackNotificationService,
+  type SlackNotificationService,
+  SlackNotificationServiceError,
+} from "./slack-notifications.js";
 
 type WorkerAppEnv = {
   Bindings: CloudflareBindings;
@@ -126,6 +132,9 @@ type AppDependencies = {
   interviewWorkspaceServiceFactory?: (
     env: CloudflareBindings,
   ) => InterviewWorkspaceService;
+  slackNotificationServiceFactory?: (
+    env: CloudflareBindings,
+  ) => SlackNotificationService;
   jwtVerificationKey?: JwtVerificationKey;
 };
 
@@ -403,6 +412,31 @@ function analysisServiceErrorResponse(
   );
 }
 
+function slackNotificationServiceErrorResponse(
+  c: Context<WorkerAppEnv>,
+  error: unknown,
+): Response {
+  if (!(error instanceof SlackNotificationServiceError)) throw error;
+  if (error.kind === "not_found") {
+    return errorResponse(c, 404, "NOT_FOUND", "Slack 알림을 찾을 수 없습니다.");
+  }
+  if (error.kind === "conflict") {
+    return errorResponse(
+      c,
+      409,
+      "CONFLICT",
+      "이미 완료되었거나 현재 처리할 수 없는 Slack 알림입니다.",
+    );
+  }
+  return errorResponse(
+    c,
+    503,
+    "UPSTREAM_UNAVAILABLE",
+    "Slack 알림 저장소를 사용할 수 없습니다.",
+    true,
+  );
+}
+
 function interviewWorkspaceErrorResponse(
   c: Context<WorkerAppEnv>,
   error: unknown,
@@ -667,26 +701,31 @@ function createRequireAdmin(
   };
 }
 
-export function createApp(dependencies: AppDependencies = {}) {
+export function createApp(dependencies?: AppDependencies) {
+  const resolvedDependencies = dependencies ?? {};
   const app = new Hono<WorkerAppEnv>();
-  const requireAdmin = createRequireAdmin(dependencies);
+  const requireAdmin = createRequireAdmin(resolvedDependencies);
   const getApplicationService = (env: CloudflareBindings) =>
-    dependencies.applicationServiceFactory?.(env) ??
+    resolvedDependencies.applicationServiceFactory?.(env) ??
     createApplicationService(env);
   const getAnalysisJobService = (env: CloudflareBindings) =>
-    dependencies.analysisJobServiceFactory?.(env) ??
+    resolvedDependencies.analysisJobServiceFactory?.(env) ??
     createAnalysisJobService(env);
   const getDocumentService = (env: CloudflareBindings) =>
-    dependencies.documentServiceFactory?.(env) ?? createDocumentService(env);
+    resolvedDependencies.documentServiceFactory?.(env) ??
+    createDocumentService(env);
   const getIdempotencyService = (env: CloudflareBindings) =>
-    dependencies.idempotencyServiceFactory?.(env) ??
+    resolvedDependencies.idempotencyServiceFactory?.(env) ??
     createIdempotencyService(env);
   const getJobPostingCollectionService = (env: CloudflareBindings) =>
-    dependencies.jobPostingCollectionServiceFactory?.(env) ??
+    resolvedDependencies.jobPostingCollectionServiceFactory?.(env) ??
     createJobPostingCollectionService(env);
   const getInterviewWorkspaceService = (env: CloudflareBindings) =>
-    dependencies.interviewWorkspaceServiceFactory?.(env) ??
+    resolvedDependencies.interviewWorkspaceServiceFactory?.(env) ??
     createInterviewWorkspaceService(env);
+  const getSlackNotificationService = dependencies
+    ? (resolvedDependencies.slackNotificationServiceFactory ?? null)
+    : createSlackNotificationService;
 
   app.use("*", async (c, next) => {
     const requestId = crypto.randomUUID();
@@ -813,6 +852,33 @@ export function createApp(dependencies: AppDependencies = {}) {
     c.set("signedEventId", verified.eventId);
     c.header("X-Request-Id", verified.requestId);
     await next();
+  });
+
+  app.use("/v1/*", async (c, next) => {
+    await next();
+    if (
+      !getSlackNotificationService ||
+      !["POST", "PUT", "PATCH", "DELETE"].includes(c.req.method) ||
+      !c.res.ok
+    ) {
+      return;
+    }
+
+    const drain = getSlackNotificationService(c.env)
+      .drain(2)
+      .catch(() => {
+        console.error(
+          JSON.stringify({
+            event: "slack_notification_drain_failed",
+            requestId: getRequestId(c),
+          }),
+        );
+      });
+    try {
+      c.executionCtx.waitUntil(drain);
+    } catch {
+      await drain;
+    }
   });
 
   app.get("/health", (c) => {
@@ -1475,6 +1541,46 @@ export function createApp(dependencies: AppDependencies = {}) {
       return jsonData(c, await getAnalysisJobService(c.env).complete(input));
     } catch (error) {
       return analysisServiceErrorResponse(c, error);
+    }
+  });
+
+  app.post("/v1/internal/slack-notifications/:id/result", async (c) => {
+    const notificationId = parseResourceId(c, "Slack 알림");
+    if (notificationId instanceof Response) return notificationId;
+    const input = await parseJsonBody(
+      c,
+      SlackNotificationResultCallbackSchema,
+      INTERNAL_CALLBACK_MAX_BYTES,
+    );
+    if (input instanceof Response) return input;
+    if (
+      input.notificationId !== notificationId ||
+      input.eventId !== c.get("signedEventId") ||
+      input.requestId !== getRequestId(c)
+    ) {
+      return errorResponse(
+        c,
+        401,
+        "INVALID_SIGNATURE",
+        "내부 요청 식별자가 일치하지 않습니다.",
+      );
+    }
+    if (!getSlackNotificationService) {
+      return errorResponse(
+        c,
+        503,
+        "UPSTREAM_UNAVAILABLE",
+        "Slack 알림 저장소를 사용할 수 없습니다.",
+        true,
+      );
+    }
+    try {
+      return jsonData(
+        c,
+        await getSlackNotificationService(c.env).complete(input),
+      );
+    } catch (error) {
+      return slackNotificationServiceErrorResponse(c, error);
     }
   });
 

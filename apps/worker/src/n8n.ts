@@ -1,6 +1,7 @@
 import type {
   N8nDispatchPayload,
   N8nJobPostingCollectionDispatchPayload,
+  N8nSlackNotificationDispatchPayload,
 } from "@workspace/contracts";
 
 const encoder = new TextEncoder();
@@ -150,7 +151,10 @@ export class N8nDispatchError extends Error {
 }
 
 export async function dispatchToN8n(
-  payload: N8nDispatchPayload | N8nJobPostingCollectionDispatchPayload,
+  payload:
+    | N8nDispatchPayload
+    | N8nJobPostingCollectionDispatchPayload
+    | N8nSlackNotificationDispatchPayload,
   env: Pick<CloudflareBindings, "N8N_WEBHOOK_SECRET" | "N8N_WEBHOOK_URL">,
   options: {
     fetcher?: typeof fetch;

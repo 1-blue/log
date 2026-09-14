@@ -2,7 +2,7 @@
 
 > 기준일: 2026-09-14
 > 작업 브랜치: `codex/career-ops-foundation`  
-> 현재 범위: 13단계 코드·DB 구현 완료, 14~15단계 외부 연동 없는 개발 우선 진행
+> 현재 범위: 14단계 코드·DB 구현 완료, 15단계 외부 연동 전 검증 진행 예정
 
 ## 1. 프로젝트 정의
 
@@ -39,7 +39,7 @@
 | 데이터베이스    | Supabase PostgreSQL + Storage                    | Auth, 데이터, 비공개 문서 버전을 한 서비스에서 시작            |
 | 인증            | Supabase Auth, 관리자 1명                        | 브라우저에 비밀번호를 포함하지 않고 확장 가능한 세션 사용      |
 | AI              | OpenAI Responses API + `gpt-5.4-mini-2026-03-17` | 비용·속도와 구조화 분석 품질의 균형, 재현 가능한 snapshot 고정 |
-| 알림            | Slack Incoming Webhook                           | 비동기 완료·실패를 기다리지 않고 확인                          |
+| 알림            | Slack Bot API + Incoming Webhook                 | 공고별 스레드와 별도 시스템 오류 채널 운영                     |
 | 최초 공고 소스  | Wanted                                           | MVP 파서와 검증 범위를 한 사이트로 제한                        |
 | 공유 계약       | `packages/contracts`                             | Next.js, Worker, n8n 입출력 형식의 불일치 방지                 |
 
@@ -75,10 +75,11 @@
                ├─ OpenAI 구조화 분석
                ├─ 이력서·포트폴리오와 비교
                ├─ Worker 내부 콜백으로 결과 저장
-               └─ Slack 완료/실패/입력 필요 알림
+               └─ Slack Bot API·에러 Webhook 전송 후 결과 콜백
                      │
                      ▼
             [Supabase DB / Storage]
+               └─ Slack Outbox·공고별 thread_ts
 ```
 
 ### 책임 경계
@@ -96,7 +97,8 @@
 3. Worker가 n8n Webhook을 짧은 제한 시간으로 호출하고 즉시 `202 Accepted`와 작업 ID를 반환한다.
 4. n8n이 단계별 상태를 Worker 내부 콜백으로 갱신한다.
 5. 관리자 화면은 작업 상태를 폴링한다. MVP 이후 필요할 때 Realtime/SSE를 검토한다.
-6. 성공·실패·수동 입력 필요 시 Slack에 관리자 화면 링크를 전송한다.
+6. 같은 DB 트랜잭션에서 Slack Outbox를 만들고 Worker가 채널별로 발송 대상을 선점한다.
+7. n8n이 Slack 전송 후 결과를 Worker로 콜백하며, 공고별 `thread_ts`를 저장해 후속 알림에 재사용한다.
 
 ## 4. 목표 저장소 구조
 
@@ -463,35 +465,42 @@
 - 사용자 판정 점수는 AI 점수와 별도로 계산해 함께 표시하고, 이전 분석은 점수·건수·자료 hash·모델·프롬프트 버전 중심으로 비교한다.
 - 실제 외부 데이터 없이도 개발 검수가 가능하도록 `/dev/career-ops/analysis-preview`에 정상·혼합·미작성·긴 콘텐츠·이전 분석 fixture를 제공하며 production에서는 404로 차단한다.
 
-### 14단계 — Slack 알림 기능 개발
+### 14단계 — Slack 알림 기능 개발 `완료`
 
 목표: 실제 Slack을 호출하지 않고도 알림 생성·라우팅·중복 방지 로직을 완성한다.
 
-- [ ] Slack 발송 adapter와 mock transport를 분리
-- [ ] 공고마다 루트 메시지를 한 번만 생성하는 상태 모델 구현
-- [ ] 공고 등록, 분석 완료, 지원 상태, 면접 관련 알림은 해당 공고의 스레드에 기록
-- [ ] Bot API 응답의 channel ID와 message `ts`를 공고 데이터에 저장해 스레드 재사용
-- [ ] 알림 본문에 환경, 회사/공고, 작업 ID, 상태, 경과 시간, 관리자 링크 포함
-- [ ] 성공 메시지는 요약과 핵심 부족 역량만 포함하고 전체 개인정보는 제외
-- [ ] 실패 메시지는 오류 코드, 실패 단계, 재시도 여부 포함
-- [ ] Slack 실패가 본 작업을 실패시키지 않도록 분리
-- [ ] 같은 event ID의 중복 알림 방지
-- [ ] Bot API와 Incoming Webhook의 성공·429·5xx·잘못된 인증 응답 fixture 테스트
-- [ ] Slack 메시지나 스레드 답글을 읽는 Events API 연동은 MVP 범위에서 제외
+- [x] Slack 발송 adapter와 mock transport를 분리
+- [x] 공고마다 루트 메시지를 한 번만 생성하는 Outbox·스레드 상태 모델 구현
+- [x] 공고 등록 후 수집·분석·지원 상태·면접 일정 알림을 해당 공고 스레드에 기록
+- [x] Bot API 응답의 channel ID와 message `ts`를 저장해 스레드 재사용
+- [x] 알림 본문에 환경, 회사/공고, 작업 ID, 상태, 경과 시간, 관리자 링크 포함
+- [x] 성공 메시지는 요약과 핵심 부족 역량 최대 3개만 포함하고 개인정보 제외
+- [x] 실패 메시지는 오류 코드, 실패 단계, 재시도 여부 포함
+- [x] Slack 실패가 본 작업을 실패시키지 않도록 트랜잭션과 발송 분리
+- [x] `(owner_id, dedupe_key)`와 callback event ID로 중복 생성·완료 방지
+- [x] Bot API와 Incoming Webhook의 성공·429·5xx·잘못된 인증 응답 fixture 테스트
+- [x] Slack 메시지나 스레드 답글을 읽는 Events API 연동은 MVP 범위에서 제외
 
 알림 기준:
 
 | 이벤트                        | 대상                       | 담당          |
 | ----------------------------- | -------------------------- | ------------- |
-| 공고 등록·분석 접수           | 공고 채널의 새 루트 메시지 | n8n           |
-| 공고 수집·분석 완료           | 해당 공고 메시지의 스레드  | n8n           |
-| 지원 상태·면접 준비 알림      | 해당 공고 메시지의 스레드  | n8n           |
+| 공고 등록                     | 공고 채널의 새 루트 메시지 | n8n           |
+| 분석 접수·공고 수집·분석 완료 | 해당 공고 메시지의 스레드  | n8n           |
+| 지원 상태·면접 일정 알림      | 해당 공고 메시지의 스레드  | n8n           |
 | 자동 수집 실패·수동 입력 필요 | 시스템 에러 채널           | n8n           |
 | 재시도 시작·최종 실패         | 시스템 에러 채널           | n8n           |
 | Worker가 n8n 호출 자체에 실패 | 시스템 에러 채널           | Worker        |
 | 면접 일정 임박                | 해당 공고 스레드, MVP 이후 | 예약 Workflow |
 
 종료 기준: 실제 Token이나 Webhook 없이도 완료·실패·사용자 조치 필요 이벤트의 payload, 라우팅, 중복 방지와 실패 격리가 자동 검증된다.
+
+- `slack_notifications` Outbox와 `slack_job_threads`가 도메인 트랜잭션에서 생성되며, 두 Slack 채널은 각각 하나씩 직렬 선점된다.
+- Worker는 성공한 변경 뒤 `waitUntil()`과 5분 Cron으로 backlog를 비우고 10분 이상 멈춘 발송을 `delivery_unknown`으로 종료한다.
+- n8n은 기존 `/webhook/career-analysis`에서 Slack payload를 HMAC 검증하고 Bot API 또는 에러 Webhook으로 분기한 뒤 결과를 서명해 콜백한다.
+- 429는 `Retry-After`가 60초 이하일 때 한 번만 재시도하며, timeout·네트워크·5xx는 중복 전송을 막기 위해 자동 재전송하지 않는다.
+- 로컬 migration reset·schema lint·총 131개 DB 테스트, 계약 27개·Worker 89개·Blog 34개 테스트, n8n 정적 검증, 전체 타입 검사·lint·production build와 Wrangler dry-run을 통과했다.
+- 원격 migration, n8n Workflow 게시, Slack Credential 연결과 실제 채널 수신 확인은 16~17단계로 보류한다.
 
 ### 15단계 — 외부 연동 전 개발 완결성 확보
 
@@ -935,4 +944,4 @@ Vercel은 기존 Git Integration 배포를 유지하므로 별도 CLI token, org
 
 ## 14. 다음 작업
 
-다음 작업은 **14단계 — Slack 알림 기능 개발**이다. 실제 Slack을 호출하지 않고 adapter, mock transport, 공고별 스레드 상태, 이벤트 중복 방지, 개인정보가 제거된 메시지 포맷과 실패 격리를 먼저 구현한다. 외부 Credential 등록·Workflow 게시·운영 배포는 모든 개발이 끝난 16단계에서 일괄 처리한다.
+다음 작업은 **15단계 — 외부 연동 전 개발 완결성 확보**다. 전체 계약·Worker·DB·n8n 검증을 한 명령으로 실행하고, 환경별 배포 체크리스트, 로그 redaction, 보안 점검, 백업·복구 및 장애 대응 runbook을 완성한다. 외부 Credential 등록·Workflow 게시·운영 배포는 16단계에서 일괄 처리한다.

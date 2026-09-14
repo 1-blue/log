@@ -35,7 +35,7 @@ docker compose logs --tail=100 n8n
 docker compose logs --tail=100 postgres
 ```
 
-브라우저에서 `http://localhost:5678`을 열어 owner 계정을 한 번 생성한다. OpenAI API Key는 `OpenAI Career Analysis`라는 OpenAI Credential로 등록하고, Workflow의 공고 사실·프로필 비교 최초 및 재시도 노드 네 개에 같은 Credential을 연결한다. API Key는 `.env`나 Workflow JSON에 넣지 않는다. Slack Bot Token은 14단계에서 Slack API Credential로 등록한다.
+브라우저에서 `http://localhost:5678`을 열어 owner 계정을 한 번 생성한다. OpenAI API Key는 `OpenAI Career Analysis`라는 OpenAI Credential로 등록하고, Workflow의 공고 사실·프로필 비교 최초 및 재시도 노드 네 개에 같은 Credential을 연결한다. API Key는 `.env`나 Workflow JSON에 넣지 않는다. Slack Bot Token은 16단계 외부 연동에서 n8n Slack API Credential로 등록한다.
 
 ## 채용공고 수집 및 지원 분석 Workflow
 
@@ -61,6 +61,10 @@ Workflow는 다음 순서로 동작한다.
 - 각 OpenAI 단계 전후에 실행 회차·단계 회차가 포함된 heartbeat를 보내며 네트워크·timeout·일반 429·5xx만 한 번 재시도한다.
 - `Retry-After`가 60초 이하면 따르고 없으면 2초와 결정적 jitter를 사용한다. 인증·결제·quota·입력·미완료·스키마 오류는 자동 재시도하지 않는다.
 - Worker callback은 응답 상태를 직접 분류해 네트워크·429·5xx만 최대 3회 전송하며 4xx는 반복하지 않는다.
+- `slack_notification` 요청은 공고 루트·스레드는 Slack Bot API로, 시스템 오류는 Incoming Webhook으로 전송한다.
+- 공고 스레드에는 Worker가 저장한 `thread_ts`를 사용하고 `reply_broadcast`와 링크 unfurl은 사용하지 않는다.
+- Slack 429는 `Retry-After`가 60초 이하일 때 한 번만 재시도한다. 네트워크·timeout·5xx는 `delivery_unknown`으로 콜백하고 자동 재전송하지 않는다.
+- Slack Bot API 노드는 16단계에 Credential을 연결하기 전까지 실행하지 않으며, 정적 검증과 fixture 테스트만 수행한다.
 - 입력 문서 안의 지시를 따르지 않도록 프롬프트에서 명시하고, Worker가 실제 원문 근거와 결정론적 적합도 점수를 다시 검증한다.
 
 Workflow JSON 자체는 다음 명령으로 비밀값 없이 정적 검증할 수 있다.
@@ -132,4 +136,5 @@ DB 백업만으로 Credential을 복호화할 수 없으므로 `.env`의 `N8N_EN
 - `workflows/`에는 n8n에서 export한 Workflow JSON만 저장한다.
 - Credential export와 실행 데이터는 저장소에 넣지 않는다.
 - 공고 수집 요청과 callback payload는 `packages/contracts`의 Zod 계약을 기준으로 한다.
+- Slack Bot Token은 n8n Credential에만 저장하고 payload, 환경변수, Workflow export에는 포함하지 않는다.
 - 운영 공개 주소, HTTPS, reverse proxy, 외부 task runner와 백업 자동화는 운영 배포 단계에서 추가한다.

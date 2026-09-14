@@ -22,7 +22,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const crypto = require('crypto');\nconst input = $input.first().json;\nconst headers = input.headers ?? {};\nconst payload = input.body;\nconst timestamp = Number(headers['x-signature-timestamp']);\nconst eventId = headers['x-event-id'];\nconst requestId = headers['x-request-id'];\nconst signature = headers['x-signature'];\nconst now = Math.floor(Date.now() / 1000);\nconst rawBody = typeof input.rawBody === 'string' ? input.rawBody : JSON.stringify(payload);\nconst bodyHash = crypto.createHash('sha256').update(rawBody).digest('hex');\nconst canonical = ['v1', String(timestamp), eventId, requestId, 'POST', '/webhook/career-analysis', bodyHash].join('\\n');\nconst expected = `v1=${crypto.createHmac('sha256', $env.WORKER_TO_N8N_SECRET).update(canonical).digest('hex')}`;\nconst signatureValid = typeof signature === 'string' && signature.length === expected.length && crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));\nconst collectionValid = payload?.kind === 'job_posting_collection' && payload?.collectionRunId && payload?.jobPosting?.source === 'wanted' && payload?.callbackPath === `/v1/internal/job-posting-collections/${payload?.collectionRunId}/complete`;\nconst analysisValid = payload?.kind === 'application_analysis' && payload?.analysisJobId && Number.isInteger(payload?.runAttempt) && payload.runAttempt >= 1 && payload.runAttempt <= 2 && payload?.jobPosting?.snapshotId && payload?.profile?.resume?.versionId && payload?.profile?.portfolio?.versionId && payload?.callbacks?.eventPath === `/v1/internal/analysis-jobs/${payload?.analysisJobId}/events` && payload?.callbacks?.resultPath === `/v1/internal/analysis-jobs/${payload?.analysisJobId}/result` && payload?.outputSchemas?.jobPostingFacts && payload?.outputSchemas?.profileComparison;\nconst identifiersValid = payload?.eventId === eventId && payload?.requestId === requestId && payload?.schemaVersion === '1.0.0' && (collectionValid || analysisValid);\nconst valid = Number.isInteger(timestamp) && Math.abs(now - timestamp) <= 300 && signatureValid && Boolean(identifiersValid);\nreturn [{ json: { valid, payload: valid ? payload : null } }];"
+        "jsCode": "const crypto = require('crypto');\nconst input = $input.first().json;\nconst headers = input.headers ?? {};\nconst payload = input.body;\nconst timestamp = Number(headers['x-signature-timestamp']);\nconst eventId = headers['x-event-id'];\nconst requestId = headers['x-request-id'];\nconst signature = headers['x-signature'];\nconst now = Math.floor(Date.now() / 1000);\nconst rawBody = typeof input.rawBody === 'string' ? input.rawBody : JSON.stringify(payload);\nconst bodyHash = crypto.createHash('sha256').update(rawBody).digest('hex');\nconst canonical = ['v1', String(timestamp), eventId, requestId, 'POST', '/webhook/career-analysis', bodyHash].join('\\n');\nconst expected = `v1=${crypto.createHmac('sha256', $env.WORKER_TO_N8N_SECRET).update(canonical).digest('hex')}`;\nconst signatureValid = typeof signature === 'string' && signature.length === expected.length && crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));\nconst collectionValid = payload?.kind === 'job_posting_collection' && payload?.collectionRunId && payload?.jobPosting?.source === 'wanted' && payload?.callbackPath === `/v1/internal/job-posting-collections/${payload?.collectionRunId}/complete`;\nconst analysisValid = payload?.kind === 'application_analysis' && payload?.analysisJobId && Number.isInteger(payload?.runAttempt) && payload.runAttempt >= 1 && payload.runAttempt <= 2 && payload?.jobPosting?.snapshotId && payload?.profile?.resume?.versionId && payload?.profile?.portfolio?.versionId && payload?.callbacks?.eventPath === `/v1/internal/analysis-jobs/${payload?.analysisJobId}/events` && payload?.callbacks?.resultPath === `/v1/internal/analysis-jobs/${payload?.analysisJobId}/result` && payload?.outputSchemas?.jobPostingFacts && payload?.outputSchemas?.profileComparison;\nconst slackValid = payload?.kind === 'slack_notification' && payload?.notificationId && payload?.jobPostingId && ['job_root', 'job_thread', 'error_channel'].includes(payload?.target) && typeof payload?.text === 'string' && payload.text.length > 0 && payload.text.length <= 2000 && Array.isArray(payload?.blocks) && payload.blocks.length > 0 && payload.blocks.length <= 10 && payload?.callbackPath === `/v1/internal/slack-notifications/${payload?.notificationId}/result` && ((payload.target === 'job_thread') === (typeof payload?.threadTs === 'string'));\nconst identifiersValid = payload?.eventId === eventId && payload?.requestId === requestId && payload?.schemaVersion === '1.0.0' && (collectionValid || analysisValid || slackValid);\nconst valid = Number.isInteger(timestamp) && Math.abs(now - timestamp) <= 300 && signatureValid && Boolean(identifiersValid);\nreturn [{ json: { valid, payload: valid ? payload : null } }];"
       },
       "id": "04fd8ee5-5c22-4398-bf27-686245055daa",
       "name": "HMAC 요청 검증",
@@ -1033,6 +1033,336 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [4960, 80]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "14000000-0000-4000-8000-000000000001",
+              "leftValue": "={{ $('HMAC 요청 검증').first().json.payload.kind === 'slack_notification' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "14000000-0000-4000-8000-000000000002",
+      "name": "Slack 알림 요청 여부",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-80, 180]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "14000000-0000-4000-8000-000000000003",
+              "leftValue": "={{ $('HMAC 요청 검증').first().json.payload.target === 'error_channel' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "14000000-0000-4000-8000-000000000004",
+      "name": "Slack 에러 채널 여부",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [160, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "slackApi",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ channel: $env.SLACK_JOB_CHANNEL_ID, text: $('HMAC 요청 검증').first().json.payload.text, blocks: $('HMAC 요청 검증').first().json.payload.blocks, ...($('HMAC 요청 검증').first().json.payload.threadTs ? { thread_ts: $('HMAC 요청 검증').first().json.payload.threadTs, reply_broadcast: false } : {}), unfurl_links: false, unfurl_media: false }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "14000000-0000-4000-8000-000000000005",
+      "name": "Slack Bot 메시지 전송",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [400, 280],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_ERROR_WEBHOOK_URL }}",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ text: $('HMAC 요청 검증').first().json.payload.text, blocks: $('HMAC 요청 검증').first().json.payload.blocks, unfurl_links: false, unfurl_media: false }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "14000000-0000-4000-8000-000000000006",
+      "name": "Slack 에러 Webhook 전송",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [400, 80],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst payload = $('HMAC 요청 검증').first().json.payload;\nconst attempt = Number(response.slackAttempt ?? 1);\nconst status = Number(response.statusCode ?? response.status ?? response.error?.httpCode ?? 0);\nconst headers = response.headers ?? response.error?.response?.headers ?? {};\nconst body = response.body && typeof response.body === 'object' ? response.body : response;\nconst retryAfter = Number(headers['retry-after'] ?? headers['Retry-After']);\nconst botTarget = payload.target !== 'error_channel';\nlet result;\nif (status >= 200 && status < 300 && (!botTarget || body.ok === true)) result = { outcome: 'sent', channelId: botTarget ? body.channel ?? null : null, messageTs: botTarget ? body.ts ?? null : null, httpStatus: status, error: null, shouldRetry: false, retryAfterSeconds: null };\nelse if (status === 429 && attempt === 1 && Number.isFinite(retryAfter) && retryAfter <= 60) result = { outcome: null, error: null, shouldRetry: true, retryAfterSeconds: Math.max(1, Math.ceil(retryAfter)) };\nelse if (status === 0 || status >= 500 || response.error) result = { outcome: 'delivery_unknown', channelId: null, messageTs: null, httpStatus: status || null, error: { code: 'SLACK_DELIVERY_UNKNOWN', message: 'Slack 전송 결과를 확인할 수 없습니다.', retryable: false }, shouldRetry: false, retryAfterSeconds: null };\nelse { const code = status === 429 ? 'SLACK_RATE_LIMITED' : /auth|token/i.test(String(body.error ?? '')) ? 'SLACK_AUTHENTICATION_FAILED' : /channel/i.test(String(body.error ?? '')) ? 'SLACK_CHANNEL_UNAVAILABLE' : 'SLACK_INVALID_PAYLOAD'; result = { outcome: 'failed', channelId: null, messageTs: null, httpStatus: status || null, error: { code, message: status === 429 ? 'Slack 호출 제한으로 알림을 전송하지 못했습니다.' : 'Slack 설정 또는 요청을 확인해 주세요.', retryable: false }, shouldRetry: false, retryAfterSeconds: null }; }\nreturn [{ json: { ...result, slackAttempt: attempt } }];"
+      },
+      "id": "14000000-0000-4000-8000-000000000007",
+      "name": "Slack 결과 분류",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 180]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "14000000-0000-4000-8000-000000000008",
+              "leftValue": "={{ $json.shouldRetry }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "14000000-0000-4000-8000-000000000009",
+      "name": "Slack 429 재시도 여부",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [880, 180]
+    },
+    {
+      "parameters": {
+        "amount": "={{ $json.retryAfterSeconds }}",
+        "unit": "seconds"
+      },
+      "id": "14000000-0000-4000-8000-000000000010",
+      "name": "Slack 재시도 대기",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1120, 80],
+      "webhookId": "14000000-0000-4000-8000-000000000011"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { slackAttempt: 2 } }];"
+      },
+      "id": "14000000-0000-4000-8000-000000000012",
+      "name": "Slack 재시도 회차 증가",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1360, 80]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst result = $input.first().json;\nconst payload = $('HMAC 요청 검증').first().json.payload;\nreturn [{ json: { callback: { schemaVersion: '1.0.0', eventId: crypto.randomUUID(), notificationEventId: payload.eventId, requestId: payload.requestId, notificationId: payload.notificationId, outcome: result.outcome, channelId: result.channelId ?? null, messageTs: result.messageTs ?? null, httpStatus: result.httpStatus ?? null, error: result.error ?? null, occurredAt: new Date().toISOString() }, callbackPath: payload.callbackPath } }];"
+      },
+      "id": "14000000-0000-4000-8000-000000000013",
+      "name": "Slack Callback 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 280]
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\nconst item = $input.first().json;\nconst callback = item.callback;\nconst body = JSON.stringify(callback);\nconst timestamp = Math.floor(Date.now() / 1000);\nconst bodyHash = crypto.createHash('sha256').update(body).digest('hex');\nconst canonical = ['v1', String(timestamp), callback.eventId, callback.requestId, 'POST', item.callbackPath, bodyHash].join('\\n');\nconst signature = `v1=${crypto.createHmac('sha256', $env.WORKER_CALLBACK_SECRET).update(canonical).digest('hex')}`;\nconst baseUrl = String($env.WORKER_CALLBACK_URL).replace(/\\/$/, '');\nconst suffix = baseUrl.endsWith('/v1/internal') && item.callbackPath.startsWith('/v1/internal/') ? item.callbackPath.slice('/v1/internal'.length) : item.callbackPath;\nreturn [{ json: { body, callbackUrl: `${baseUrl}${suffix}`, headers: { eventId: callback.eventId, requestId: callback.requestId, signature, timestamp: String(timestamp) } } }];"
+      },
+      "id": "14000000-0000-4000-8000-000000000014",
+      "name": "Slack Callback 서명",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1360, 280]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callbackUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Event-Id", "value": "={{ $json.headers.eventId }}" },
+            { "name": "X-Request-Id", "value": "={{ $json.headers.requestId }}" },
+            { "name": "X-Signature", "value": "={{ $json.headers.signature }}" },
+            { "name": "X-Signature-Timestamp", "value": "={{ $json.headers.timestamp }}" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "14000000-0000-4000-8000-000000000015",
+      "name": "Slack Callback 전송",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1600, 280],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "14000000-0000-4000-8000-000000000016",
+              "leftValue": "={{ $('HMAC 요청 검증').first().json.payload.target === 'error_channel' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "14000000-0000-4000-8000-000000000017",
+      "name": "Slack 재시도 에러 채널 여부",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1600, 80]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://slack.com/api/chat.postMessage",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "slackApi",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ channel: $env.SLACK_JOB_CHANNEL_ID, text: $('HMAC 요청 검증').first().json.payload.text, blocks: $('HMAC 요청 검증').first().json.payload.blocks, ...($('HMAC 요청 검증').first().json.payload.threadTs ? { thread_ts: $('HMAC 요청 검증').first().json.payload.threadTs, reply_broadcast: false } : {}), unfurl_links: false, unfurl_media: false }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "14000000-0000-4000-8000-000000000018",
+      "name": "Slack Bot 메시지 재시도",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1840, 180],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_ERROR_WEBHOOK_URL }}",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ text: $('HMAC 요청 검증').first().json.payload.text, blocks: $('HMAC 요청 검증').first().json.payload.blocks, unfurl_links: false, unfurl_media: false }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "14000000-0000-4000-8000-000000000019",
+      "name": "Slack 에러 Webhook 재시도",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1840, -20],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst payload = $('HMAC 요청 검증').first().json.payload;\nconst status = Number(response.statusCode ?? response.status ?? response.error?.httpCode ?? 0);\nconst body = response.body && typeof response.body === 'object' ? response.body : response;\nconst botTarget = payload.target !== 'error_channel';\nlet result;\nif (status >= 200 && status < 300 && (!botTarget || body.ok === true)) result = { outcome: 'sent', channelId: botTarget ? body.channel ?? null : null, messageTs: botTarget ? body.ts ?? null : null, httpStatus: status, error: null };\nelse if (status === 0 || status >= 500 || response.error) result = { outcome: 'delivery_unknown', channelId: null, messageTs: null, httpStatus: status || null, error: { code: 'SLACK_DELIVERY_UNKNOWN', message: 'Slack 전송 결과를 확인할 수 없습니다.', retryable: false } };\nelse { const code = status === 429 ? 'SLACK_RATE_LIMITED' : /auth|token/i.test(String(body.error ?? '')) ? 'SLACK_AUTHENTICATION_FAILED' : /channel/i.test(String(body.error ?? '')) ? 'SLACK_CHANNEL_UNAVAILABLE' : 'SLACK_INVALID_PAYLOAD'; result = { outcome: 'failed', channelId: null, messageTs: null, httpStatus: status || null, error: { code, message: status === 429 ? 'Slack 호출 제한으로 알림을 전송하지 못했습니다.' : 'Slack 설정 또는 요청을 확인해 주세요.', retryable: false } }; }\nreturn [{ json: result }];"
+      },
+      "id": "14000000-0000-4000-8000-000000000020",
+      "name": "Slack 재시도 결과 분류",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2080, 80]
     }
   ],
   "pinData": {},
@@ -1081,7 +1411,7 @@
       "main": [
         [
           {
-            "node": "분석 요청 여부",
+            "node": "Slack 알림 요청 여부",
             "type": "main",
             "index": 0
           }
@@ -1685,6 +2015,216 @@
           }
         ],
         []
+      ]
+    },
+    "Slack 알림 요청 여부": {
+      "main": [
+        [
+          {
+            "node": "Slack 에러 채널 여부",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "분석 요청 여부",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack 에러 채널 여부": {
+      "main": [
+        [
+          {
+            "node": "Slack 에러 Webhook 전송",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack Bot 메시지 전송",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Bot 메시지 전송": {
+      "main": [
+        [
+          {
+            "node": "Slack 결과 분류",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack 결과 분류",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack 에러 Webhook 전송": {
+      "main": [
+        [
+          {
+            "node": "Slack 결과 분류",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack 결과 분류",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack 결과 분류": {
+      "main": [
+        [
+          {
+            "node": "Slack 429 재시도 여부",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack 429 재시도 여부": {
+      "main": [
+        [
+          {
+            "node": "Slack 재시도 대기",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack Callback 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack 재시도 대기": {
+      "main": [
+        [
+          {
+            "node": "Slack 재시도 회차 증가",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack 재시도 회차 증가": {
+      "main": [
+        [
+          {
+            "node": "Slack 재시도 에러 채널 여부",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Callback 구성": {
+      "main": [
+        [
+          {
+            "node": "Slack Callback 서명",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Callback 서명": {
+      "main": [
+        [
+          {
+            "node": "Slack Callback 전송",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack 재시도 에러 채널 여부": {
+      "main": [
+        [
+          {
+            "node": "Slack 에러 Webhook 재시도",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack Bot 메시지 재시도",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Bot 메시지 재시도": {
+      "main": [
+        [
+          {
+            "node": "Slack 재시도 결과 분류",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack 재시도 결과 분류",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack 에러 Webhook 재시도": {
+      "main": [
+        [
+          {
+            "node": "Slack 재시도 결과 분류",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack 재시도 결과 분류",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack 재시도 결과 분류": {
+      "main": [
+        [
+          {
+            "node": "Slack Callback 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
