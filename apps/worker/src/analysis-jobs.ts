@@ -142,7 +142,7 @@ function lastError(row: AnalysisJobRow) {
   };
 }
 
-function mapJob(
+export function mapAnalysisJob(
   row: AnalysisJobRow,
   resultRow: AnalysisResultRow | null,
 ): AnalysisJobResponse {
@@ -408,7 +408,7 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
 
   async get(ownerId: string, analysisJobId: string) {
     const row = await this.getRow(analysisJobId, ownerId);
-    return mapJob(row, await this.getResult(row.id));
+    return mapAnalysisJob(row, await this.getResult(row.id));
   }
 
   async list(ownerId: string, applicationId: string) {
@@ -423,7 +423,9 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
     const results = await Promise.all(
       data.map((row) => this.getResult(row.id)),
     );
-    return data.map((row, index) => mapJob(row, results[index] ?? null));
+    return data.map((row, index) =>
+      mapAnalysisJob(row, results[index] ?? null),
+    );
   }
 
   private async resolveInputs(ownerId: string, applicationId: string) {
@@ -556,7 +558,7 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
 
     const started = await this.beginAttempt(row);
     const dispatched = await this.dispatchAttempt(started, posting);
-    return mapJob(dispatched, null);
+    return mapAnalysisJob(dispatched, null);
   }
 
   async retry(ownerId: string, analysisJobId: string) {
@@ -577,7 +579,7 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
       started,
       await this.getPosting(started),
     );
-    return mapJob(dispatched, await this.getResult(dispatched.id));
+    return mapAnalysisJob(dispatched, await this.getResult(dispatched.id));
   }
 
   async cancel(ownerId: string, analysisJobId: string) {
@@ -597,7 +599,7 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
       }
       throw new AnalysisJobServiceError("unavailable");
     }
-    return mapJob(data, await this.getResult(data.id));
+    return mapAnalysisJob(data, await this.getResult(data.id));
   }
 
   async failStale(cutoff: string, limit: number) {
@@ -638,7 +640,7 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
         throw new AnalysisJobServiceError("conflict");
       throw new AnalysisJobServiceError("unavailable");
     }
-    return mapJob(data, await this.getResult(data.id));
+    return mapAnalysisJob(data, await this.getResult(data.id));
   }
 
   async complete(input: AnalysisResultCallback) {
@@ -650,7 +652,7 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
       input.runAttempt < row.attempt_count ||
       ["cancelled", "failed", "needs_input", "succeeded"].includes(row.status)
     ) {
-      return mapJob(row, await this.getResult(row.id));
+      return mapAnalysisJob(row, await this.getResult(row.id));
     }
     if (input.runAttempt !== row.attempt_count) {
       throw new AnalysisJobServiceError("conflict", {
@@ -681,7 +683,7 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
         throw new AnalysisJobServiceError("conflict");
       throw new AnalysisJobServiceError("unavailable");
     }
-    return mapJob(data, await this.getResult(data.id));
+    return mapAnalysisJob(data, await this.getResult(data.id));
   }
 }
 

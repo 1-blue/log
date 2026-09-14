@@ -228,6 +228,53 @@ export type Database = {
           },
         ]
       }
+      analysis_requirement_reviews: {
+        Row: {
+          analysis_job_id: string
+          created_at: string
+          id: string
+          note: string | null
+          override_status:
+            | Database["public"]["Enums"]["analysis_match_status"]
+            | null
+          owner_id: string
+          requirement_id: string
+          updated_at: string
+        }
+        Insert: {
+          analysis_job_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          override_status?:
+            | Database["public"]["Enums"]["analysis_match_status"]
+            | null
+          owner_id: string
+          requirement_id: string
+          updated_at?: string
+        }
+        Update: {
+          analysis_job_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          override_status?:
+            | Database["public"]["Enums"]["analysis_match_status"]
+            | null
+          owner_id?: string
+          requirement_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_requirement_reviews_job_fk"
+            columns: ["analysis_job_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_jobs"
+            referencedColumns: ["id", "owner_id"]
+          },
+        ]
+      }
       analysis_results: {
         Row: {
           analysis_job_id: string
@@ -259,6 +306,38 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "analysis_results_job_fk"
+            columns: ["analysis_job_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_jobs"
+            referencedColumns: ["id", "owner_id"]
+          },
+        ]
+      }
+      analysis_reviews: {
+        Row: {
+          analysis_job_id: string
+          created_at: string
+          overall_note: string | null
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          analysis_job_id: string
+          created_at?: string
+          overall_note?: string | null
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          analysis_job_id?: string
+          created_at?: string
+          overall_note?: string | null
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analysis_reviews_job_fk"
             columns: ["analysis_job_id", "owner_id"]
             isOneToOne: false
             referencedRelation: "analysis_jobs"
@@ -582,6 +661,207 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      interview_answers: {
+        Row: {
+          answer: string | null
+          created_at: string
+          id: string
+          owner_id: string
+          question_id: string
+          revision: number
+        }
+        Insert: {
+          answer?: string | null
+          created_at?: string
+          id?: string
+          owner_id: string
+          question_id: string
+          revision: number
+        }
+        Update: {
+          answer?: string | null
+          created_at?: string
+          id?: string
+          owner_id?: string
+          question_id?: string
+          revision?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_answers_question_fk"
+            columns: ["question_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "interview_questions"
+            referencedColumns: ["id", "owner_id"]
+          },
+        ]
+      }
+      interview_checklist_items: {
+        Row: {
+          analysis_job_id: string
+          archived_at: string | null
+          completed_at: string | null
+          content: string
+          created_at: string
+          id: string
+          owner_id: string
+          position: number
+          priority: Database["public"]["Enums"]["analysis_priority"]
+          source: Database["public"]["Enums"]["interview_checklist_source"]
+          source_key: string | null
+          updated_at: string
+        }
+        Insert: {
+          analysis_job_id: string
+          archived_at?: string | null
+          completed_at?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          owner_id: string
+          position: number
+          priority: Database["public"]["Enums"]["analysis_priority"]
+          source: Database["public"]["Enums"]["interview_checklist_source"]
+          source_key?: string | null
+          updated_at?: string
+        }
+        Update: {
+          analysis_job_id?: string
+          archived_at?: string | null
+          completed_at?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          owner_id?: string
+          position?: number
+          priority?: Database["public"]["Enums"]["analysis_priority"]
+          source?: Database["public"]["Enums"]["interview_checklist_source"]
+          source_key?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_checklist_items_job_fk"
+            columns: ["analysis_job_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_jobs"
+            referencedColumns: ["id", "owner_id"]
+          },
+        ]
+      }
+      interview_notes: {
+        Row: {
+          analysis_job_id: string
+          application_id: string
+          archived_at: string | null
+          content: string | null
+          created_at: string
+          follow_up_actions: string | null
+          id: string
+          improvements: string | null
+          interviewed_at: string
+          owner_id: string
+          questions_asked: string | null
+          round_label: string
+          updated_at: string
+          went_well: string | null
+        }
+        Insert: {
+          analysis_job_id: string
+          application_id: string
+          archived_at?: string | null
+          content?: string | null
+          created_at?: string
+          follow_up_actions?: string | null
+          id?: string
+          improvements?: string | null
+          interviewed_at: string
+          owner_id: string
+          questions_asked?: string | null
+          round_label: string
+          updated_at?: string
+          went_well?: string | null
+        }
+        Update: {
+          analysis_job_id?: string
+          application_id?: string
+          archived_at?: string | null
+          content?: string | null
+          created_at?: string
+          follow_up_actions?: string | null
+          id?: string
+          improvements?: string | null
+          interviewed_at?: string
+          owner_id?: string
+          questions_asked?: string | null
+          round_label?: string
+          updated_at?: string
+          went_well?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_notes_analysis_fk"
+            columns: ["analysis_job_id", "application_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_jobs"
+            referencedColumns: ["id", "application_id", "owner_id"]
+          },
+          {
+            foreignKeyName: "interview_notes_application_fk"
+            columns: ["application_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id", "owner_id"]
+          },
+        ]
+      }
+      interview_questions: {
+        Row: {
+          analysis_job_id: string
+          category: string
+          created_at: string
+          id: string
+          intent: string
+          owner_id: string
+          priority: Database["public"]["Enums"]["analysis_priority"]
+          question: string
+          requirement_ids: string[]
+          source_index: number
+        }
+        Insert: {
+          analysis_job_id: string
+          category: string
+          created_at?: string
+          id?: string
+          intent: string
+          owner_id: string
+          priority: Database["public"]["Enums"]["analysis_priority"]
+          question: string
+          requirement_ids?: string[]
+          source_index: number
+        }
+        Update: {
+          analysis_job_id?: string
+          category?: string
+          created_at?: string
+          id?: string
+          intent?: string
+          owner_id?: string
+          priority?: Database["public"]["Enums"]["analysis_priority"]
+          question?: string
+          requirement_ids?: string[]
+          source_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_questions_job_fk"
+            columns: ["analysis_job_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "analysis_jobs"
+            referencedColumns: ["id", "owner_id"]
+          },
+        ]
       }
       job_posting_collection_runs: {
         Row: {
@@ -1156,6 +1436,33 @@ export type Database = {
         }
         Returns: undefined
       }
+      reorder_interview_checklist: {
+        Args: {
+          p_analysis_job_id: string
+          p_item_ids: string[]
+          p_owner_id: string
+        }
+        Returns: {
+          analysis_job_id: string
+          archived_at: string | null
+          completed_at: string | null
+          content: string
+          created_at: string
+          id: string
+          owner_id: string
+          position: number
+          priority: Database["public"]["Enums"]["analysis_priority"]
+          source: Database["public"]["Enums"]["interview_checklist_source"]
+          source_key: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "interview_checklist_items"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       replace_application_state: {
         Args: {
           p_application_id: string
@@ -1185,6 +1492,45 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "applications"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      save_analysis_review: {
+        Args: {
+          p_analysis_job_id: string
+          p_expected_updated_at?: string
+          p_overall_note?: string
+          p_owner_id: string
+          p_requirements?: Json
+        }
+        Returns: {
+          analysis_job_id: string
+          created_at: string
+          overall_note: string | null
+          owner_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "analysis_reviews"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      save_interview_answer: {
+        Args: { p_answer?: string; p_owner_id: string; p_question_id: string }
+        Returns: {
+          answer: string | null
+          created_at: string
+          id: string
+          owner_id: string
+          question_id: string
+          revision: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "interview_answers"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -1265,6 +1611,8 @@ export type Database = {
         | "succeeded"
         | "failed"
         | "cancelled"
+      analysis_match_status: "matched" | "partial" | "missing" | "unknown"
+      analysis_priority: "high" | "medium" | "low"
       api_idempotency_status: "processing" | "completed"
       application_status:
         | "interested"
@@ -1277,6 +1625,7 @@ export type Database = {
         | "withdrawn"
       document_extraction_status: "pending" | "processing" | "ready" | "failed"
       document_type: "resume" | "portfolio"
+      interview_checklist_source: "gap_action" | "custom"
       job_posting_collection_error_code:
         | "ACCESS_BLOCKED"
         | "JOB_EXPIRED"
@@ -1446,6 +1795,8 @@ export const Constants = {
         "failed",
         "cancelled",
       ],
+      analysis_match_status: ["matched", "partial", "missing", "unknown"],
+      analysis_priority: ["high", "medium", "low"],
       api_idempotency_status: ["processing", "completed"],
       application_status: [
         "interested",
@@ -1459,6 +1810,7 @@ export const Constants = {
       ],
       document_extraction_status: ["pending", "processing", "ready", "failed"],
       document_type: ["resume", "portfolio"],
+      interview_checklist_source: ["gap_action", "custom"],
       job_posting_collection_error_code: [
         "ACCESS_BLOCKED",
         "JOB_EXPIRED",

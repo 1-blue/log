@@ -12,12 +12,14 @@ import {
   type AnalysisResult,
   AnalysisResultCallbackSchema,
   AnalysisResultSchema,
+  AnalysisWorkspaceResponseSchema,
   ApplicationListQuerySchema,
   ApplicationResponseSchema,
   ApplicationStateInputSchema,
   ApplicationStatusSchema,
   calculateAnalysisFitScore,
   CreateApplicationRequestSchema,
+  CreateInterviewNoteRequestSchema,
   CreateJobPostingCollectionRequestSchema,
   CreateJobPostingRequestSchema,
   DOCUMENT_MAX_FILE_SIZE,
@@ -30,8 +32,12 @@ import {
   isValidAnalysisJobTransition,
   JobPostingCollectionCallbackSchema,
   PatchApplicationRequestSchema,
+  PatchInterviewChecklistItemRequestSchema,
   PrepareDocumentUploadResponseSchema,
   PublicDocumentAccessResponseSchema,
+  ReorderInterviewChecklistRequestSchema,
+  SaveInterviewAnswerRequestSchema,
+  UpdateAnalysisReviewRequestSchema,
   UpdateDocumentVersionRequestSchema,
 } from "../src/index.js";
 
@@ -618,6 +624,159 @@ describe("career operations contracts", () => {
     delete withoutRunAttempt.runAttempt;
     expect(
       AnalysisResultCallbackSchema.safeParse(withoutRunAttempt).success,
+    ).toBe(false);
+  });
+
+  it("validates requirement reviews and rejects duplicate IDs", () => {
+    const valid = {
+      expectedUpdatedAt: null,
+      overallNote: "운영 경험을 더 구체적으로 설명한다.",
+      requirements: [
+        {
+          note: "개인 프로젝트의 장애 대응 경험을 보완한다.",
+          overrideStatus: "partial",
+          requirementId: "requirement-1",
+        },
+      ],
+    };
+    expect(UpdateAnalysisReviewRequestSchema.safeParse(valid).success).toBe(
+      true,
+    );
+    expect(
+      UpdateAnalysisReviewRequestSchema.safeParse({
+        ...valid,
+        requirements: [valid.requirements[0], valid.requirements[0]],
+      }).success,
+    ).toBe(false);
+    expect(
+      UpdateAnalysisReviewRequestSchema.safeParse({
+        ...valid,
+        requirements: [
+          {
+            note: null,
+            overrideStatus: null,
+            requirementId: "requirement-1",
+          },
+        ],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("validates answer revisions, checklist updates, and interview notes", () => {
+    expect(
+      SaveInterviewAnswerRequestSchema.safeParse({ answer: "STAR 답변" })
+        .success,
+    ).toBe(true);
+    expect(
+      SaveInterviewAnswerRequestSchema.safeParse({ answer: null }).success,
+    ).toBe(true);
+    expect(
+      SaveInterviewAnswerRequestSchema.safeParse({ answer: "" }).success,
+    ).toBe(false);
+    expect(
+      PatchInterviewChecklistItemRequestSchema.safeParse({
+        completed: true,
+        expectedUpdatedAt: "2026-09-13T00:00:00.000Z",
+      }).success,
+    ).toBe(true);
+    expect(
+      PatchInterviewChecklistItemRequestSchema.safeParse({
+        expectedUpdatedAt: "2026-09-13T00:00:00.000Z",
+      }).success,
+    ).toBe(false);
+    expect(
+      ReorderInterviewChecklistRequestSchema.safeParse({
+        itemIds: [validUuid, validUuid],
+      }).success,
+    ).toBe(false);
+    expect(
+      CreateInterviewNoteRequestSchema.safeParse({
+        analysisJobId: validUuid,
+        content: null,
+        followUpActions: "프로젝트 수치를 정리한다.",
+        improvements: null,
+        interviewedAt: "2026-09-13T00:00:00.000Z",
+        questionsAsked: null,
+        roundLabel: "1차 실무 면접",
+        wentWell: null,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("keeps the analysis workspace response strict", () => {
+    const timestamp = "2026-09-13T00:00:00.000Z";
+    const source = {
+      jobPostingSnapshot: {
+        contentHash: "a".repeat(64),
+        fetchedAt: timestamp,
+        id: validUuid,
+        source: "wanted_json_ld",
+      },
+      portfolio: {
+        archivedAt: null,
+        contentHash: "b".repeat(64),
+        id: validUuid,
+        label: "포트폴리오 v1",
+      },
+      resume: {
+        archivedAt: null,
+        contentHash: "c".repeat(64),
+        id: validUuid,
+        label: "이력서 v1",
+      },
+    };
+    const payload = {
+      data: {
+        application: {
+          attemptNumber: 1,
+          companyName: "미리디",
+          id: validUuid,
+          title: "AX Engineer - Infra",
+        },
+        checklist: [],
+        comparison: null,
+        history: [],
+        interviewNotes: [],
+        job: {
+          applicationId: validUuid,
+          attemptCount: 1,
+          createdAt: timestamp,
+          finishedAt: timestamp,
+          id: validUuid,
+          jobPostingId: validUuid,
+          jobPostingSnapshotId: validUuid,
+          lastError: null,
+          lastHeartbeatAt: timestamp,
+          portfolioVersionId: validUuid,
+          requestId: validUuid,
+          result: validAnalysisResult,
+          resumeVersionId: validUuid,
+          retryAt: null,
+          stage: "saving",
+          startedAt: timestamp,
+          status: "succeeded",
+          updatedAt: timestamp,
+        },
+        questions: [],
+        resultMetadata: {
+          createdAt: timestamp,
+          executions: [],
+          schemaVersion: "1.0.0",
+        },
+        review: { overallNote: null, requirements: [], updatedAt: null },
+        reviewedFitScore: validAnalysisResult.fitScore,
+        sources: source,
+      },
+      meta: { requestId: validUuid },
+    };
+    expect(AnalysisWorkspaceResponseSchema.safeParse(payload).success).toBe(
+      true,
+    );
+    expect(
+      AnalysisWorkspaceResponseSchema.safeParse({
+        ...payload,
+        data: { ...payload.data, unexpected: true },
+      }).success,
     ).toBe(false);
   });
 

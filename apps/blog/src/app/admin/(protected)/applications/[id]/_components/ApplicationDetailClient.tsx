@@ -898,14 +898,13 @@ export default function ApplicationDetailClient({
                 <p className="leading-6">
                   {latestAnalysis.result.comparison.summary}
                 </p>
-                <details>
-                  <summary className="cursor-pointer font-medium">
-                    구조화 분석 원문 보기
-                  </summary>
-                  <pre className="border-border bg-background mt-3 max-h-96 overflow-auto rounded-md border p-4 text-xs leading-5 whitespace-pre-wrap">
-                    {JSON.stringify(latestAnalysis.result, null, 2)}
-                  </pre>
-                </details>
+                <Button asChild className="w-fit" size="sm">
+                  <Link
+                    href={`/admin/applications/${application.id}/analyses/${latestAnalysis.id}`}
+                  >
+                    상세 결과 및 면접 준비
+                  </Link>
+                </Button>
               </div>
             ) : null}
           </div>
@@ -926,10 +925,13 @@ export default function ApplicationDetailClient({
                   className="border-border flex justify-between gap-2 border-b py-2 last:border-0"
                   key={item.id}
                 >
-                  <span>
+                  <Link
+                    className="underline-offset-4 hover:underline"
+                    href={`/admin/applications/${application.id}/analyses/${item.id}`}
+                  >
                     {ANALYSIS_STATUS_LABELS[item.status]}
                     {item.result ? ` · ${item.result.fitScore}점` : ""}
-                  </span>
+                  </Link>
                   <time className="text-muted-foreground">
                     {formatApplicationDate(item.createdAt)}
                   </time>

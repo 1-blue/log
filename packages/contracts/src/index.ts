@@ -282,13 +282,18 @@ export const AnalysisJobStageSchema = z.enum([
 export type AnalysisJobStage = z.infer<typeof AnalysisJobStageSchema>;
 
 export const AnalysisRequirementKindSchema = z.enum(["required", "preferred"]);
+export type AnalysisRequirementKind = z.infer<
+  typeof AnalysisRequirementKindSchema
+>;
 export const MatchStatusSchema = z.enum([
   "matched",
   "partial",
   "missing",
   "unknown",
 ]);
+export type MatchStatus = z.infer<typeof MatchStatusSchema>;
 export const PrioritySchema = z.enum(["high", "medium", "low"]);
+export type Priority = z.infer<typeof PrioritySchema>;
 export const EvidenceSourceSchema = z.enum([
   "job_posting",
   "resume",
@@ -963,7 +968,7 @@ export function calculateAnalysisFitScore(
   if (required === null && preferred === null) return 0;
   if (required === null) return Math.round((preferred ?? 0) * 100);
   if (preferred === null) return Math.round(required * 100);
-  return Math.round((required * 0.7 + preferred * 0.3) * 100);
+  return Math.round(required * 70 + preferred * 30);
 }
 
 export const AnalysisEventTypeSchema = z.enum([
@@ -1083,6 +1088,347 @@ export const AnalysisResultCallbackSchema = z.strictObject({
 });
 export type AnalysisResultCallback = z.infer<
   typeof AnalysisResultCallbackSchema
+>;
+
+const NullableWorkspaceTextSchema = (maximum: number) =>
+  z.string().trim().min(1).max(maximum).nullable();
+
+export const AnalysisRequirementReviewSchema = z
+  .strictObject({
+    requirementId: z.string().min(1).max(100),
+    overrideStatus: MatchStatusSchema.nullable(),
+    note: NullableWorkspaceTextSchema(5_000),
+  })
+  .refine((value) => value.overrideStatus !== null || value.note !== null, {
+    message: "A requirement review must contain a status or note",
+  });
+export type AnalysisRequirementReview = z.infer<
+  typeof AnalysisRequirementReviewSchema
+>;
+
+export const AnalysisReviewSchema = z.strictObject({
+  overallNote: NullableWorkspaceTextSchema(20_000),
+  requirements: z.array(AnalysisRequirementReviewSchema).max(40),
+  updatedAt: Rfc3339TimestampSchema.nullable(),
+});
+export type AnalysisReview = z.infer<typeof AnalysisReviewSchema>;
+
+export const AnalysisReviewResponseSchema = z.strictObject({
+  data: z.strictObject({
+    review: AnalysisReviewSchema,
+    reviewedFitScore: z.int().min(0).max(100).nullable(),
+  }),
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type AnalysisReviewResponse = z.infer<
+  typeof AnalysisReviewResponseSchema
+>;
+
+export const UpdateAnalysisReviewRequestSchema = z
+  .strictObject({
+    overallNote: NullableWorkspaceTextSchema(20_000),
+    requirements: z.array(AnalysisRequirementReviewSchema).max(40),
+    expectedUpdatedAt: Rfc3339TimestampSchema.nullable(),
+  })
+  .superRefine((value, context) => {
+    const ids = value.requirements.map((item) => item.requirementId);
+    if (new Set(ids).size !== ids.length) {
+      context.addIssue({
+        code: "custom",
+        message: "Requirement reviews must be unique",
+        path: ["requirements"],
+      });
+    }
+  });
+export type UpdateAnalysisReviewRequest = z.infer<
+  typeof UpdateAnalysisReviewRequestSchema
+>;
+
+export const InterviewAnswerRevisionSchema = z.strictObject({
+  id: UuidSchema,
+  questionId: UuidSchema,
+  revision: z.int().positive(),
+  answer: NullableWorkspaceTextSchema(20_000),
+  createdAt: Rfc3339TimestampSchema,
+});
+export type InterviewAnswerRevision = z.infer<
+  typeof InterviewAnswerRevisionSchema
+>;
+
+export const InterviewQuestionSchema = z.strictObject({
+  id: UuidSchema,
+  analysisJobId: UuidSchema,
+  sourceIndex: z.int().nonnegative(),
+  category: z.string().min(1).max(200),
+  question: z.string().min(1).max(2_000),
+  intent: z.string().min(1).max(2_000),
+  priority: PrioritySchema,
+  requirementIds: z.array(z.string().min(1).max(100)).max(10),
+  currentAnswer: InterviewAnswerRevisionSchema.nullable(),
+  answerRevisionCount: z.int().nonnegative(),
+  createdAt: Rfc3339TimestampSchema,
+});
+export type InterviewQuestion = z.infer<typeof InterviewQuestionSchema>;
+
+export const SaveInterviewAnswerRequestSchema = z.strictObject({
+  answer: NullableWorkspaceTextSchema(20_000),
+});
+export type SaveInterviewAnswerRequest = z.infer<
+  typeof SaveInterviewAnswerRequestSchema
+>;
+
+export const InterviewAnswerResponseSchema = z.strictObject({
+  data: z.strictObject({
+    currentAnswer: InterviewAnswerRevisionSchema.nullable(),
+    revisionCount: z.int().nonnegative(),
+  }),
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type InterviewAnswerResponse = z.infer<
+  typeof InterviewAnswerResponseSchema
+>;
+
+export const InterviewAnswerHistoryResponseSchema = z.strictObject({
+  data: z.strictObject({
+    items: z.array(InterviewAnswerRevisionSchema).max(100),
+  }),
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type InterviewAnswerHistoryResponse = z.infer<
+  typeof InterviewAnswerHistoryResponseSchema
+>;
+
+export const InterviewChecklistSourceSchema = z.enum(["gap_action", "custom"]);
+export type InterviewChecklistSource = z.infer<
+  typeof InterviewChecklistSourceSchema
+>;
+
+export const InterviewChecklistItemSchema = z.strictObject({
+  id: UuidSchema,
+  analysisJobId: UuidSchema,
+  source: InterviewChecklistSourceSchema,
+  sourceKey: z.string().max(100).nullable(),
+  content: z.string().min(1).max(2_000),
+  priority: PrioritySchema,
+  position: z.int().nonnegative(),
+  completedAt: Rfc3339TimestampSchema.nullable(),
+  archivedAt: Rfc3339TimestampSchema.nullable(),
+  createdAt: Rfc3339TimestampSchema,
+  updatedAt: Rfc3339TimestampSchema,
+});
+export type InterviewChecklistItem = z.infer<
+  typeof InterviewChecklistItemSchema
+>;
+
+export const CreateInterviewChecklistItemRequestSchema = z.strictObject({
+  content: z.string().trim().min(1).max(2_000),
+  priority: PrioritySchema,
+});
+export type CreateInterviewChecklistItemRequest = z.infer<
+  typeof CreateInterviewChecklistItemRequestSchema
+>;
+
+export const PatchInterviewChecklistItemRequestSchema = z
+  .strictObject({
+    content: z.string().trim().min(1).max(2_000).optional(),
+    priority: PrioritySchema.optional(),
+    completed: z.boolean().optional(),
+    expectedUpdatedAt: Rfc3339TimestampSchema,
+  })
+  .refine(
+    (value) =>
+      value.content !== undefined ||
+      value.priority !== undefined ||
+      value.completed !== undefined,
+    { message: "At least one checklist field must be updated" },
+  );
+export type PatchInterviewChecklistItemRequest = z.infer<
+  typeof PatchInterviewChecklistItemRequestSchema
+>;
+
+export const ReorderInterviewChecklistRequestSchema = z
+  .strictObject({
+    itemIds: z.array(UuidSchema).min(1).max(100),
+  })
+  .refine((value) => new Set(value.itemIds).size === value.itemIds.length, {
+    message: "Checklist item IDs must be unique",
+  });
+export type ReorderInterviewChecklistRequest = z.infer<
+  typeof ReorderInterviewChecklistRequestSchema
+>;
+
+export const InterviewChecklistItemResponseSchema = z.strictObject({
+  data: InterviewChecklistItemSchema,
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type InterviewChecklistItemResponse = z.infer<
+  typeof InterviewChecklistItemResponseSchema
+>;
+
+export const InterviewChecklistListResponseSchema = z.strictObject({
+  data: z.strictObject({
+    items: z.array(InterviewChecklistItemSchema).max(100),
+  }),
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type InterviewChecklistListResponse = z.infer<
+  typeof InterviewChecklistListResponseSchema
+>;
+
+const InterviewNoteContentSchema = z.strictObject({
+  questionsAsked: NullableWorkspaceTextSchema(20_000),
+  wentWell: NullableWorkspaceTextSchema(20_000),
+  improvements: NullableWorkspaceTextSchema(20_000),
+  followUpActions: NullableWorkspaceTextSchema(20_000),
+  content: NullableWorkspaceTextSchema(20_000),
+});
+
+export const InterviewNoteSchema = InterviewNoteContentSchema.extend({
+  id: UuidSchema,
+  applicationId: UuidSchema,
+  analysisJobId: UuidSchema,
+  roundLabel: z.string().min(1).max(100),
+  interviewedAt: Rfc3339TimestampSchema,
+  archivedAt: Rfc3339TimestampSchema.nullable(),
+  createdAt: Rfc3339TimestampSchema,
+  updatedAt: Rfc3339TimestampSchema,
+});
+export type InterviewNote = z.infer<typeof InterviewNoteSchema>;
+
+const InterviewNoteInputSchema = InterviewNoteContentSchema.extend({
+  roundLabel: z.string().trim().min(1).max(100),
+  interviewedAt: Rfc3339TimestampSchema,
+});
+
+function hasInterviewNoteContent(
+  value: z.infer<typeof InterviewNoteContentSchema>,
+) {
+  return [
+    value.questionsAsked,
+    value.wentWell,
+    value.improvements,
+    value.followUpActions,
+    value.content,
+  ].some((item) => item !== null);
+}
+
+export const CreateInterviewNoteRequestSchema = InterviewNoteInputSchema.extend(
+  {
+    analysisJobId: UuidSchema,
+  },
+).refine(hasInterviewNoteContent, {
+  message: "At least one interview note field is required",
+});
+export type CreateInterviewNoteRequest = z.infer<
+  typeof CreateInterviewNoteRequestSchema
+>;
+
+export const PatchInterviewNoteRequestSchema = InterviewNoteInputSchema.extend({
+  expectedUpdatedAt: Rfc3339TimestampSchema,
+}).refine(hasInterviewNoteContent, {
+  message: "At least one interview note field is required",
+});
+export type PatchInterviewNoteRequest = z.infer<
+  typeof PatchInterviewNoteRequestSchema
+>;
+
+export const InterviewNoteResponseSchema = z.strictObject({
+  data: InterviewNoteSchema,
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type InterviewNoteResponse = z.infer<typeof InterviewNoteResponseSchema>;
+
+export const ExpectedUpdatedAtQuerySchema = z.strictObject({
+  expectedUpdatedAt: Rfc3339TimestampSchema,
+});
+export type ExpectedUpdatedAtQuery = z.infer<
+  typeof ExpectedUpdatedAtQuerySchema
+>;
+
+export const AnalysisWorkspaceSourceSchema = z.strictObject({
+  jobPostingSnapshot: z.strictObject({
+    id: UuidSchema,
+    contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+    source: JobPostingSnapshotSourceSchema,
+    fetchedAt: Rfc3339TimestampSchema,
+  }),
+  resume: z.strictObject({
+    id: UuidSchema,
+    label: z.string().min(1).max(100),
+    contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+    archivedAt: Rfc3339TimestampSchema.nullable(),
+  }),
+  portfolio: z.strictObject({
+    id: UuidSchema,
+    label: z.string().min(1).max(100),
+    contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+    archivedAt: Rfc3339TimestampSchema.nullable(),
+  }),
+});
+export type AnalysisWorkspaceSource = z.infer<
+  typeof AnalysisWorkspaceSourceSchema
+>;
+
+export const AnalysisMatchCountsSchema = z.strictObject({
+  matched: z.int().nonnegative(),
+  partial: z.int().nonnegative(),
+  missing: z.int().nonnegative(),
+  unknown: z.int().nonnegative(),
+});
+export type AnalysisMatchCounts = z.infer<typeof AnalysisMatchCountsSchema>;
+
+export const AnalysisHistoryItemSchema = z.strictObject({
+  analysisJobId: UuidSchema,
+  createdAt: Rfc3339TimestampSchema,
+  completedAt: Rfc3339TimestampSchema,
+  fitScore: z.int().min(0).max(100),
+  matchCounts: AnalysisMatchCountsSchema,
+  gapCount: z.int().nonnegative(),
+  questionCount: z.int().nonnegative(),
+  sources: AnalysisWorkspaceSourceSchema,
+  executions: z.array(AnalysisStepSchema).max(10),
+});
+export type AnalysisHistoryItem = z.infer<typeof AnalysisHistoryItemSchema>;
+
+export const AnalysisWorkspaceQuerySchema = z.strictObject({
+  compareTo: UuidSchema.optional(),
+});
+export type AnalysisWorkspaceQuery = z.infer<
+  typeof AnalysisWorkspaceQuerySchema
+>;
+
+export const AnalysisWorkspaceSchema = z.strictObject({
+  application: z.strictObject({
+    id: UuidSchema,
+    attemptNumber: z.int().positive(),
+    companyName: z.string().min(1).max(200),
+    title: z.string().min(1).max(300),
+  }),
+  job: AnalysisJobResponseSchema,
+  resultMetadata: z
+    .strictObject({
+      schemaVersion: z.string().min(1).max(30),
+      createdAt: Rfc3339TimestampSchema,
+      executions: z.array(AnalysisStepSchema).max(10),
+    })
+    .nullable(),
+  sources: AnalysisWorkspaceSourceSchema,
+  review: AnalysisReviewSchema,
+  reviewedFitScore: z.int().min(0).max(100).nullable(),
+  questions: z.array(InterviewQuestionSchema).max(30),
+  checklist: z.array(InterviewChecklistItemSchema).max(100),
+  interviewNotes: z.array(InterviewNoteSchema).max(100),
+  history: z.array(AnalysisHistoryItemSchema).max(20),
+  comparison: AnalysisHistoryItemSchema.nullable(),
+});
+export type AnalysisWorkspace = z.infer<typeof AnalysisWorkspaceSchema>;
+
+export const AnalysisWorkspaceResponseSchema = z.strictObject({
+  data: AnalysisWorkspaceSchema,
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type AnalysisWorkspaceResponse = z.infer<
+  typeof AnalysisWorkspaceResponseSchema
 >;
 
 export const HealthResponseSchema = z.strictObject({

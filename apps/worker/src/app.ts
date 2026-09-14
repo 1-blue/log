@@ -2,6 +2,7 @@ import {
   AnalysisEventCallbackSchema,
   AnalysisJobActionRequestSchema,
   AnalysisResultCallbackSchema,
+  AnalysisWorkspaceQuerySchema,
   ApiErrorCodeSchema,
   ApplicationListQuerySchema,
   ApplicationStateInputSchema,
@@ -9,15 +10,23 @@ import {
   CreateAnalysisJobRequestSchema,
   CreateApplicationRequestSchema,
   CreateDocumentDownloadUrlRequestSchema,
+  CreateInterviewChecklistItemRequestSchema,
+  CreateInterviewNoteRequestSchema,
   CreateJobPostingCollectionRequestSchema,
   DocumentTypeSchema,
+  ExpectedUpdatedAtQuerySchema,
   IdempotencyKeySchema,
   JobPostingCollectionCallbackSchema,
   PatchApplicationRequestSchema,
+  PatchInterviewChecklistItemRequestSchema,
+  PatchInterviewNoteRequestSchema,
   PatchJobPostingRequestSchema,
   PrepareDocumentUploadRequestSchema,
   PublicDocumentDispositionSchema,
+  ReorderInterviewChecklistRequestSchema,
+  SaveInterviewAnswerRequestSchema,
   SetDocumentPublicationRequestSchema,
+  UpdateAnalysisReviewRequestSchema,
   UpdateDocumentVersionRequestSchema,
 } from "@workspace/contracts";
 
@@ -51,6 +60,11 @@ import {
   createRequestFingerprint,
   type IdempotencyService,
 } from "./idempotency.js";
+import {
+  createInterviewWorkspaceService,
+  type InterviewWorkspaceService,
+  InterviewWorkspaceServiceError,
+} from "./interview-workspace.js";
 import {
   createJobPostingCollectionService,
   type JobPostingCollectionService,
@@ -109,6 +123,9 @@ type AppDependencies = {
   jobPostingCollectionServiceFactory?: (
     env: CloudflareBindings,
   ) => JobPostingCollectionService;
+  interviewWorkspaceServiceFactory?: (
+    env: CloudflareBindings,
+  ) => InterviewWorkspaceService;
   jwtVerificationKey?: JwtVerificationKey;
 };
 
@@ -386,6 +403,53 @@ function analysisServiceErrorResponse(
   );
 }
 
+function interviewWorkspaceErrorResponse(
+  c: Context<WorkerAppEnv>,
+  error: unknown,
+): Response {
+  if (!(error instanceof InterviewWorkspaceServiceError)) throw error;
+  if (error.kind === "not_found") {
+    return errorResponse(
+      c,
+      404,
+      "NOT_FOUND",
+      error.details?.reason === "comparison_not_found"
+        ? "비교할 이전 분석을 찾을 수 없습니다."
+        : "면접 준비 정보를 찾을 수 없습니다.",
+    );
+  }
+  if (error.kind === "validation") {
+    return errorResponse(
+      c,
+      400,
+      "VALIDATION_ERROR",
+      "면접 준비 요청 형식이나 연결된 분석 정보가 올바르지 않습니다.",
+      false,
+      error.details,
+    );
+  }
+  if (error.kind === "conflict") {
+    const stale = error.details?.reason === "stale_update";
+    return errorResponse(
+      c,
+      409,
+      "CONFLICT",
+      stale
+        ? "다른 화면에서 내용이 변경되었습니다. 새로고침 후 다시 시도해 주세요."
+        : "현재 면접 준비 상태에서는 요청을 처리할 수 없습니다.",
+      false,
+      error.details,
+    );
+  }
+  return errorResponse(
+    c,
+    503,
+    "UPSTREAM_UNAVAILABLE",
+    "면접 준비 정보를 사용할 수 없습니다.",
+    true,
+  );
+}
+
 function jsonData<T>(
   c: Context<WorkerAppEnv>,
   data: T,
@@ -620,6 +684,9 @@ export function createApp(dependencies: AppDependencies = {}) {
   const getJobPostingCollectionService = (env: CloudflareBindings) =>
     dependencies.jobPostingCollectionServiceFactory?.(env) ??
     createJobPostingCollectionService(env);
+  const getInterviewWorkspaceService = (env: CloudflareBindings) =>
+    dependencies.interviewWorkspaceServiceFactory?.(env) ??
+    createInterviewWorkspaceService(env);
 
   app.use("*", async (c, next) => {
     const requestId = crypto.randomUUID();
@@ -976,6 +1043,238 @@ export function createApp(dependencies: AppDependencies = {}) {
         }
       },
     );
+  });
+
+  app.get("/v1/analysis-jobs/:id/workspace", requireAdmin, async (c) => {
+    const analysisJobId = parseResourceId(c, "분석 작업");
+    if (analysisJobId instanceof Response) return analysisJobId;
+    const query = AnalysisWorkspaceQuerySchema.safeParse({
+      compareTo: c.req.query("compareTo"),
+    });
+    if (!query.success) {
+      return errorResponse(
+        c,
+        400,
+        "VALIDATION_ERROR",
+        "분석 비교 조건이 올바르지 않습니다.",
+      );
+    }
+    try {
+      const data = await getInterviewWorkspaceService(c.env).getWorkspace(
+        c.get("adminUserId"),
+        analysisJobId,
+        query.data.compareTo,
+      );
+      return jsonData(c, data);
+    } catch (error) {
+      return interviewWorkspaceErrorResponse(c, error);
+    }
+  });
+
+  app.put("/v1/analysis-jobs/:id/review", requireAdmin, async (c) => {
+    const analysisJobId = parseResourceId(c, "분석 작업");
+    if (analysisJobId instanceof Response) return analysisJobId;
+    const input = await parseJsonBody(c, UpdateAnalysisReviewRequestSchema);
+    if (input instanceof Response) return input;
+    try {
+      const data = await getInterviewWorkspaceService(c.env).saveReview(
+        c.get("adminUserId"),
+        analysisJobId,
+        input,
+      );
+      return jsonData(c, data);
+    } catch (error) {
+      return interviewWorkspaceErrorResponse(c, error);
+    }
+  });
+
+  app.get("/v1/interview-questions/:id/answers", requireAdmin, async (c) => {
+    const questionId = parseResourceId(c, "면접 질문");
+    if (questionId instanceof Response) return questionId;
+    try {
+      const items = await getInterviewWorkspaceService(c.env).listAnswers(
+        c.get("adminUserId"),
+        questionId,
+      );
+      return jsonData(c, { items });
+    } catch (error) {
+      return interviewWorkspaceErrorResponse(c, error);
+    }
+  });
+
+  app.put("/v1/interview-questions/:id/answer", requireAdmin, async (c) => {
+    const questionId = parseResourceId(c, "면접 질문");
+    if (questionId instanceof Response) return questionId;
+    const input = await parseJsonBody(c, SaveInterviewAnswerRequestSchema);
+    if (input instanceof Response) return input;
+    try {
+      const data = await getInterviewWorkspaceService(c.env).saveAnswer(
+        c.get("adminUserId"),
+        questionId,
+        input,
+      );
+      return jsonData(c, data);
+    } catch (error) {
+      return interviewWorkspaceErrorResponse(c, error);
+    }
+  });
+
+  app.post("/v1/analysis-jobs/:id/checklist-items", requireAdmin, async (c) => {
+    const analysisJobId = parseResourceId(c, "분석 작업");
+    if (analysisJobId instanceof Response) return analysisJobId;
+    const input = await parseJsonBody(
+      c,
+      CreateInterviewChecklistItemRequestSchema,
+    );
+    if (input instanceof Response) return input;
+    return executeIdempotently(
+      c,
+      getIdempotencyService(c.env),
+      input,
+      async () => {
+        try {
+          const data = await getInterviewWorkspaceService(
+            c.env,
+          ).createChecklist(c.get("adminUserId"), analysisJobId, input);
+          return jsonData(c, data, 201);
+        } catch (error) {
+          return interviewWorkspaceErrorResponse(c, error);
+        }
+      },
+    );
+  });
+
+  app.patch("/v1/interview-checklist-items/:id", requireAdmin, async (c) => {
+    const itemId = parseResourceId(c, "체크리스트 항목");
+    if (itemId instanceof Response) return itemId;
+    const input = await parseJsonBody(
+      c,
+      PatchInterviewChecklistItemRequestSchema,
+    );
+    if (input instanceof Response) return input;
+    try {
+      const data = await getInterviewWorkspaceService(c.env).patchChecklist(
+        c.get("adminUserId"),
+        itemId,
+        input,
+      );
+      return jsonData(c, data);
+    } catch (error) {
+      return interviewWorkspaceErrorResponse(c, error);
+    }
+  });
+
+  app.delete("/v1/interview-checklist-items/:id", requireAdmin, async (c) => {
+    const itemId = parseResourceId(c, "체크리스트 항목");
+    if (itemId instanceof Response) return itemId;
+    const query = ExpectedUpdatedAtQuerySchema.safeParse({
+      expectedUpdatedAt: c.req.query("expectedUpdatedAt"),
+    });
+    if (!query.success) {
+      return errorResponse(
+        c,
+        400,
+        "VALIDATION_ERROR",
+        "체크리스트 수정 시각이 올바르지 않습니다.",
+      );
+    }
+    try {
+      const data = await getInterviewWorkspaceService(c.env).archiveChecklist(
+        c.get("adminUserId"),
+        itemId,
+        query.data.expectedUpdatedAt,
+      );
+      return jsonData(c, data);
+    } catch (error) {
+      return interviewWorkspaceErrorResponse(c, error);
+    }
+  });
+
+  app.put("/v1/analysis-jobs/:id/checklist-order", requireAdmin, async (c) => {
+    const analysisJobId = parseResourceId(c, "분석 작업");
+    if (analysisJobId instanceof Response) return analysisJobId;
+    const input = await parseJsonBody(
+      c,
+      ReorderInterviewChecklistRequestSchema,
+    );
+    if (input instanceof Response) return input;
+    try {
+      const items = await getInterviewWorkspaceService(c.env).reorderChecklist(
+        c.get("adminUserId"),
+        analysisJobId,
+        input.itemIds,
+      );
+      return jsonData(c, { items });
+    } catch (error) {
+      return interviewWorkspaceErrorResponse(c, error);
+    }
+  });
+
+  app.post("/v1/applications/:id/interview-notes", requireAdmin, async (c) => {
+    const applicationId = parseResourceId(c, "지원");
+    if (applicationId instanceof Response) return applicationId;
+    const input = await parseJsonBody(c, CreateInterviewNoteRequestSchema);
+    if (input instanceof Response) return input;
+    return executeIdempotently(
+      c,
+      getIdempotencyService(c.env),
+      input,
+      async () => {
+        try {
+          const data = await getInterviewWorkspaceService(c.env).createNote(
+            c.get("adminUserId"),
+            applicationId,
+            input,
+          );
+          return jsonData(c, data, 201);
+        } catch (error) {
+          return interviewWorkspaceErrorResponse(c, error);
+        }
+      },
+    );
+  });
+
+  app.patch("/v1/interview-notes/:id", requireAdmin, async (c) => {
+    const noteId = parseResourceId(c, "면접 회고");
+    if (noteId instanceof Response) return noteId;
+    const input = await parseJsonBody(c, PatchInterviewNoteRequestSchema);
+    if (input instanceof Response) return input;
+    try {
+      const data = await getInterviewWorkspaceService(c.env).patchNote(
+        c.get("adminUserId"),
+        noteId,
+        input,
+      );
+      return jsonData(c, data);
+    } catch (error) {
+      return interviewWorkspaceErrorResponse(c, error);
+    }
+  });
+
+  app.delete("/v1/interview-notes/:id", requireAdmin, async (c) => {
+    const noteId = parseResourceId(c, "면접 회고");
+    if (noteId instanceof Response) return noteId;
+    const query = ExpectedUpdatedAtQuerySchema.safeParse({
+      expectedUpdatedAt: c.req.query("expectedUpdatedAt"),
+    });
+    if (!query.success) {
+      return errorResponse(
+        c,
+        400,
+        "VALIDATION_ERROR",
+        "면접 회고 수정 시각이 올바르지 않습니다.",
+      );
+    }
+    try {
+      const data = await getInterviewWorkspaceService(c.env).archiveNote(
+        c.get("adminUserId"),
+        noteId,
+        query.data.expectedUpdatedAt,
+      );
+      return jsonData(c, data);
+    } catch (error) {
+      return interviewWorkspaceErrorResponse(c, error);
+    }
   });
 
   app.patch("/v1/applications/:id", requireAdmin, async (c) => {
