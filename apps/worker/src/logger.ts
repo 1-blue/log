@@ -1,4 +1,7 @@
 export type StructuredLog = {
+  callbackOutcome?: string;
+  collectionRunId?: string;
+  contentLength?: number;
   event: string;
   requestId?: string;
   method?: string;
@@ -8,13 +11,22 @@ export type StructuredLog = {
   errorCode?: string;
   failedCount?: number;
   dispatchedCount?: number;
+  httpStatus?: number;
+  parserVersion?: string;
+  source?: string;
+  stage?: string;
+  schemaIssue?: string;
   staleCount?: number;
   scheduledAt?: string;
+  outcome?: string;
 };
 
 function serializeLog(entry: StructuredLog): string {
   const sanitized: StructuredLog = { event: entry.event };
   for (const key of [
+    "callbackOutcome",
+    "collectionRunId",
+    "contentLength",
     "requestId",
     "method",
     "path",
@@ -23,8 +35,14 @@ function serializeLog(entry: StructuredLog): string {
     "errorCode",
     "failedCount",
     "dispatchedCount",
+    "httpStatus",
+    "parserVersion",
+    "source",
+    "stage",
+    "schemaIssue",
     "staleCount",
     "scheduledAt",
+    "outcome",
   ] as const) {
     const value = entry[key];
     if (value !== undefined) Object.assign(sanitized, { [key]: value });

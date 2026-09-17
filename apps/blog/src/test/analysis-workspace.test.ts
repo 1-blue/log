@@ -43,6 +43,16 @@ describe("analysis workspace fixtures", () => {
     expect(fixture.reviewedFitScore).toBe(reviewed);
   });
 
+  it("provides an eight-question preparation fixture with contextual evidence", () => {
+    const fixture = getAnalysisWorkspaceFixture("mixed");
+    expect(fixture.questions).toHaveLength(8);
+    expect(fixture.questions[0]?.modelAnswer).toBeTruthy();
+    expect(fixture.questions[0]?.answerEvidence[0]?.context).toContain(
+      "Docker Compose",
+    );
+    expect(fixture.questions[2]?.modelAnswer).toBeNull();
+  });
+
   it("keeps preview mutations isolated between fixture calls", () => {
     const first = getAnalysisWorkspaceFixture("mixed");
     first.checklist[0]!.content = "변경";

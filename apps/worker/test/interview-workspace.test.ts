@@ -56,6 +56,8 @@ const mockEnv: CloudflareBindings = {
 
 const question: InterviewQuestion = {
   analysisJobId: ANALYSIS_ID,
+  answerEvidence: [],
+  answerOutline: null,
   answerRevisionCount: 0,
   category: "인프라",
   createdAt: NOW,
@@ -66,6 +68,7 @@ const question: InterviewQuestion = {
   question: "장애 대응 경험을 설명해 주세요.",
   requirementIds: ["required-1"],
   sourceIndex: 0,
+  modelAnswer: null,
 };
 
 const checklist: InterviewChecklistItem = {
@@ -103,6 +106,8 @@ const workspace: AnalysisWorkspace = {
     attemptNumber: 1,
     companyName: "미리디",
     id: APPLICATION_ID,
+    interviewAt: NOW,
+    status: "interview",
     title: "AX Engineer - Infra",
   },
   checklist: [checklist],

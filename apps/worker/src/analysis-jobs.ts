@@ -7,7 +7,9 @@ import {
   AnalysisResultSchema,
   calculateAnalysisFitScore,
   CONTRACT_VERSION,
+  DocumentAnalysisProfileSchema,
   type Evidence,
+  JobPostingAnalysisProfileSchema,
   JobPostingFactsSchema,
   type N8nDispatchPayload,
   ProfileComparisonSchema,
@@ -19,6 +21,7 @@ import * as z from "zod";
 
 import { sha256Hex } from "./idempotency.js";
 import { dispatchToN8n, N8nDispatchError } from "./n8n.js";
+import { toOpenAiStructuredOutputSchema } from "./openai-schema.js";
 
 type AnalysisJobRow = Database["public"]["Tables"]["analysis_jobs"]["Row"];
 type AnalysisResultRow =
@@ -27,6 +30,10 @@ type ApplicationRow = Database["public"]["Tables"]["applications"]["Row"];
 type DocumentRow = Database["public"]["Tables"]["document_versions"]["Row"];
 type PostingRow = Database["public"]["Tables"]["job_postings"]["Row"];
 type SnapshotRow = Database["public"]["Tables"]["job_posting_snapshots"]["Row"];
+type DocumentProfileRow =
+  Database["public"]["Tables"]["document_analysis_profiles"]["Row"];
+type JobPostingProfileRow =
+  Database["public"]["Tables"]["job_posting_analysis_profiles"]["Row"];
 
 const DOCUMENT_TEXT_MAX_LENGTH = 80_000;
 const DOCUMENT_TEXT_HEAD_LENGTH = 40_000;
@@ -119,20 +126,12 @@ function createSupabaseAdminClient(env: CloudflareBindings) {
   });
 }
 
-function withoutSchemaMarker(
-  schema: z.core.JSONSchema.JSONSchema,
-): Record<string, unknown> {
-  const result: Record<string, unknown> = { ...schema };
-  delete result.$schema;
-  return result;
-}
-
 function outputSchemas() {
   return {
-    jobPostingFacts: withoutSchemaMarker(
+    jobPostingFacts: toOpenAiStructuredOutputSchema(
       z.toJSONSchema(JobPostingFactsSchema, { target: "draft-07" }),
     ),
-    profileComparison: withoutSchemaMarker(
+    profileComparison: toOpenAiStructuredOutputSchema(
       z.toJSONSchema(ProfileComparisonSchema, { target: "draft-07" }),
     ),
   };
@@ -193,6 +192,110 @@ function evidenceMatchesSource(
     evidence.sourceVersionId === source.id &&
     source.text.includes(evidence.excerpt.trim())
   );
+}
+
+/**
+ * Keep only citations that can be found in the exact document version used by
+ * this analysis. Provider output occasionally paraphrases a profile summary
+ * instead of quoting the source PDF; that citation must not be persisted as
+ * if it were a verified fact.
+ */
+export function sanitizeAnalysisResult(
+  result: AnalysisResult,
+  job: AnalysisJobRow,
+): AnalysisResult {
+  let removedEvidence = 0;
+  const filterEvidence = (
+    evidence: Evidence[],
+    predicate: (item: Evidence) => boolean = (item) =>
+      evidenceMatchesSource(item, job),
+  ) => {
+    const filtered = evidence.filter(predicate);
+    removedEvidence += evidence.length - filtered.length;
+    return filtered;
+  };
+
+  const jobFacts = {
+    ...result.job,
+    requirements: result.job.requirements.map((requirement) => ({
+      ...requirement,
+      evidence: filterEvidence(
+        requirement.evidence,
+        (item) =>
+          item.source === "job_posting" && evidenceMatchesSource(item, job),
+      ),
+    })),
+    technologies: result.job.technologies.map((technology) => ({
+      ...technology,
+      evidence: filterEvidence(
+        technology.evidence,
+        (item) =>
+          item.source === "job_posting" && evidenceMatchesSource(item, job),
+      ),
+    })),
+    traits: result.job.traits.map((trait) => ({
+      ...trait,
+      evidence: filterEvidence(
+        trait.evidence,
+        (item) =>
+          item.source === "job_posting" && evidenceMatchesSource(item, job),
+      ),
+    })),
+  };
+
+  const matches = result.comparison.matches.map((match) => {
+    const profileEvidence = filterEvidence(
+      match.profileEvidence,
+      (item) =>
+        item.source !== "job_posting" && evidenceMatchesSource(item, job),
+    );
+    const status =
+      (match.status === "matched" || match.status === "partial") &&
+      profileEvidence.length === 0
+        ? "unknown"
+        : match.status;
+    return { ...match, profileEvidence, status };
+  });
+
+  const gaps = result.comparison.gaps.map((gap) => ({
+    ...gap,
+    evidence: filterEvidence(gap.evidence),
+  }));
+  const interviewQuestions = result.comparison.interviewQuestions.map(
+    (question) => {
+      const answerEvidence = filterEvidence(
+        question.answerEvidence,
+        (item) =>
+          item.source !== "job_posting" && evidenceMatchesSource(item, job),
+      );
+      return {
+        ...question,
+        answerEvidence,
+        modelAnswer: answerEvidence.length > 0 ? question.modelAnswer : null,
+      };
+    },
+  );
+
+  const warnings =
+    removedEvidence > 0
+      ? [
+          ...result.comparison.warnings,
+          "일부 개인 자료 근거가 원문에서 확인되지 않아 해당 항목을 확인 불가로 처리했습니다.",
+        ].slice(-20)
+      : result.comparison.warnings;
+  const comparison = {
+    ...result.comparison,
+    gaps,
+    interviewQuestions,
+    matches,
+    warnings,
+  };
+
+  return {
+    job: jobFacts,
+    comparison,
+    fitScore: calculateAnalysisFitScore(jobFacts.requirements, matches),
+  };
 }
 
 export function validateAnalysisSemantics(
@@ -257,6 +360,21 @@ export function validateAnalysisSemantics(
       .some((evidence) => !evidenceMatchesSource(evidence, job))
   ) {
     return { ok: false, reason: "invalid_gap_evidence" };
+  }
+
+  for (const question of result.comparison.interviewQuestions) {
+    if (
+      question.answerEvidence.some(
+        (evidence) =>
+          evidence.source === "job_posting" ||
+          !evidenceMatchesSource(evidence, job),
+      )
+    ) {
+      return { ok: false, reason: "invalid_answer_evidence" };
+    }
+    if (question.modelAnswer !== null && question.answerEvidence.length === 0) {
+      return { ok: false, reason: "answer_without_evidence" };
+    }
   }
 
   const score = calculateAnalysisFitScore(
@@ -338,11 +456,93 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
     return data;
   }
 
-  private buildDispatchPayload(
+  private async buildDispatchPayload(
     row: AnalysisJobRow,
     posting: PostingRow,
     eventId: string,
-  ): N8nDispatchPayload {
+  ): Promise<N8nDispatchPayload> {
+    const [
+      resumeProfileResult,
+      portfolioProfileResult,
+      postingProfileResult,
+      documentsResult,
+    ] = await Promise.all([
+      row.resume_profile_id
+        ? this.supabase
+            .from("document_analysis_profiles")
+            .select("*")
+            .eq("id", row.resume_profile_id)
+            .eq("owner_id", row.owner_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      row.portfolio_profile_id
+        ? this.supabase
+            .from("document_analysis_profiles")
+            .select("*")
+            .eq("id", row.portfolio_profile_id)
+            .eq("owner_id", row.owner_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      row.job_posting_profile_id
+        ? this.supabase
+            .from("job_posting_analysis_profiles")
+            .select("*")
+            .eq("id", row.job_posting_profile_id)
+            .eq("owner_id", row.owner_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      this.supabase
+        .from("document_versions")
+        .select("id, original_filename, mime_type, file_size, storage_path")
+        .eq("owner_id", row.owner_id)
+        .in("id", [row.resume_version_id, row.portfolio_version_id]),
+    ]);
+    if (
+      resumeProfileResult.error ||
+      portfolioProfileResult.error ||
+      postingProfileResult.error ||
+      documentsResult.error
+    ) {
+      throw new AnalysisJobServiceError("unavailable");
+    }
+
+    const resumeProfile =
+      resumeProfileResult.data?.status === "succeeded"
+        ? DocumentAnalysisProfileSchema.safeParse(
+            resumeProfileResult.data.profile,
+          )
+        : null;
+    const portfolioProfile =
+      portfolioProfileResult.data?.status === "succeeded"
+        ? DocumentAnalysisProfileSchema.safeParse(
+            portfolioProfileResult.data.profile,
+          )
+        : null;
+    const postingProfile =
+      postingProfileResult.data?.status === "succeeded"
+        ? JobPostingAnalysisProfileSchema.safeParse(
+            postingProfileResult.data.profile,
+          )
+        : null;
+    const documents = documentsResult.data ?? [];
+    const signedFile = async (versionId: string) => {
+      const document = documents.find((item) => item.id === versionId);
+      if (!document) return null;
+      const { data, error } = await this.supabase.storage
+        .from("career-documents")
+        .createSignedUrl(document.storage_path, 900);
+      if (error || !data?.signedUrl) return null;
+      return {
+        url: data.signedUrl,
+        filename: document.original_filename,
+        mimeType: "application/pdf" as const,
+        fileSize: document.file_size,
+      };
+    };
+    const [resumeFile, portfolioFile] = await Promise.all([
+      signedFile(row.resume_version_id),
+      signedFile(row.portfolio_version_id),
+    ]);
     return {
       analysisJobId: row.id,
       callbacks: {
@@ -359,6 +559,9 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
         text: row.job_posting_text,
         title: posting.title,
         url: posting.canonical_url,
+        profileId: row.job_posting_profile_id,
+        profileSource: postingProfileResult.data?.source ?? null,
+        profile: postingProfile?.success ? postingProfile.data : null,
       },
       kind: "application_analysis",
       outputSchemas: outputSchemas(),
@@ -369,6 +572,10 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
           text: row.portfolio_text,
           truncated: row.portfolio_truncated,
           versionId: row.portfolio_version_id,
+          profileId: row.portfolio_profile_id,
+          profileSource: portfolioProfileResult.data?.source ?? null,
+          profile: portfolioProfile?.success ? portfolioProfile.data : null,
+          file: portfolioFile,
         },
         resume: {
           contentHash: row.resume_content_hash,
@@ -376,6 +583,10 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
           text: row.resume_text,
           truncated: row.resume_truncated,
           versionId: row.resume_version_id,
+          profileId: row.resume_profile_id,
+          profileSource: resumeProfileResult.data?.source ?? null,
+          profile: resumeProfile?.success ? resumeProfile.data : null,
+          file: resumeFile,
         },
       },
       requestId: row.request_id,
@@ -430,7 +641,7 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
   ): Promise<AnalysisJobRow> {
     try {
       await this.dispatch(
-        this.buildDispatchPayload(row, posting, crypto.randomUUID()),
+        await this.buildDispatchPayload(row, posting, crypto.randomUUID()),
         this.env,
       );
       return row;
@@ -544,18 +755,76 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
       });
     }
 
-    return { application, posting, snapshot, resume, portfolio } satisfies {
+    const [resumeProfileResult, portfolioProfileResult, postingProfileResult] =
+      await Promise.all([
+        this.supabase
+          .from("document_analysis_profiles")
+          .select("*")
+          .eq("owner_id", ownerId)
+          .eq("document_version_id", resume.id)
+          .eq("status", "succeeded")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        this.supabase
+          .from("document_analysis_profiles")
+          .select("*")
+          .eq("owner_id", ownerId)
+          .eq("document_version_id", portfolio.id)
+          .eq("status", "succeeded")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        this.supabase
+          .from("job_posting_analysis_profiles")
+          .select("*")
+          .eq("owner_id", ownerId)
+          .eq("snapshot_id", snapshot.id)
+          .eq("status", "succeeded")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+    if (
+      resumeProfileResult.error ||
+      portfolioProfileResult.error ||
+      postingProfileResult.error
+    ) {
+      throw new AnalysisJobServiceError("unavailable");
+    }
+
+    return {
+      application,
+      posting,
+      snapshot,
+      resume,
+      portfolio,
+      resumeProfile: resumeProfileResult.data,
+      portfolioProfile: portfolioProfileResult.data,
+      postingProfile: postingProfileResult.data,
+    } satisfies {
       application: ApplicationRow;
       posting: PostingRow;
       snapshot: SnapshotRow;
       resume: DocumentRow;
       portfolio: DocumentRow;
+      resumeProfile: DocumentProfileRow | null;
+      portfolioProfile: DocumentProfileRow | null;
+      postingProfile: JobPostingProfileRow | null;
     };
   }
 
   async create(ownerId: string, applicationId: string, requestId: string) {
-    const { application, posting, snapshot, resume, portfolio } =
-      await this.resolveInputs(ownerId, applicationId);
+    const {
+      application,
+      posting,
+      snapshot,
+      resume,
+      portfolio,
+      resumeProfile,
+      portfolioProfile,
+      postingProfile,
+    } = await this.resolveInputs(ownerId, applicationId);
     const resumeInput = prepareAnalysisDocumentText(resume.extracted_text!);
     const portfolioInput = prepareAnalysisDocumentText(
       portfolio.extracted_text!,
@@ -575,18 +844,21 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
         job_posting_id: posting.id,
         job_posting_snapshot_id: snapshot.id,
         job_posting_text: jobPostingText,
+        job_posting_profile_id: postingProfile?.id ?? null,
         owner_id: ownerId,
         portfolio_content_hash: portfolioHash,
         portfolio_original_length: portfolioInput.originalLength,
         portfolio_text: portfolioInput.text,
         portfolio_truncated: portfolioInput.truncated,
         portfolio_version_id: portfolio.id,
+        portfolio_profile_id: portfolioProfile?.id ?? null,
         request_id: requestId,
         resume_content_hash: resumeHash,
         resume_original_length: resumeInput.originalLength,
         resume_text: resumeInput.text,
         resume_truncated: resumeInput.truncated,
         resume_version_id: resume.id,
+        resume_profile_id: resumeProfile?.id ?? null,
         stage: "dispatching",
       })
       .select("*")
@@ -703,22 +975,51 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
         reason: "analysis_attempt_mismatch",
       });
     }
-    const parsed = AnalysisResultSchema.safeParse(input.result);
-    if (!parsed.success) throw new AnalysisJobServiceError("validation");
-    const semantic = validateAnalysisSemantics(parsed.data, row);
-    if (!semantic.ok) {
-      throw new AnalysisJobServiceError("validation", {
-        reason: semantic.reason,
+    const failValidation = () => {
+      // A terminal result callback can be rejected after the workflow has
+      // already finished its provider work. Persist that rejection as a
+      // terminal failure so the job cannot remain stuck in `running` while
+      // n8n retries or reports the rejected callback.
+      return this.event({
+        schemaVersion: CONTRACT_VERSION,
+        // The provider callback event is not inserted when validation fails.
+        // Use a new event ID so the terminal failure cannot be treated as a
+        // duplicate of the rejected result callback.
+        eventId: crypto.randomUUID(),
+        requestId: input.requestId,
+        analysisJobId: input.analysisJobId,
+        runAttempt: input.runAttempt,
+        eventType: "failed",
+        status: "failed",
+        stage: "saving",
+        step: "profile_comparison",
+        stepAttempt: 1,
+        retryAt: null,
+        message: "분석 결과 검증에 실패했습니다.",
+        error: {
+          code: "OPENAI_SCHEMA_INVALID",
+          message: "AI 결과의 계약 또는 근거 검증에 실패했습니다.",
+          retryable: false,
+        },
+        occurredAt: new Date().toISOString(),
       });
-    }
+    };
+    const parsed = AnalysisResultSchema.safeParse(input.result);
+    if (!parsed.success) return failValidation();
+    const sanitizedCandidate = sanitizeAnalysisResult(parsed.data, row);
+    const sanitizedParsed = AnalysisResultSchema.safeParse(sanitizedCandidate);
+    if (!sanitizedParsed.success) return failValidation();
+    const sanitized = sanitizedParsed.data;
+    const semantic = validateAnalysisSemantics(sanitized, row);
+    if (!semantic.ok) return failValidation();
 
     const { data, error } = await this.supabase.rpc("complete_analysis_job", {
       p_analysis_job_id: row.id,
       p_event_id: input.eventId,
       p_executions: input.executions as unknown as Json,
-      p_job_posting_facts: parsed.data.job as unknown as Json,
+      p_job_posting_facts: sanitized.job as unknown as Json,
       p_occurred_at: input.occurredAt,
-      p_result: parsed.data as unknown as Json,
+      p_result: sanitized as unknown as Json,
       p_run_attempt: input.runAttempt,
       p_schema_version: input.schemaVersion,
     });

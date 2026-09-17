@@ -2,6 +2,7 @@ import {
   type AnalysisHistoryItem,
   type AnalysisMatchCounts,
   type AnalysisRequirementReview,
+  type AnalysisResult,
   AnalysisResultSchema,
   type AnalysisReview,
   AnalysisStepSchema,
@@ -42,6 +43,70 @@ type ExecutionRow =
   Database["public"]["Tables"]["analysis_step_executions"]["Row"];
 type DocumentRow = Database["public"]["Tables"]["document_versions"]["Row"];
 type SnapshotRow = Database["public"]["Tables"]["job_posting_snapshots"]["Row"];
+
+function evidenceContext(sourceText: string, excerpt: string): string | null {
+  const needle = excerpt.trim();
+  const index = sourceText.indexOf(needle);
+  if (index < 0) return null;
+
+  const start = Math.max(0, index - 180);
+  const end = Math.min(sourceText.length, index + needle.length + 260);
+  const context = sourceText.slice(start, end).replace(/\s+/g, " ").trim();
+  return context || null;
+}
+
+function enrichResultEvidence(
+  result: AnalysisResult,
+  job: AnalysisJobRow,
+): AnalysisResult {
+  const sourceText = {
+    job_posting: job.job_posting_text,
+    portfolio: job.portfolio_text,
+    resume: job.resume_text,
+  } as const;
+  const enrich = (
+    evidence: AnalysisResult["job"]["requirements"][number]["evidence"][number],
+  ) => ({
+    ...evidence,
+    context: evidenceContext(sourceText[evidence.source], evidence.excerpt),
+  });
+
+  return {
+    ...result,
+    comparison: {
+      ...result.comparison,
+      gaps: result.comparison.gaps.map((gap) => ({
+        ...gap,
+        evidence: gap.evidence.map(enrich),
+      })),
+      interviewQuestions: result.comparison.interviewQuestions.map(
+        (question) => ({
+          ...question,
+          answerEvidence: question.answerEvidence.map(enrich),
+        }),
+      ),
+      matches: result.comparison.matches.map((match) => ({
+        ...match,
+        profileEvidence: match.profileEvidence.map(enrich),
+      })),
+    },
+    job: {
+      ...result.job,
+      requirements: result.job.requirements.map((requirement) => ({
+        ...requirement,
+        evidence: requirement.evidence.map(enrich),
+      })),
+      technologies: result.job.technologies.map((technology) => ({
+        ...technology,
+        evidence: technology.evidence.map(enrich),
+      })),
+      traits: result.job.traits.map((trait) => ({
+        ...trait,
+        evidence: trait.evidence.map(enrich),
+      })),
+    },
+  };
+}
 
 export class InterviewWorkspaceServiceError extends Error {
   constructor(
@@ -556,6 +621,15 @@ class SupabaseInterviewWorkspaceService implements InterviewWorkspaceService {
     if (parsedResult && !parsedResult.success) {
       throw new InterviewWorkspaceServiceError("unavailable");
     }
+    const workspaceJob = mapAnalysisJob(job, resultRow);
+    if (workspaceJob.result) {
+      workspaceJob.result = enrichResultEvidence(workspaceJob.result, job);
+    }
+    const resultQuestionsByIndex = new Map(
+      (parsedResult?.data.comparison.interviewQuestions ?? []).map(
+        (item, index) => [index, item] as const,
+      ),
+    );
     const history = await this.history(ownerId, job.application_id);
     let comparison: AnalysisHistoryItem | null = null;
     if (compareTo) {
@@ -579,19 +653,24 @@ class SupabaseInterviewWorkspaceService implements InterviewWorkspaceService {
         attemptNumber: application.attempt_number,
         companyName: posting.company_name,
         id: application.id,
+        interviewAt: application.interview_at,
+        status: application.status,
         title: posting.title,
       },
       checklist: (checklistQuery.data ?? []).map(mapChecklist),
       comparison,
       history,
       interviewNotes: (noteQuery.data ?? []).map(mapNote),
-      job: mapAnalysisJob(job, resultRow),
+      job: workspaceJob,
       questions: (questionQuery.data ?? []).map(
         (question: QuestionRow): InterviewQuestion => {
           const answers = answersByQuestion.get(question.id) ?? [];
+          const guidance = resultQuestionsByIndex.get(question.source_index);
           return {
             analysisJobId: question.analysis_job_id,
             answerRevisionCount: answers.length,
+            answerEvidence: guidance?.answerEvidence ?? [],
+            answerOutline: guidance?.answerOutline ?? null,
             category: question.category,
             createdAt: question.created_at,
             currentAnswer: answers[0] ? mapAnswer(answers[0]) : null,
@@ -601,6 +680,7 @@ class SupabaseInterviewWorkspaceService implements InterviewWorkspaceService {
             question: question.question,
             requirementIds: question.requirement_ids,
             sourceIndex: question.source_index,
+            modelAnswer: guidance?.modelAnswer ?? null,
           };
         },
       ),

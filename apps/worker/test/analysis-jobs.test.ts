@@ -12,6 +12,7 @@ import {
   type AnalysisJobService,
   prepareAnalysisDocumentText,
   prepareAnalysisJobPostingText,
+  sanitizeAnalysisResult,
   validateAnalysisSemantics,
 } from "../src/analysis-jobs.js";
 import { createApp } from "../src/app.js";
@@ -31,6 +32,13 @@ const result: AnalysisResult = {
   comparison: {
     gaps: [],
     interviewQuestions: [],
+    applicationStrategy: {
+      motivationDraft: null,
+      keyMessages: [],
+      resumeFocus: null,
+      portfolioFocus: null,
+      warnings: [],
+    },
     matches: [
       {
         profileEvidence: [
@@ -39,6 +47,7 @@ const result: AnalysisResult = {
             section: "프로젝트",
             source: "resume",
             sourceVersionId: RESUME_ID,
+            context: null,
           },
         ],
         rationale: "관련 구현 경험이 명시되어 있습니다.",
@@ -52,6 +61,22 @@ const result: AnalysisResult = {
   fitScore: 100,
   job: {
     companyName: "미리디",
+    bodySections: {
+      companyIntroduction: null,
+      positionIntroduction: null,
+      expectations: null,
+      mainResponsibilities: null,
+      requirements: null,
+      preferred: null,
+      employmentConditions: null,
+      process: null,
+      benefits: null,
+      technologies: null,
+      traits: null,
+      deadline: null,
+      location: null,
+      other: null,
+    },
     requirements: [
       {
         evidence: [
@@ -60,6 +85,7 @@ const result: AnalysisResult = {
             section: "자격요건",
             source: "job_posting",
             sourceVersionId: SNAPSHOT_ID,
+            context: null,
           },
         ],
         id: "required-1",
@@ -83,6 +109,7 @@ const row: Parameters<typeof validateAnalysisSemantics>[1] = {
   error_code: null,
   error_message: null,
   error_retryable: false,
+  job_posting_profile_id: null,
   final_event_id: null,
   finished_at: null,
   id: ANALYSIS_JOB_ID,
@@ -97,6 +124,7 @@ const row: Parameters<typeof validateAnalysisSemantics>[1] = {
   portfolio_original_length: 20,
   portfolio_text: "n8n 자동화 경험이 있습니다.",
   portfolio_truncated: false,
+  portfolio_profile_id: null,
   portfolio_version_id: PORTFOLIO_ID,
   request_id: REQUEST_ID,
   retry_at: null,
@@ -104,6 +132,7 @@ const row: Parameters<typeof validateAnalysisSemantics>[1] = {
   resume_original_length: 30,
   resume_text: "프로젝트\nCloudflare Worker API를 구현했습니다.",
   resume_truncated: false,
+  resume_profile_id: null,
   resume_version_id: RESUME_ID,
   stage: "matching",
   started_at: NOW,
@@ -182,6 +211,63 @@ describe("analysis input and evidence validation", () => {
     expect(validateAnalysisSemantics({ ...result, fitScore: 99 }, row)).toEqual(
       { ok: false, reason: "invalid_fit_score" },
     );
+  });
+
+  it("does not accept an AI answer draft without personal evidence", () => {
+    expect(
+      validateAnalysisSemantics(
+        {
+          ...result,
+          comparison: {
+            ...result.comparison,
+            interviewQuestions: [
+              {
+                answerEvidence: [],
+                answerOutline: "핵심 구현과 결과를 설명합니다.",
+                category: "경험",
+                intent: "실제 경험을 확인합니다.",
+                modelAnswer: "근거 없이 생성된 답변입니다.",
+                priority: "high",
+                question: "어떤 경험이 있나요?",
+                requirementIds: ["required-1"],
+              },
+            ],
+          },
+        },
+        row,
+      ),
+    ).toEqual({ ok: false, reason: "answer_without_evidence" });
+  });
+
+  it("removes unverified profile citations and recalculates the fit score", () => {
+    const repaired = sanitizeAnalysisResult(
+      {
+        ...result,
+        comparison: {
+          ...result.comparison,
+          matches: [
+            {
+              ...result.comparison.matches[0]!,
+              profileEvidence: [
+                {
+                  ...result.comparison.matches[0]!.profileEvidence[0]!,
+                  excerpt: "문서 원문에 없는 AI 요약",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      row,
+    );
+
+    expect(repaired.comparison.matches[0]?.status).toBe("unknown");
+    expect(repaired.comparison.matches[0]?.profileEvidence).toEqual([]);
+    expect(repaired.fitScore).toBe(0);
+    expect(repaired.comparison.warnings).toContain(
+      "일부 개인 자료 근거가 원문에서 확인되지 않아 해당 항목을 확인 불가로 처리했습니다.",
+    );
+    expect(validateAnalysisSemantics(repaired, row)).toEqual({ ok: true });
   });
 });
 

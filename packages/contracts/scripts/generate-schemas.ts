@@ -10,12 +10,12 @@ import {
   DocumentAnalysisProfileSchema,
   DocumentExtractionCallbackSchema,
   JobPostingAiExtractionSchema,
+  JobPostingAnalysisProfileSchema,
   JobPostingFactsSchema,
   N8nDispatchPayloadSchema,
   N8nDocumentExtractionDispatchPayloadSchema,
   N8nJobPostingExtractionDispatchPayloadSchema,
   ProfileComparisonSchema,
-  JobPostingAnalysisProfileSchema,
 } from "../src/index.js";
 
 const rootDirectory = dirname(dirname(fileURLToPath(import.meta.url)));

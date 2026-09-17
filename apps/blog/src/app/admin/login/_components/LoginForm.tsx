@@ -4,6 +4,8 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { Button } from "@workspace/ui/components/Button";
+import { Input } from "@workspace/ui/components/Input";
+import { Label } from "@workspace/ui/components/Label";
 
 import { LogInIcon } from "lucide-react";
 
@@ -30,12 +32,9 @@ export default function LoginForm({ nextPath }: { nextPath: string }) {
       <input name="next" type="hidden" value={nextPath} />
 
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium" htmlFor="admin-email">
-          이메일
-        </label>
-        <input
+        <Label htmlFor="admin-email">이메일</Label>
+        <Input
           autoComplete="email"
-          className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-10 rounded-md border px-3 text-sm outline-none focus-visible:ring-[3px]"
           id="admin-email"
           maxLength={254}
           name="email"
@@ -45,12 +44,9 @@ export default function LoginForm({ nextPath }: { nextPath: string }) {
       </div>
 
       <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium" htmlFor="admin-password">
-          비밀번호
-        </label>
-        <input
+        <Label htmlFor="admin-password">비밀번호</Label>
+        <Input
           autoComplete="current-password"
-          className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-10 rounded-md border px-3 text-sm outline-none focus-visible:ring-[3px]"
           id="admin-password"
           maxLength={1_024}
           name="password"
