@@ -115,6 +115,20 @@ docker compose up -d
 
 ## 백업과 복구
 
+### 분석 callback이 최종 실패한 경우
+
+`분석 Callback 최종 실패`는 AI 단계의 성공 여부가 아니라 n8n에서 Worker로 결과를 전달하지 못했다는 뜻이다. n8n 실행의 callback 응답에서 상태 코드와 오류 코드를 먼저 확인한다. Worker가 중단되었거나 callback이 도달하지 않은 경우 관리자 화면에서 `중단 여부 확인`을 누르면 20분 이상 heartbeat가 없는 작업만 `WORKFLOW_STALLED`로 종료한다. 최근 heartbeat가 있으면 작업을 그대로 유지하므로 즉시 재시도하지 않는다.
+
+로컬에서 Worker가 실행 중인지 확인하려면 저장소 루트에서 실행한다.
+
+```bash
+curl -i http://localhost:8787/health
+docker compose -f apps/n8n/compose.yml exec n8n \
+  wget -S -O - http://host.docker.internal:8787/health
+```
+
+`docker compose` 명령은 `apps/n8n` 디렉터리가 아니라 저장소 루트에서 실행해야 한다. Cloudflare Cron이 실행되는 운영 환경에서는 stale sweep이 자동으로 같은 복구를 수행하고, 로컬 Wrangler에서는 관리자 확인 API를 사용한다.
+
 활발히 사용하는 동안 주 1회, 이미지 업데이트나 volume 변경 전에는 `backups/`에 PostgreSQL 백업을 만든다. 이 디렉터리는 Git에서 제외된다.
 
 ```bash

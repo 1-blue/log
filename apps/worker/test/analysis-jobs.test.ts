@@ -232,6 +232,17 @@ describe("analysis job API", () => {
       failStale: vi.fn(async () => []),
       get: vi.fn(async () => response),
       list: vi.fn(async () => [response]),
+      recoverStale: vi.fn(
+        async (): Promise<AnalysisJobResponse> => ({
+          ...response,
+          lastError: {
+            code: "WORKFLOW_STALLED",
+            message: "분석 Workflow 응답이 중단되었습니다.",
+            retryable: true,
+          },
+          status: "failed",
+        }),
+      ),
       retry: vi.fn(
         async (): Promise<AnalysisJobResponse> => ({
           ...response,
@@ -327,6 +338,20 @@ describe("analysis job API", () => {
     expect(cancelled.status).toBe(200);
     await expect(cancelled.json()).resolves.toMatchObject({
       data: { job: { status: "cancelled" } },
+    });
+  });
+
+  it("recovers a stalled analysis job through an idempotent action", async () => {
+    const recovered = await request(
+      `/v1/analysis-jobs/${ANALYSIS_JOB_ID}/recover-stale`,
+      { body: "{}", method: "POST" },
+    );
+
+    expect(recovered.status).toBe(200);
+    await expect(recovered.json()).resolves.toMatchObject({
+      data: {
+        job: { status: "failed", lastError: { code: "WORKFLOW_STALLED" } },
+      },
     });
   });
 

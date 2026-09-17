@@ -752,7 +752,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst signed = $('분석 Callback 서명').item.json;\nconst status = Number(response.statusCode ?? response.status ?? 0);\nconst message = String(response.message ?? response.error?.message ?? '');\nconst network = /network|timeout|timed out|aborted|econnreset|econnrefused|fetch failed|socket/i.test(message);\nconst success = status >= 200 && status < 300;\nconst retryable = status === 429 || status >= 500 || network;\nconst shouldRetry = !success && retryable && signed.callbackAttempt < 3;\nreturn [{ json: { callback: signed.callback, callbackAttempt: signed.callbackAttempt, callbackPath: signed.callbackPath, continuation: signed.continuation, shouldRetry, success } }];"
+        "jsCode": "const response = $input.first().json;\nconst signed = $('분석 Callback 서명').item.json;\nconst status = Number(response.statusCode ?? response.status ?? 0);\nconst errorCode = response.error?.code ?? response.code ?? null;\nconst message = String(response.message ?? response.error?.message ?? '');\nconst network = /network|timeout|timed out|aborted|econnreset|econnrefused|fetch failed|socket/i.test(message);\nconst success = status >= 200 && status < 300;\nconst retryable = status === 429 || status >= 500 || network;\nconst shouldRetry = !success && retryable && signed.callbackAttempt < 3;\nreturn [{ json: { callback: signed.callback, callbackAttempt: signed.callbackAttempt, callbackPath: signed.callbackPath, continuation: signed.continuation, errorCode: typeof errorCode === 'string' ? errorCode.slice(0, 100) : null, responseType: network ? 'network' : 'http', shouldRetry, statusCode: Number.isFinite(status) && status > 0 ? status : null, success } }];"
       },
       "id": "12000000-0000-4000-8000-000000000030",
       "name": "분석 Callback 결과 분류",
@@ -1026,7 +1026,7 @@
     },
     {
       "parameters": {
-        "jsCode": "throw new Error('Worker callback delivery failed after the configured attempts');"
+        "jsCode": "const input = $input.first().json;\nconst status = Number.isInteger(input.statusCode) ? input.statusCode : null;\nconsole.log(JSON.stringify({ event: 'analysis_callback_delivery_failed', callbackAttempt: input.callbackAttempt ?? null, continuation: input.continuation ?? null, errorCode: input.errorCode ?? null, responseType: input.responseType ?? null, statusCode: status }));\nthrow new Error(`Worker callback delivery failed after the configured attempts (status ${status ?? 'unknown'})`);"
       },
       "id": "12000000-0000-4000-8000-000000000046",
       "name": "분석 Callback 최종 실패",

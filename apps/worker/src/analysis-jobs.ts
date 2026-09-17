@@ -34,6 +34,7 @@ const DOCUMENT_TEXT_MIDDLE_LENGTH = 20_000;
 const DOCUMENT_TEXT_TAIL_LENGTH = 20_000;
 const OMISSION_MARKER = "\n\n[...중간 일부 생략...]\n\n";
 const JOB_POSTING_TEXT_MAX_LENGTH = 100_000;
+export const ANALYSIS_STALE_AFTER_MS = 20 * 60 * 1_000;
 
 type Dispatch = (
   payload: N8nDispatchPayload,
@@ -63,6 +64,10 @@ export interface AnalysisJobService {
   get(ownerId: string, analysisJobId: string): Promise<AnalysisJobResponse>;
   list(ownerId: string, applicationId: string): Promise<AnalysisJobResponse[]>;
   retry(ownerId: string, analysisJobId: string): Promise<AnalysisJobResponse>;
+  recoverStale(
+    ownerId: string,
+    analysisJobId: string,
+  ): Promise<AnalysisJobResponse>;
 }
 
 export function prepareAnalysisDocumentText(text: string): {
@@ -292,6 +297,36 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
     return data;
   }
 
+  private isStale(row: AnalysisJobRow, now = Date.now()) {
+    if (!["queued", "running", "retrying"].includes(row.status)) return false;
+    const heartbeat = Date.parse(
+      row.last_heartbeat_at ?? row.updated_at ?? row.created_at,
+    );
+    return (
+      Number.isFinite(heartbeat) && now - heartbeat >= ANALYSIS_STALE_AFTER_MS
+    );
+  }
+
+  private async recoverStaleRow(
+    ownerId: string,
+    analysisJobId: string,
+    row?: AnalysisJobRow,
+  ): Promise<AnalysisJobRow> {
+    const current = row ?? (await this.getRow(analysisJobId, ownerId));
+    if (!this.isStale(current)) return current;
+
+    const { data, error } = await this.supabase.rpc(
+      "recover_stale_analysis_job",
+      {
+        p_analysis_job_id: analysisJobId,
+        p_cutoff: new Date(Date.now() - ANALYSIS_STALE_AFTER_MS).toISOString(),
+        p_owner_id: ownerId,
+      },
+    );
+    if (error || !data) throw new AnalysisJobServiceError("unavailable");
+    return data;
+  }
+
   private async getPosting(row: AnalysisJobRow): Promise<PostingRow> {
     const { data, error } = await this.supabase
       .from("job_postings")
@@ -407,7 +442,16 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
   }
 
   async get(ownerId: string, analysisJobId: string) {
-    const row = await this.getRow(analysisJobId, ownerId);
+    const row = await this.recoverStaleRow(
+      ownerId,
+      analysisJobId,
+      await this.getRow(analysisJobId, ownerId),
+    );
+    return mapAnalysisJob(row, await this.getResult(row.id));
+  }
+
+  async recoverStale(ownerId: string, analysisJobId: string) {
+    const row = await this.recoverStaleRow(ownerId, analysisJobId);
     return mapAnalysisJob(row, await this.getResult(row.id));
   }
 

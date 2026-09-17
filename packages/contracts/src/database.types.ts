@@ -1624,9 +1624,62 @@ export type Database = {
         }
       }
       fail_stale_analysis_jobs: {
-        Args: { p_cutoff: string; p_limit?: number }
-        Returns: string[]
-      }
+        Args: { p_cutoff: string; p_limit?: number };
+        Returns: string[];
+      };
+      recover_stale_analysis_job: {
+        Args: {
+          p_analysis_job_id: string;
+          p_cutoff: string;
+          p_owner_id: string;
+        };
+        Returns: {
+          application_id: string;
+          attempt_count: number;
+          created_at: string;
+          document_type: Database["public"]["Enums"]["document_type"] | null;
+          error_code: string | null;
+          error_message: string | null;
+          error_retryable: boolean;
+          final_event_id: string | null;
+          finished_at: string | null;
+          id: string;
+          job_posting_content_hash: string;
+          job_posting_id: string;
+          job_posting_profile_id: string | null;
+          job_posting_snapshot_id: string;
+          job_posting_text: string;
+          last_heartbeat_at: string | null;
+          owner_id: string;
+          portfolio_content_hash: string;
+          portfolio_document_type:
+            | Database["public"]["Enums"]["document_type"]
+            | null;
+          portfolio_original_length: number;
+          portfolio_profile_id: string | null;
+          portfolio_text: string;
+          portfolio_truncated: boolean;
+          portfolio_version_id: string;
+          request_id: string;
+          resume_content_hash: string;
+          resume_original_length: number;
+          resume_profile_id: string | null;
+          resume_text: string;
+          resume_truncated: boolean;
+          resume_version_id: string;
+          retry_at: string | null;
+          stage: Database["public"]["Enums"]["analysis_job_stage"] | null;
+          started_at: string | null;
+          status: Database["public"]["Enums"]["analysis_job_status"];
+          updated_at: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "analysis_jobs";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       fail_stale_slack_notifications: {
         Args: { p_cutoff: string; p_limit?: number }
         Returns: string[]

@@ -185,8 +185,16 @@ const callbackClassifier =
 assert(
   callbackClassifier.includes("status === 429") &&
     callbackClassifier.includes("status >= 500") &&
-    callbackClassifier.includes("callbackAttempt < 3"),
+    callbackClassifier.includes("callbackAttempt < 3") &&
+    callbackClassifier.includes("statusCode") &&
+    callbackClassifier.includes("errorCode"),
   "Callback의 선택적 최대 3회 재시도 정책이 없습니다.",
+);
+assert(
+  nodes
+    .get("분석 Callback 최종 실패")
+    .parameters.jsCode.includes("analysis_callback_delivery_failed"),
+  "Callback 최종 실패 진단 로그가 없습니다.",
 );
 
 for (const name of ["Slack Bot 메시지 전송", "Slack Bot 메시지 재시도"]) {

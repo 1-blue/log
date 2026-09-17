@@ -52,6 +52,7 @@ import {
   listAnalysisJobs,
   listDocumentVersions,
   listJobPostingCollections,
+  recoverStaleAnalysisJob,
   retryAnalysisJob,
   updateApplication,
   updateJobPosting,
@@ -246,6 +247,20 @@ export default function ApplicationDetailClient({
       setAnalysisPollingExpired(
         ["queued", "running", "retrying"].includes(response.data.status),
       );
+    } catch (caught) {
+      setError(message(caught));
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function recoverStaleAnalysis(analysisJobId: string) {
+    setPending("analysis-recover");
+    setError(null);
+    try {
+      const response = await recoverStaleAnalysisJob(analysisJobId);
+      setAnalysisJobs((current) => upsertAnalysis(current, response.data.job));
+      setAnalysisPollingExpired(false);
     } catch (caught) {
       setError(message(caught));
     } finally {

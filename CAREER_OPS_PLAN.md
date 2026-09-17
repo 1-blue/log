@@ -1,8 +1,8 @@
 # 취업 준비 관리·자동화 확장 프로젝트 계획
 
 > 기준일: 2026-09-14
-> 작업 브랜치: `codex/career-ops-foundation`  
-> 현재 범위: 15단계 외부 연동 전 개발 검증 완료, 16단계 외부 요소 연결 예정
+> 작업 브랜치: `codex/internal-improvements`
+> 현재 범위: 13단계 관리자 화면 사용성 개선 및 15.2단계 AI 입력 프로필·공고 본문 보완 완료, 내부 개선 1번 분석 실패 복구 진행 중
 
 ## 1. 프로젝트 정의
 
@@ -689,6 +689,7 @@
 | `POST`   | `/v1/applications/:id/analysis-jobs`             | 비동기 분석 작업 생성          |
 | `GET`    | `/v1/applications/:id/analysis-jobs`             | 지원별 분석 작업 이력 조회     |
 | `GET`    | `/v1/analysis-jobs/:id`                          | 작업 상태와 결과 조회          |
+| `POST`   | `/v1/analysis-jobs/:id/recover-stale`            | 오래 멈춘 분석 작업 상태 확인·복구 |
 | `POST`   | `/v1/analysis-jobs/:id/retry`                    | 실패 작업 수동 재시도          |
 | `POST`   | `/v1/analysis-jobs/:id/cancel`                   | 가능한 단계에서 작업 취소      |
 | `GET`    | `/v1/analysis-jobs/:id/workspace`                | 분석·면접 준비 작업 화면 조회  |
@@ -954,4 +955,13 @@ Vercel은 기존 Git Integration 배포를 유지하므로 별도 CLI token, org
 
 ## 14. 다음 작업
 
-다음 작업은 **16단계 — 외부 요소 연결 및 운영 배포**다. OpenAI·Slack Credential, Supabase 원격 migration, 최신 n8n Workflow 게시, Cloudflare Worker와 Vercel 운영 환경을 배포 체크리스트 순서로 연결한다. 실제 정상·장애 흐름 검증은 17단계에서 수행한다.
+다음 작업은 **16단계 — 외부 요소 연결 및 운영 배포**다. OpenAI·Slack Credential, 최신 n8n Workflow 게시, Cloudflare Worker와 Vercel 운영 환경을 배포 체크리스트 순서로 연결한다. 현재 원격 Supabase에는 15.2단계 schema migration이 적용되어 있으며, 실제 정상·장애 흐름 검증은 17단계에서 수행한다.
+
+## 내부 개선 작업
+
+### 1번 — 분석 실패 상태 복구와 Callback 진단
+
+- n8n의 Worker callback 전달 실패를 AI 처리 실패와 구분하고, HTTP 상태 코드·오류 코드·응답 유형만 안전하게 남긴다.
+- callback 최종 실패로 Worker에 종료 callback이 도착하지 않아 `running`에 머무는 경우를 대비해 20분 이상 heartbeat가 없는 작업을 단건 복구하는 service-role RPC와 관리자 API를 제공한다.
+- 분석 상태 조회 시에도 stale 작업을 확인하며, 관리자 화면의 자동 polling 종료 안내에서 `중단 여부 확인`으로 복구할 수 있게 한다. 최근 heartbeat가 있거나 이미 종료된 작업은 변경하지 않는 멱등 동작이다.
+- 검증 범위는 계약·Worker·n8n 정적 검사·DB migration·관리자 화면 회귀이며, 실제 OpenAI 비용이 발생하는 외부 호출은 16~17단계에서 수행한다.
