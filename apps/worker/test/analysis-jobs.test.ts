@@ -10,6 +10,8 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
   type AnalysisJobService,
+  prepareAnalysisDispatchDocumentText,
+  prepareAnalysisDispatchJobPostingText,
   prepareAnalysisDocumentText,
   prepareAnalysisJobPostingText,
   sanitizeAnalysisResult,
@@ -182,6 +184,24 @@ describe("analysis input and evidence validation", () => {
     const posting = prepareAnalysisJobPostingText(long + long);
     expect(posting).toHaveLength(100_000);
     expect(posting).toContain("[...중간 일부 생략...]");
+  });
+
+  it("keeps the stored text intact while bounding dispatch text", () => {
+    const long = Array.from({ length: 80_000 }, (_, index) =>
+      String(index % 10),
+    ).join("");
+    const document = prepareAnalysisDispatchDocumentText(long);
+    const posting = prepareAnalysisDispatchJobPostingText(long + long);
+
+    expect(document.text.length).toBeLessThanOrEqual(32_000);
+    expect(document.inputTextLength).toBe(document.text.length);
+    expect(document.truncated).toBe(true);
+    expect(document.text.startsWith("0123456789")).toBe(true);
+    expect(document.text.endsWith("0123456789")).toBe(true);
+    expect(posting.text.length).toBeLessThanOrEqual(60_000);
+    expect(posting.inputTextLength).toBe(posting.text.length);
+    expect(posting.truncated).toBe(true);
+    expect(posting.text).toContain("[...중간 일부 생략...]");
   });
 
   it("accepts exact evidence and rejects invented excerpts or scores", () => {

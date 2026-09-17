@@ -30,6 +30,37 @@
       "minimum": 1,
       "maximum": 2
     },
+    "inputPolicy": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "const": "analysis-input-v1"
+        },
+        "documentTextMaxLength": {
+          "type": "number",
+          "const": 32000
+        },
+        "jobPostingTextMaxLength": {
+          "type": "number",
+          "const": 60000
+        },
+        "includesPdf": {
+          "type": "boolean"
+        },
+        "includesProfile": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "version",
+        "documentTextMaxLength",
+        "jobPostingTextMaxLength",
+        "includesPdf",
+        "includesProfile"
+      ],
+      "additionalProperties": false
+    },
     "jobPosting": {
       "type": "object",
       "properties": {
@@ -71,6 +102,19 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 100000
+        },
+        "sourceTextLength": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "inputTextLength": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "inputTextTruncated": {
+          "type": "boolean"
         },
         "profileId": {
           "anyOf": [
@@ -356,6 +400,9 @@
         "companyName",
         "contentHash",
         "text",
+        "sourceTextLength",
+        "inputTextLength",
+        "inputTextTruncated",
         "profileId",
         "profileSource",
         "profile"
@@ -801,6 +848,19 @@
             "truncated": {
               "type": "boolean"
             },
+            "sourceTextLength": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "inputTextLength": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "inputTextTruncated": {
+              "type": "boolean"
+            },
             "file": {
               "anyOf": [
                 {
@@ -849,6 +909,9 @@
             "text",
             "originalLength",
             "truncated",
+            "sourceTextLength",
+            "inputTextLength",
+            "inputTextTruncated",
             "file"
           ],
           "additionalProperties": false
@@ -1289,6 +1352,19 @@
             "truncated": {
               "type": "boolean"
             },
+            "sourceTextLength": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "inputTextLength": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "inputTextTruncated": {
+              "type": "boolean"
+            },
             "file": {
               "anyOf": [
                 {
@@ -1337,6 +1413,9 @@
             "text",
             "originalLength",
             "truncated",
+            "sourceTextLength",
+            "inputTextLength",
+            "inputTextTruncated",
             "file"
           ],
           "additionalProperties": false
@@ -1398,6 +1477,7 @@
     "requestId",
     "analysisJobId",
     "runAttempt",
+    "inputPolicy",
     "jobPosting",
     "profile",
     "callbacks",

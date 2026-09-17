@@ -3,6 +3,9 @@ import * as z from "zod";
 export const CONTRACT_VERSION = "1.0.0" as const;
 export const ANALYSIS_JOB_MAX_RUN_ATTEMPTS = 2;
 export const ANALYSIS_STEP_MAX_ATTEMPTS = 2;
+export const ANALYSIS_INPUT_POLICY_VERSION = "analysis-input-v1" as const;
+export const ANALYSIS_DISPATCH_DOCUMENT_TEXT_MAX_LENGTH = 32_000;
+export const ANALYSIS_DISPATCH_JOB_POSTING_TEXT_MAX_LENGTH = 60_000;
 
 const UuidSchema = z.uuid();
 const Rfc3339TimestampSchema = z
@@ -1296,6 +1299,17 @@ export type AnalysisJobListResponse = z.infer<
   typeof AnalysisJobListResponseSchema
 >;
 
+export const AnalysisInputPolicySchema = z.strictObject({
+  version: z.literal(ANALYSIS_INPUT_POLICY_VERSION),
+  documentTextMaxLength: z.literal(ANALYSIS_DISPATCH_DOCUMENT_TEXT_MAX_LENGTH),
+  jobPostingTextMaxLength: z.literal(
+    ANALYSIS_DISPATCH_JOB_POSTING_TEXT_MAX_LENGTH,
+  ),
+  includesPdf: z.boolean(),
+  includesProfile: z.boolean(),
+});
+export type AnalysisInputPolicy = z.infer<typeof AnalysisInputPolicySchema>;
+
 export const AnalysisJobActionRequestSchema = z.strictObject({});
 export type AnalysisJobActionRequest = z.infer<
   typeof AnalysisJobActionRequestSchema
@@ -1310,6 +1324,9 @@ export const AnalysisInputDocumentSchema = z.strictObject({
   text: z.string().min(1).max(80_100),
   originalLength: z.int().positive(),
   truncated: z.boolean(),
+  sourceTextLength: z.int().positive(),
+  inputTextLength: z.int().positive(),
+  inputTextTruncated: z.boolean(),
   file: z
     .strictObject({
       url: z.string().url().max(2_000),
@@ -1327,6 +1344,7 @@ export const N8nDispatchPayloadSchema = z.strictObject({
   requestId: UuidSchema,
   analysisJobId: UuidSchema,
   runAttempt: z.int().min(1).max(ANALYSIS_JOB_MAX_RUN_ATTEMPTS),
+  inputPolicy: AnalysisInputPolicySchema,
   jobPosting: z.strictObject({
     id: UuidSchema,
     snapshotId: UuidSchema,
@@ -1336,6 +1354,9 @@ export const N8nDispatchPayloadSchema = z.strictObject({
     companyName: z.string().min(1).max(500),
     contentHash: z.string().regex(/^[0-9a-f]{64}$/),
     text: z.string().min(1).max(100_000),
+    sourceTextLength: z.int().positive(),
+    inputTextLength: z.int().positive(),
+    inputTextTruncated: z.boolean(),
     profileId: UuidSchema.nullable(),
     profileSource: AnalysisSourceSchema.nullable(),
     profile: JobPostingAnalysisProfileSchema.nullable(),
