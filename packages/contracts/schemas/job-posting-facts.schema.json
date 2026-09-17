@@ -29,6 +29,182 @@
       "minLength": 1,
       "maxLength": 5000
     },
+    "bodySections": {
+      "type": "object",
+      "properties": {
+        "companyIntroduction": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 20000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "positionIntroduction": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 20000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expectations": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 20000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mainResponsibilities": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 30000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "requirements": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 30000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preferred": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 30000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "employmentConditions": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 10000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "process": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 10000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "benefits": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 10000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "technologies": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 10000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "traits": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 10000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deadline": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 2000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 2000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "other": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 20000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "companyIntroduction",
+        "positionIntroduction",
+        "expectations",
+        "mainResponsibilities",
+        "requirements",
+        "preferred",
+        "employmentConditions",
+        "process",
+        "benefits",
+        "technologies",
+        "traits",
+        "deadline",
+        "location",
+        "other"
+      ],
+      "additionalProperties": false
+    },
     "requirements": {
       "maxItems": 40,
       "type": "array",
@@ -87,13 +263,26 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 2000
+                },
+                "context": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 4000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
                 "source",
                 "sourceVersionId",
                 "section",
-                "excerpt"
+                "excerpt",
+                "context"
               ],
               "additionalProperties": false
             }
@@ -165,13 +354,26 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 2000
+                },
+                "context": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 4000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
                 "source",
                 "sourceVersionId",
                 "section",
-                "excerpt"
+                "excerpt",
+                "context"
               ],
               "additionalProperties": false
             }
@@ -231,13 +433,26 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 2000
+                },
+                "context": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 4000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
                 "source",
                 "sourceVersionId",
                 "section",
-                "excerpt"
+                "excerpt",
+                "context"
               ],
               "additionalProperties": false
             }
@@ -264,6 +479,7 @@
     "title",
     "companyName",
     "summary",
+    "bodySections",
     "requirements",
     "technologies",
     "traits",

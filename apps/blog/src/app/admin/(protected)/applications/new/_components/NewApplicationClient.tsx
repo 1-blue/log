@@ -10,6 +10,16 @@ import {
   type DocumentVersion,
 } from "@workspace/contracts";
 import { Button } from "@workspace/ui/components/Button";
+import { Input } from "@workspace/ui/components/Input";
+import { Label } from "@workspace/ui/components/Label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/Select";
+import { Textarea } from "@workspace/ui/components/Textarea";
 
 import { ArrowLeftIcon, LoaderCircleIcon } from "lucide-react";
 
@@ -23,9 +33,6 @@ import {
   listDocumentVersions,
   WorkerApiError,
 } from "#/libs/worker-client";
-
-const fieldClassName =
-  "border-input bg-background focus-visible:ring-ring/50 w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-2";
 
 function message(error: unknown) {
   return error instanceof WorkerApiError
@@ -57,14 +64,28 @@ export default function NewApplicationClient() {
     setDuplicateId(null);
 
     try {
+      const resumeVersionId = String(data.get("resumeVersionId") ?? "");
+      const portfolioVersionId = String(data.get("portfolioVersionId") ?? "");
+      if (
+        documentsRequired &&
+        (resumeVersionId === "none" || portfolioVersionId === "none")
+      ) {
+        setError("필수 문서 버전을 선택해 주세요.");
+        return;
+      }
       const response = await createApplication({
         appliedOn: String(data.get("appliedOn") ?? "") || null,
         companyName: String(data.get("companyName") ?? "").trim(),
         interviewAt: toUtcTimestamp(String(data.get("interviewAt") ?? "")),
         note: String(data.get("note") ?? "").trim() || null,
         portfolioVersionId:
-          String(data.get("portfolioVersionId") ?? "") || null,
-        resumeVersionId: String(data.get("resumeVersionId") ?? "") || null,
+          portfolioVersionId && portfolioVersionId !== "none"
+            ? portfolioVersionId
+            : null,
+        resumeVersionId:
+          resumeVersionId && resumeVersionId !== "none"
+            ? resumeVersionId
+            : null,
         source: "wanted",
         status,
         title: String(data.get("title") ?? "").trim(),
@@ -137,87 +158,93 @@ export default function NewApplicationClient() {
         className="border-border bg-card grid gap-5 rounded-lg border p-5 sm:grid-cols-2"
         onSubmit={handleSubmit}
       >
-        <label className="grid gap-2 text-sm font-medium sm:col-span-2">
-          Wanted 공고 URL
-          <input
-            className={fieldClassName}
+        <div className="grid gap-2 text-sm font-medium sm:col-span-2">
+          <Label htmlFor="application-url">Wanted 공고 URL</Label>
+          <Input
+            id="application-url"
             name="url"
             placeholder="https://www.wanted.co.kr/wd/384409"
             required
             type="url"
           />
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          회사명
-          <input
-            className={fieldClassName}
+        </div>
+        <div className="grid gap-2 text-sm font-medium">
+          <Label htmlFor="application-company">회사명</Label>
+          <Input
+            id="application-company"
             maxLength={200}
             name="companyName"
             required
           />
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          공고 제목
-          <input
-            className={fieldClassName}
-            maxLength={300}
-            name="title"
-            required
-          />
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          지원 상태
-          <select
-            className={fieldClassName}
+        </div>
+        <div className="grid gap-2 text-sm font-medium">
+          <Label htmlFor="application-title">공고 제목</Label>
+          <Input id="application-title" maxLength={300} name="title" required />
+        </div>
+        <div className="grid gap-2 text-sm font-medium">
+          <Label htmlFor="application-status">지원 상태</Label>
+          <Select
             name="status"
-            onChange={(event) =>
-              setStatus(event.target.value as ApplicationStatus)
-            }
+            onValueChange={(value) => setStatus(value as ApplicationStatus)}
             value={status}
           >
-            {APPLICATION_STATUS_OPTIONS.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          지원일
-          <input className={fieldClassName} name="appliedOn" type="date" />
-        </label>
-        <label className="grid gap-2 text-sm font-medium sm:col-span-2">
-          면접 일정
-          <input
-            className={fieldClassName}
+            <SelectTrigger id="application-status">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {APPLICATION_STATUS_OPTIONS.map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-2 text-sm font-medium">
+          <Label htmlFor="application-date">지원일</Label>
+          <Input id="application-date" name="appliedOn" type="date" />
+        </div>
+        <div className="grid gap-2 text-sm font-medium sm:col-span-2">
+          <Label htmlFor="application-interview-at">면접 일정</Label>
+          <Input
+            id="application-interview-at"
             name="interviewAt"
             type="datetime-local"
           />
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          이력서 버전 {documentsRequired ? "(필수)" : "(선택)"}
-          <select
-            className={fieldClassName}
-            defaultValue={resumes.find((item) => item.isDefault)?.id ?? ""}
+        </div>
+        <div className="grid gap-2 text-sm font-medium">
+          <Label htmlFor="application-resume">
+            이력서 버전 {documentsRequired ? "(필수)" : "(선택)"}
+          </Label>
+          <Select
+            defaultValue={resumes.find((item) => item.isDefault)?.id ?? "none"}
             disabled={loadingDocuments}
             key={resumes.find((item) => item.isDefault)?.id ?? "resume-empty"}
             name="resumeVersionId"
             required={documentsRequired}
           >
-            <option value="">선택하지 않음</option>
-            {resumes.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-                {item.isDefault ? " · 기본" : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          포트폴리오 버전 {documentsRequired ? "(필수)" : "(선택)"}
-          <select
-            className={fieldClassName}
-            defaultValue={portfolios.find((item) => item.isDefault)?.id ?? ""}
+            <SelectTrigger id="application-resume">
+              <SelectValue placeholder="선택하지 않음" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">선택하지 않음</SelectItem>
+              {resumes.map((item) => (
+                <SelectItem key={item.id} value={item.id}>
+                  {item.label}
+                  {item.isDefault ? " · 기본" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-2 text-sm font-medium">
+          <Label htmlFor="application-portfolio">
+            포트폴리오 버전 {documentsRequired ? "(필수)" : "(선택)"}
+          </Label>
+          <Select
+            defaultValue={
+              portfolios.find((item) => item.isDefault)?.id ?? "none"
+            }
             disabled={loadingDocuments}
             key={
               portfolios.find((item) => item.isDefault)?.id ?? "portfolio-empty"
@@ -225,23 +252,29 @@ export default function NewApplicationClient() {
             name="portfolioVersionId"
             required={documentsRequired}
           >
-            <option value="">선택하지 않음</option>
-            {portfolios.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-                {item.isDefault ? " · 기본" : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-2 text-sm font-medium sm:col-span-2">
-          메모
-          <textarea
-            className={`${fieldClassName} min-h-36 resize-y`}
+            <SelectTrigger id="application-portfolio">
+              <SelectValue placeholder="선택하지 않음" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">선택하지 않음</SelectItem>
+              {portfolios.map((item) => (
+                <SelectItem key={item.id} value={item.id}>
+                  {item.label}
+                  {item.isDefault ? " · 기본" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-2 text-sm font-medium sm:col-span-2">
+          <Label htmlFor="application-note">메모</Label>
+          <Textarea
+            className="min-h-36 resize-y"
+            id="application-note"
             maxLength={10_000}
             name="note"
           />
-        </label>
+        </div>
         <div className="flex justify-end sm:col-span-2">
           <Button disabled={pending || loadingDocuments} type="submit">
             {pending ? <LoaderCircleIcon className="animate-spin" /> : null}

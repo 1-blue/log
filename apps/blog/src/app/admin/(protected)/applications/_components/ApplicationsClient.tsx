@@ -10,6 +10,14 @@ import type {
   ApplicationSummary,
 } from "@workspace/contracts";
 import { Button } from "@workspace/ui/components/Button";
+import { Input } from "@workspace/ui/components/Input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/Select";
 
 import {
   BriefcaseBusinessIcon,
@@ -23,9 +31,6 @@ import {
   getApplicationStatusLabel,
 } from "#/libs/application-ui";
 import { listApplications, WorkerApiError } from "#/libs/worker-client";
-
-const fieldClassName =
-  "border-input bg-background h-9 rounded-md border px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50";
 
 function errorMessage(error: unknown) {
   return error instanceof WorkerApiError
@@ -98,56 +103,65 @@ export default function ApplicationsClient() {
         className="border-border bg-card flex flex-wrap gap-3 rounded-lg border p-4"
         onSubmit={handleSearch}
       >
-        <input
+        <Input
           aria-label="회사명 또는 공고명 검색"
-          className={`${fieldClassName} min-w-52 flex-1`}
+          className="min-w-52 flex-1"
           maxLength={100}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="회사명, 공고명, Wanted 공고 ID"
           value={search}
         />
-        <select
-          aria-label="지원 상태"
-          className={fieldClassName}
-          onChange={(event) => {
+        <Select
+          onValueChange={(value) => {
             setPage(1);
-            setStatus(event.target.value as ApplicationStatus | "");
+            setStatus(value === "all" ? "" : (value as ApplicationStatus));
           }}
-          value={status}
+          value={status || "all"}
         >
-          <option value="">모든 상태</option>
-          {APPLICATION_STATUS_OPTIONS.map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="보관 상태"
-          className={fieldClassName}
-          onChange={(event) => {
+          <SelectTrigger aria-label="지원 상태" className="w-40">
+            <SelectValue placeholder="모든 상태" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">모든 상태</SelectItem>
+            {APPLICATION_STATUS_OPTIONS.map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          onValueChange={(value) => {
             setPage(1);
-            setArchived(event.target.value as ApplicationArchiveFilter);
+            setArchived(value as ApplicationArchiveFilter);
           }}
           value={archived}
         >
-          <option value="exclude">사용 중</option>
-          <option value="only">보관됨</option>
-          <option value="include">전체</option>
-        </select>
-        <select
-          aria-label="정렬"
-          className={fieldClassName}
-          onChange={(event) => {
+          <SelectTrigger aria-label="보관 상태" className="w-32">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="exclude">사용 중</SelectItem>
+            <SelectItem value="only">보관됨</SelectItem>
+            <SelectItem value="include">전체</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          onValueChange={(value) => {
             setPage(1);
-            setSort(event.target.value as ApplicationSort);
+            setSort(value as ApplicationSort);
           }}
           value={sort}
         >
-          <option value="updated_desc">최근 수정순</option>
-          <option value="interview_asc">면접 임박순</option>
-          <option value="applied_desc">최근 지원순</option>
-        </select>
+          <SelectTrigger aria-label="정렬" className="w-36">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="updated_desc">최근 수정순</SelectItem>
+            <SelectItem value="interview_asc">면접 임박순</SelectItem>
+            <SelectItem value="applied_desc">최근 지원순</SelectItem>
+          </SelectContent>
+        </Select>
         <Button type="submit" variant="outline">
           검색
         </Button>

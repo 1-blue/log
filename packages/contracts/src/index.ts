@@ -29,6 +29,24 @@ export type DocumentExtractionStatus = z.infer<
   typeof DocumentExtractionStatusSchema
 >;
 
+export const DOCUMENT_MAX_FILE_SIZE = 20 * 1_024 * 1_024;
+export const DOCUMENT_RESUMABLE_THRESHOLD = 6 * 1_024 * 1_024;
+export const DOCUMENT_EXTRACTED_TEXT_MAX_LENGTH = 500_000;
+
+export const DocumentExtractionOutcomeSchema = z.enum(["ready", "failed"]);
+export type DocumentExtractionOutcome = z.infer<
+  typeof DocumentExtractionOutcomeSchema
+>;
+
+export const DocumentExtractionErrorCodeSchema = z.enum([
+  "PDF_PARSE_FAILED",
+  "PDF_TEXT_EMPTY",
+  "PDF_TEXT_TOO_LARGE",
+]);
+export type DocumentExtractionErrorCode = z.infer<
+  typeof DocumentExtractionErrorCodeSchema
+>;
+
 export const WantedJobPostingUrlSchema = UrlSchema.refine((value) => {
   const url = new URL(value);
   return (
@@ -84,6 +102,8 @@ export type JobPostingCollectionErrorCode = z.infer<
 
 export const JobPostingSnapshotSourceSchema = z.enum([
   "wanted_json_ld",
+  "wanted_html",
+  "wanted_ai",
   "manual",
 ]);
 export type JobPostingSnapshotSource = z.infer<
@@ -117,6 +137,42 @@ export type JobPostingSourceMetadata = z.infer<
   typeof JobPostingSourceMetadataSchema
 >;
 
+export const JobPostingBodySectionsSchema = z.strictObject({
+  companyIntroduction: z.string().max(20_000).nullable(),
+  positionIntroduction: z.string().max(20_000).nullable(),
+  expectations: z.string().max(20_000).nullable(),
+  mainResponsibilities: z.string().max(30_000).nullable(),
+  requirements: z.string().max(30_000).nullable(),
+  preferred: z.string().max(30_000).nullable(),
+  employmentConditions: z.string().max(10_000).nullable(),
+  process: z.string().max(10_000).nullable(),
+  benefits: z.string().max(10_000).nullable(),
+  technologies: z.string().max(10_000).nullable(),
+  traits: z.string().max(10_000).nullable(),
+  deadline: z.string().max(2_000).nullable(),
+  location: z.string().max(2_000).nullable(),
+  other: z.string().max(20_000).nullable(),
+});
+export type JobPostingBodySections = z.infer<
+  typeof JobPostingBodySectionsSchema
+>;
+
+export const JobPostingAiEvidenceSchema = z.strictObject({
+  section: z.string().min(1).max(200),
+  excerpt: z.string().min(1).max(500),
+});
+
+export const JobPostingAiExtractionSchema = z.strictObject({
+  title: z.string().max(500).nullable(),
+  companyName: z.string().max(500).nullable(),
+  description: z.string().max(JOB_POSTING_MANUAL_CONTENT_MAX_LENGTH).nullable(),
+  evidence: z.array(JobPostingAiEvidenceSchema).max(30),
+  warnings: z.array(z.string().max(1_000)).max(20),
+});
+export type JobPostingAiExtraction = z.infer<
+  typeof JobPostingAiExtractionSchema
+>;
+
 export const JobPostingSnapshotSchema = z.strictObject({
   id: UuidSchema,
   jobPostingId: UuidSchema,
@@ -129,6 +185,7 @@ export const JobPostingSnapshotSchema = z.strictObject({
   contentHash: z.string().regex(/^[0-9a-f]{64}$/),
   parserVersion: z.string().min(1).max(100),
   sourceMetadata: JobPostingSourceMetadataSchema,
+  sections: JobPostingBodySectionsSchema,
   fetchedAt: Rfc3339TimestampSchema,
   createdAt: Rfc3339TimestampSchema,
 });
@@ -189,6 +246,47 @@ export const N8nJobPostingCollectionDispatchPayloadSchema = z.strictObject({
 });
 export type N8nJobPostingCollectionDispatchPayload = z.infer<
   typeof N8nJobPostingCollectionDispatchPayloadSchema
+>;
+
+export const N8nJobPostingExtractionDispatchPayloadSchema = z.strictObject({
+  kind: z.literal("job_posting_extraction"),
+  schemaVersion: z.literal(CONTRACT_VERSION),
+  eventId: UuidSchema,
+  requestId: UuidSchema,
+  collectionRunId: UuidSchema,
+  jobPosting: z.strictObject({
+    id: UuidSchema,
+    source: z.literal("wanted"),
+    url: WantedJobPostingUrlSchema,
+    html: z.string().min(1).max(JOB_POSTING_FETCH_MAX_BYTES),
+  }),
+  callbackPath: z
+    .string()
+    .regex(/^\/v1\/internal\/job-posting-collections\/[0-9a-f-]+\/complete$/),
+  outputSchema: z.record(z.string(), z.unknown()),
+});
+export type N8nJobPostingExtractionDispatchPayload = z.infer<
+  typeof N8nJobPostingExtractionDispatchPayloadSchema
+>;
+
+export const N8nDocumentExtractionDispatchPayloadSchema = z.strictObject({
+  kind: z.literal("document_extraction"),
+  schemaVersion: z.literal(CONTRACT_VERSION),
+  eventId: UuidSchema,
+  requestId: UuidSchema,
+  document: z.strictObject({
+    id: UuidSchema,
+    type: DocumentTypeSchema,
+    contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+    fileSize: z.int().positive(),
+    downloadUrl: z.url(),
+  }),
+  callbackPath: z
+    .string()
+    .regex(/^\/v1\/internal\/document-versions\/[0-9a-f-]+\/extract$/),
+});
+export type N8nDocumentExtractionDispatchPayload = z.infer<
+  typeof N8nDocumentExtractionDispatchPayloadSchema
 >;
 
 export const SlackNotificationEventTypeSchema = z.enum([
@@ -385,6 +483,7 @@ export type SlackNotificationResponse = z.infer<
 export const JobPostingCollectionCallbackOutcomeSchema = z.enum([
   "response",
   "manual",
+  "ai_extraction",
   "network_error",
   "timeout",
 ]);
@@ -397,6 +496,7 @@ export const JobPostingCollectionCallbackSchema = z
     collectionRunId: UuidSchema,
     outcome: JobPostingCollectionCallbackOutcomeSchema,
     occurredAt: Rfc3339TimestampSchema,
+    extraction: JobPostingAiExtractionSchema.nullable().optional(),
     response: z
       .strictObject({
         status: z.int().min(100).max(599),
@@ -408,7 +508,9 @@ export const JobPostingCollectionCallbackSchema = z
   })
   .superRefine((value, context) => {
     const responseRequired =
-      value.outcome === "response" || value.outcome === "manual";
+      value.outcome === "response" ||
+      value.outcome === "manual" ||
+      value.outcome === "ai_extraction";
     if (responseRequired !== (value.response !== null)) {
       context.addIssue({
         code: "custom",
@@ -416,9 +518,72 @@ export const JobPostingCollectionCallbackSchema = z
         path: ["response"],
       });
     }
+    if (value.outcome === "ai_extraction" && !value.extraction) {
+      context.addIssue({
+        code: "custom",
+        message: "AI extraction callback must include extraction data",
+        path: ["extraction"],
+      });
+    }
+    if (value.outcome !== "ai_extraction" && value.extraction) {
+      context.addIssue({
+        code: "custom",
+        message: "Extraction data is only valid for AI extraction callbacks",
+        path: ["extraction"],
+      });
+    }
   });
 export type JobPostingCollectionCallback = z.infer<
   typeof JobPostingCollectionCallbackSchema
+>;
+
+export const DocumentExtractionCallbackSchema = z
+  .strictObject({
+    schemaVersion: z.literal(CONTRACT_VERSION),
+    eventId: UuidSchema,
+    requestId: UuidSchema,
+    documentVersionId: UuidSchema,
+    contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+    outcome: DocumentExtractionOutcomeSchema,
+    extractedText: z
+      .string()
+      .max(DOCUMENT_EXTRACTED_TEXT_MAX_LENGTH)
+      .nullable(),
+    errorCode: DocumentExtractionErrorCodeSchema.nullable(),
+    occurredAt: Rfc3339TimestampSchema,
+  })
+  .superRefine((value, context) => {
+    if (value.outcome === "ready" && !value.extractedText?.trim()) {
+      context.addIssue({
+        code: "custom",
+        message: "A successful extraction callback must include text",
+        path: ["extractedText"],
+      });
+    }
+    if (value.outcome === "ready" && value.errorCode !== null) {
+      context.addIssue({
+        code: "custom",
+        message: "A successful extraction callback cannot include an error",
+        path: ["errorCode"],
+      });
+    }
+    if (value.outcome === "failed" && value.extractedText !== null) {
+      context.addIssue({
+        code: "custom",
+        message: "A failed extraction callback cannot include text",
+        path: ["extractedText"],
+      });
+    }
+    if (value.outcome === "failed" && value.errorCode === null) {
+      context.addIssue({
+        code: "custom",
+        message: "A failed extraction callback must include an error",
+        path: ["errorCode"],
+      });
+    }
+  });
+export type DocumentExtractionCallback = z.infer<
+  typeof DocumentExtractionCallbackSchema
 >;
 
 export const ApplicationStatusSchema = z.enum([
@@ -496,6 +661,7 @@ export const EvidenceSchema = z.strictObject({
   sourceVersionId: UuidSchema,
   section: z.string().max(200).nullable(),
   excerpt: z.string().min(1).max(2_000),
+  context: z.string().max(4_000).nullable().default(null),
 });
 export type Evidence = z.infer<typeof EvidenceSchema>;
 
@@ -549,10 +715,6 @@ export const AdminSessionResponseSchema = z.strictObject({
 });
 export type AdminSessionResponse = z.infer<typeof AdminSessionResponseSchema>;
 
-export const DOCUMENT_MAX_FILE_SIZE = 20 * 1_024 * 1_024;
-export const DOCUMENT_RESUMABLE_THRESHOLD = 6 * 1_024 * 1_024;
-export const DOCUMENT_EXTRACTED_TEXT_MAX_LENGTH = 500_000;
-
 const DocumentLabelSchema = z.string().trim().min(1).max(100);
 const DocumentFilenameSchema = z
   .string()
@@ -590,27 +752,78 @@ export type PrepareDocumentUploadRequest = z.infer<
   typeof PrepareDocumentUploadRequestSchema
 >;
 
-export const CompleteDocumentUploadRequestSchema = DocumentUploadMetadataSchema;
+const DocumentStoragePathSchema = z
+  .string()
+  .min(1)
+  .max(500)
+  .refine(
+    (value) =>
+      !value.includes("\\") &&
+      !value.includes("//") &&
+      /^[\x20-\x7E]+$/u.test(value) &&
+      Array.from(value).every((character) => {
+        const codePoint = character.codePointAt(0) ?? 0;
+        return codePoint >= 32 && codePoint !== 127;
+      }),
+    "A valid storage object path is required",
+  );
+
+export const CompleteDocumentUploadRequestSchema =
+  DocumentUploadMetadataSchema.extend({
+    storagePath: DocumentStoragePathSchema,
+  }).strict();
 export type CompleteDocumentUploadRequest = z.infer<
   typeof CompleteDocumentUploadRequestSchema
+>;
+
+export const AbortDocumentUploadRequestSchema = z.strictObject({
+  documentType: DocumentTypeSchema,
+  storagePath: DocumentStoragePathSchema,
+});
+export type AbortDocumentUploadRequest = z.infer<
+  typeof AbortDocumentUploadRequestSchema
 >;
 
 export const DocumentUploadMethodSchema = z.enum(["standard", "tus"]);
 export type DocumentUploadMethod = z.infer<typeof DocumentUploadMethodSchema>;
 
+const PreparedDocumentUploadBaseSchema = z.strictObject({
+  documentVersionId: UuidSchema,
+  storagePath: DocumentStoragePathSchema,
+  uploadMethod: DocumentUploadMethodSchema,
+  resumableEndpoint: z.url().nullable(),
+  expiresAt: Rfc3339TimestampSchema.nullable(),
+});
+
 export const PrepareDocumentUploadResponseSchema = z.strictObject({
-  data: z.strictObject({
-    documentVersionId: UuidSchema,
-    storagePath: z.string().min(1).max(500),
-    uploadToken: z.string().min(1),
-    uploadMethod: DocumentUploadMethodSchema,
-    resumableEndpoint: z.url().nullable(),
-    expiresAt: Rfc3339TimestampSchema,
-  }),
+  data: z.discriminatedUnion("uploadMethod", [
+    PreparedDocumentUploadBaseSchema.extend({
+      uploadMethod: z.literal("standard"),
+      resumableEndpoint: z.null(),
+      expiresAt: Rfc3339TimestampSchema,
+      uploadToken: z.string().min(1),
+    }).strict(),
+    PreparedDocumentUploadBaseSchema.extend({
+      uploadMethod: z.literal("tus"),
+      resumableEndpoint: z.url(),
+      expiresAt: z.null(),
+      uploadToken: z.null(),
+    }).strict(),
+  ]),
   meta: z.strictObject({ requestId: UuidSchema }),
 });
 export type PrepareDocumentUploadResponse = z.infer<
   typeof PrepareDocumentUploadResponseSchema
+>;
+
+export const AbortDocumentUploadResponseSchema = z.strictObject({
+  data: z.strictObject({
+    status: z.enum(["removed", "preserved", "not_found"]),
+  }),
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type AbortDocumentUploadResponse = z.infer<
+  typeof AbortDocumentUploadResponseSchema
 >;
 
 export const DocumentVersionSchema = z.strictObject({
@@ -956,6 +1169,73 @@ export type CreateAnalysisJobRequest = z.infer<
   typeof CreateAnalysisJobRequestSchema
 >;
 
+export const AnalysisSourceSchema = z.enum(["fixture", "ai"]);
+export type AnalysisSource = z.infer<typeof AnalysisSourceSchema>;
+
+export const AnalysisReasoningEffortSchema = z.enum(["medium", "high"]);
+export type AnalysisReasoningEffort = z.infer<
+  typeof AnalysisReasoningEffortSchema
+>;
+
+const ProfileEvidenceSchema = z.strictObject({
+  page: z.int().positive().nullable(),
+  section: z.string().max(200).nullable(),
+  excerpt: z.string().min(1).max(500),
+});
+
+export const DocumentAnalysisProfileSchema = z.strictObject({
+  summary: z.string().min(1).max(5_000),
+  headline: z.string().max(500).nullable(),
+  skills: z.array(z.string().min(1).max(200)).max(100),
+  experiences: z
+    .array(
+      z.strictObject({
+        title: z.string().min(1).max(300),
+        organization: z.string().max(300).nullable(),
+        period: z.string().max(200).nullable(),
+        summary: z.string().min(1).max(3_000),
+        achievements: z.array(z.string().min(1).max(1_000)).max(10),
+        skills: z.array(z.string().min(1).max(200)).max(30),
+        evidence: z.array(ProfileEvidenceSchema).max(10),
+      }),
+    )
+    .max(20),
+  projects: z
+    .array(
+      z.strictObject({
+        name: z.string().min(1).max(300),
+        summary: z.string().min(1).max(3_000),
+        role: z.string().max(500).nullable(),
+        contributions: z.array(z.string().min(1).max(1_000)).max(20),
+        technologies: z.array(z.string().min(1).max(200)).max(40),
+        outcomes: z.array(z.string().min(1).max(1_000)).max(10),
+        visualEvidence: z.array(ProfileEvidenceSchema).max(10),
+        evidence: z.array(ProfileEvidenceSchema).max(10),
+      }),
+    )
+    .max(30),
+  visualHighlights: z.array(ProfileEvidenceSchema).max(30),
+  strengths: z.array(z.string().min(1).max(1_000)).max(20),
+  limitations: z.array(z.string().min(1).max(1_000)).max(20),
+  warnings: z.array(z.string().min(1).max(1_000)).max(20),
+});
+export type DocumentAnalysisProfile = z.infer<
+  typeof DocumentAnalysisProfileSchema
+>;
+
+export const JobPostingAnalysisProfileSchema = z.strictObject({
+  summary: z.string().min(1).max(5_000),
+  sections: JobPostingBodySectionsSchema,
+  requirements: z.array(z.string().min(1).max(2_000)).max(40),
+  preferred: z.array(z.string().min(1).max(2_000)).max(40),
+  technologies: z.array(z.string().min(1).max(200)).max(40),
+  traits: z.array(z.string().min(1).max(1_000)).max(20),
+  warnings: z.array(z.string().min(1).max(1_000)).max(20),
+});
+export type JobPostingAnalysisProfile = z.infer<
+  typeof JobPostingAnalysisProfileSchema
+>;
+
 export const CreateAnalysisJobResponseSchema = z.strictObject({
   data: z.strictObject({ job: z.lazy(() => AnalysisJobResponseSchema) }),
   meta: z.strictObject({ requestId: UuidSchema }),
@@ -1009,10 +1289,21 @@ export type AnalysisJobActionRequest = z.infer<
 
 export const AnalysisInputDocumentSchema = z.strictObject({
   versionId: UuidSchema,
+  profileId: UuidSchema.nullable(),
+  profileSource: AnalysisSourceSchema.nullable(),
+  profile: DocumentAnalysisProfileSchema.nullable(),
   contentHash: z.string().regex(/^[0-9a-f]{64}$/),
   text: z.string().min(1).max(80_100),
   originalLength: z.int().positive(),
   truncated: z.boolean(),
+  file: z
+    .strictObject({
+      url: z.string().url().max(2_000),
+      filename: z.string().min(1).max(255),
+      mimeType: z.literal("application/pdf"),
+      fileSize: z.int().positive(),
+    })
+    .nullable(),
 });
 
 export const N8nDispatchPayloadSchema = z.strictObject({
@@ -1031,6 +1322,9 @@ export const N8nDispatchPayloadSchema = z.strictObject({
     companyName: z.string().min(1).max(500),
     contentHash: z.string().regex(/^[0-9a-f]{64}$/),
     text: z.string().min(1).max(100_000),
+    profileId: UuidSchema.nullable(),
+    profileSource: AnalysisSourceSchema.nullable(),
+    profile: JobPostingAnalysisProfileSchema.nullable(),
   }),
   profile: z.strictObject({
     resume: AnalysisInputDocumentSchema,
@@ -1099,9 +1393,19 @@ export const ProfileComparisonSchema = z.strictObject({
         intent: z.string().min(1).max(2_000),
         priority: PrioritySchema,
         requirementIds: z.array(z.string().min(1).max(100)).max(10),
+        answerOutline: z.string().max(3_000).nullable().default(null),
+        modelAnswer: z.string().max(5_000).nullable().default(null),
+        answerEvidence: z.array(EvidenceSchema).max(10).default([]),
       }),
     )
     .max(30),
+  applicationStrategy: z.strictObject({
+    motivationDraft: z.string().max(5_000).nullable(),
+    keyMessages: z.array(z.string().min(1).max(1_000)).max(10),
+    resumeFocus: z.string().max(2_000).nullable(),
+    portfolioFocus: z.string().max(2_000).nullable(),
+    warnings: z.array(z.string().min(1).max(1_000)).max(10),
+  }),
   warnings: z.array(z.string().min(1).max(1_000)).max(20),
 });
 export type ProfileComparison = z.infer<typeof ProfileComparisonSchema>;
@@ -1110,6 +1414,7 @@ export const JobPostingFactsSchema = z.strictObject({
   title: z.string().max(500).nullable(),
   companyName: z.string().max(500).nullable(),
   summary: z.string().min(1).max(5_000),
+  bodySections: JobPostingBodySectionsSchema,
   requirements: z.array(AnalysisRequirementSchema).max(40),
   technologies: z.array(AnalysisTechnologySchema).max(40),
   traits: z.array(AnalysisTraitSchema).max(20),
@@ -1355,6 +1660,9 @@ export const InterviewQuestionSchema = z.strictObject({
   intent: z.string().min(1).max(2_000),
   priority: PrioritySchema,
   requirementIds: z.array(z.string().min(1).max(100)).max(10),
+  answerOutline: z.string().max(3_000).nullable().default(null),
+  modelAnswer: z.string().max(5_000).nullable().default(null),
+  answerEvidence: z.array(EvidenceSchema).max(10).default([]),
   currentAnswer: InterviewAnswerRevisionSchema.nullable(),
   answerRevisionCount: z.int().nonnegative(),
   createdAt: Rfc3339TimestampSchema,
@@ -1594,6 +1902,8 @@ export const AnalysisWorkspaceSchema = z.strictObject({
     attemptNumber: z.int().positive(),
     companyName: z.string().min(1).max(200),
     title: z.string().min(1).max(300),
+    status: ApplicationStatusSchema,
+    interviewAt: Rfc3339TimestampSchema.nullable(),
   }),
   job: AnalysisJobResponseSchema,
   resultMetadata: z

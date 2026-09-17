@@ -1,6 +1,9 @@
 "use client";
 
 import {
+  type AbortDocumentUploadRequest,
+  type AbortDocumentUploadResponse,
+  AbortDocumentUploadResponseSchema,
   type AdminSessionResponse,
   AdminSessionResponseSchema,
   type AnalysisJobListResponse,
@@ -124,6 +127,10 @@ async function getAccessToken(refresh = false): Promise<string> {
   }
 
   return accessToken;
+}
+
+export function getSupabaseAccessToken(): Promise<string> {
+  return getAccessToken();
 }
 
 async function fetchWorker(
@@ -484,6 +491,28 @@ export function completeDocumentUpload(
     DocumentVersionResponseSchema,
     { body: JSON.stringify(input), method: "POST" },
     true,
+  );
+}
+
+export function extractDocumentVersion(
+  documentVersionId: string,
+): Promise<DocumentVersionResponse> {
+  return requestWorker(
+    `/v1/document-versions/${documentVersionId}/extract`,
+    DocumentVersionResponseSchema,
+    { method: "POST" },
+    true,
+  );
+}
+
+export function abortDocumentUpload(
+  documentVersionId: string,
+  input: AbortDocumentUploadRequest,
+): Promise<AbortDocumentUploadResponse> {
+  return requestWorker(
+    `/v1/document-versions/${documentVersionId}/abort-upload`,
+    AbortDocumentUploadResponseSchema,
+    { body: JSON.stringify(input), method: "POST" },
   );
 }
 

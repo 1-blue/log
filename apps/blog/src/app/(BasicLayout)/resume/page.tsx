@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import PublicDocumentPage from "#/app/(BasicLayout)/_components/PublicDocumentPage";
 import { getSharedMetadata } from "#/libs";
+import { getPublishedDocumentUrl } from "#/libs/public-document-server";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   ...getSharedMetadata({
@@ -17,12 +20,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function ResumePage() {
+export default async function ResumePage() {
+  const result = await getPublishedDocumentUrl("resume");
+  if (result.url) redirect(result.url);
+
   return (
-    <PublicDocumentPage
-      description="관리자가 공개 대상으로 지정한 최신 이력서를 확인할 수 있습니다."
-      documentType="resume"
-      title="이력서"
-    />
+    <section className="mx-auto my-16 max-w-xl px-4 text-center">
+      <h1 className="text-2xl font-bold">이력서를 열 수 없습니다.</h1>
+      <p className="text-muted-foreground mt-3 text-sm">
+        현재 공개된 이력서가 없거나 잠시 후 다시 시도해야 합니다.
+      </p>
+    </section>
   );
 }

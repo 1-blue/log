@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 
 const repositoryRoot = new URL("../", import.meta.url).pathname;
@@ -21,7 +21,8 @@ const repositoryFiles = execFileSync(
   },
 )
   .split("\0")
-  .filter(Boolean);
+  .filter(Boolean)
+  .filter((path) => existsSync(join(repositoryRoot, path)));
 
 for (const path of repositoryFiles) {
   const name = basename(path);

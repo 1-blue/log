@@ -3,6 +3,7 @@ import {
   createAnalysisJobService,
 } from "./analysis-jobs.js";
 import { app } from "./app.js";
+import { createDocumentService, type DocumentService } from "./documents.js";
 import { logInfo } from "./logger.js";
 import {
   createSlackNotificationService,
@@ -13,6 +14,18 @@ const ANALYSIS_STALE_AFTER_MS = 20 * 60 * 1_000;
 const ANALYSIS_STALE_SWEEP_LIMIT = 100;
 const SLACK_NOTIFICATION_STALE_AFTER_MS = 10 * 60 * 1_000;
 const SLACK_NOTIFICATION_STALE_SWEEP_LIMIT = 100;
+
+export async function runDocumentOrphanSweep(
+  env: CloudflareBindings,
+  scheduledAt: number,
+  service: DocumentService = createDocumentService(env),
+): Promise<void> {
+  await service.cleanupOrphanedUploads(env.ADMIN_USER_ID);
+  logInfo({
+    event: "document_orphan_sweep",
+    scheduledAt: new Date(scheduledAt).toISOString(),
+  });
+}
 
 export async function runStaleAnalysisSweep(
   env: CloudflareBindings,
@@ -64,6 +77,7 @@ export default {
       Promise.all([
         runStaleAnalysisSweep(env, controller.scheduledTime),
         runSlackNotificationSweep(env, controller.scheduledTime),
+        runDocumentOrphanSweep(env, controller.scheduledTime),
       ]),
     );
   },

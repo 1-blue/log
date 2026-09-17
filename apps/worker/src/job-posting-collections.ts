@@ -2,21 +2,31 @@ import {
   CONTRACT_VERSION,
   type CreateJobPostingCollectionRequest,
   JOB_POSTING_FETCH_MAX_BYTES,
+  JobPostingAiExtractionSchema,
   type JobPostingCollectionCallback,
   type JobPostingCollectionErrorCode,
   type JobPostingCollectionRun,
   type JobPostingSnapshot,
+  type JobPostingBodySections,
   type JobPostingSourceMetadata,
   type N8nJobPostingCollectionDispatchPayload,
+  type N8nJobPostingExtractionDispatchPayload,
 } from "@workspace/contracts";
 import type { Database, Json } from "@workspace/contracts/database";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import * as z from "zod";
 
 import { sha256Hex } from "./idempotency.js";
+import { logInfo } from "./logger.js";
 import { dispatchToN8n, N8nDispatchError } from "./n8n.js";
 import {
+  findOpenAiUnsupportedSchemaKeys,
+  toOpenAiStructuredOutputSchema,
+} from "./openai-schema.js";
+import {
   JobPostingParseError,
+  parseAiExtractedJobPosting,
   parseManualJobPosting,
   parseWantedJobPosting,
 } from "./wanted-parser.js";
@@ -27,7 +37,9 @@ type SnapshotRow = Database["public"]["Tables"]["job_posting_snapshots"]["Row"];
 type PostingRow = Database["public"]["Tables"]["job_postings"]["Row"];
 
 type Dispatch = (
-  payload: N8nJobPostingCollectionDispatchPayload,
+  payload:
+    | N8nJobPostingCollectionDispatchPayload
+    | N8nJobPostingExtractionDispatchPayload,
   env: CloudflareBindings,
 ) => Promise<void>;
 
@@ -72,6 +84,23 @@ function createSupabaseAdminClient(env: CloudflareBindings) {
 }
 
 function mapSnapshot(row: SnapshotRow): JobPostingSnapshot {
+  const sections: JobPostingBodySections = {
+    companyIntroduction: null,
+    positionIntroduction: null,
+    expectations: null,
+    mainResponsibilities: null,
+    requirements: null,
+    preferred: null,
+    employmentConditions: null,
+    process: null,
+    benefits: null,
+    technologies: null,
+    traits: null,
+    deadline: null,
+    location: null,
+    other: null,
+    ...((row.sections ?? {}) as Partial<JobPostingBodySections>),
+  };
   return {
     contentHash: row.content_hash,
     createdAt: row.created_at,
@@ -83,6 +112,7 @@ function mapSnapshot(row: SnapshotRow): JobPostingSnapshot {
     rawContent: row.raw_content,
     source: row.source,
     sourceMetadata: row.source_metadata as JobPostingSourceMetadata,
+    sections,
   };
 }
 
@@ -189,12 +219,13 @@ class SupabaseJobPostingCollectionService
     parserVersion?: string;
     rawContent?: string;
     retryable?: boolean;
-    snapshotSource?: "wanted_json_ld" | "manual";
+    snapshotSource?: "wanted_json_ld" | "wanted_html" | "wanted_ai" | "manual";
     sourceMetadata?: JobPostingSourceMetadata;
+    sections?: JobPostingBodySections;
     status: "failed" | "needs_input" | "succeeded";
   }): Promise<JobPostingCollectionRun> {
     const { data, error } = await this.supabase.rpc(
-      "complete_job_posting_collection",
+      "complete_job_posting_collection_v2",
       {
         p_collection_run_id: input.collectionRunId,
         p_content_hash: input.contentHash,
@@ -209,6 +240,7 @@ class SupabaseJobPostingCollectionService
         p_retryable: input.retryable ?? false,
         p_snapshot_source: input.snapshotSource,
         p_source_metadata: input.sourceMetadata as Json | undefined,
+        p_sections: input.sections as Json | undefined,
         p_status: input.status,
       },
     );
@@ -223,6 +255,18 @@ class SupabaseJobPostingCollectionService
       }
       throw new JobPostingCollectionServiceError("unavailable");
     }
+    logInfo({
+      callbackOutcome: input.status === "succeeded" ? "completed" : "terminal",
+      collectionRunId: input.collectionRunId,
+      errorCode: input.errorCode,
+      event: "job_posting_collection_terminal",
+      httpStatus: input.httpStatus ?? undefined,
+      parserVersion: input.parserVersion,
+      requestId: data.request_id,
+      source: input.snapshotSource,
+      stage: "persist",
+      status: input.status === "succeeded" ? 200 : undefined,
+    });
     return mapRun(data, await this.getSnapshot(data.snapshot_id));
   }
 
@@ -361,6 +405,15 @@ class SupabaseJobPostingCollectionService
 
     const response = input.response;
     if (!response) throw new JobPostingCollectionServiceError("validation");
+    logInfo({
+      callbackOutcome: input.outcome,
+      collectionRunId: input.collectionRunId,
+      contentLength: response.contentLength ?? response.body.length,
+      event: "job_posting_collection_callback_received",
+      httpStatus: response.status,
+      requestId: input.requestId,
+      stage: "callback",
+    });
     const httpTerminal = terminalForHttpStatus(response.status);
     if (httpTerminal) {
       return this.completeTerminal({
@@ -406,13 +459,22 @@ class SupabaseJobPostingCollectionService
 
     const posting = await this.getPosting(run.owner_id, run.job_posting_id);
     try {
+      if (input.outcome === "ai_extraction" && !input.extraction) {
+        throw new JobPostingCollectionServiceError("validation");
+      }
       const parsed =
         input.outcome === "manual"
           ? parseManualJobPosting(response.body)
-          : parseWantedJobPosting({
-              expectedUrl: posting.canonical_url,
-              html: response.body,
-            });
+          : input.outcome === "ai_extraction"
+            ? parseAiExtractedJobPosting({
+                expectedUrl: posting.canonical_url,
+                extraction: input.extraction!,
+                html: response.body,
+              })
+            : parseWantedJobPosting({
+                expectedUrl: posting.canonical_url,
+                html: response.body,
+              });
       return this.completeTerminal({
         collectionRunId: run.id,
         contentHash: await sha256Hex(parsed.contentHashInput),
@@ -425,10 +487,78 @@ class SupabaseJobPostingCollectionService
         rawContent: parsed.rawContent,
         snapshotSource: parsed.source,
         sourceMetadata: parsed.sourceMetadata,
+        sections: parsed.sections,
         status: "succeeded",
       });
     } catch (parseError) {
       if (!(parseError instanceof JobPostingParseError)) throw parseError;
+
+      logInfo({
+        callbackOutcome: input.outcome,
+        collectionRunId: run.id,
+        errorCode: parseError.code,
+        event: "job_posting_collection_parse_failed",
+        httpStatus: response.status,
+        requestId: input.requestId,
+        stage: "parse",
+      });
+
+      if (
+        input.outcome === "response" &&
+        parseError.code === "PARSER_STRUCTURE_CHANGED"
+      ) {
+        const extractionPayload: N8nJobPostingExtractionDispatchPayload = {
+          callbackPath: `/v1/internal/job-posting-collections/${run.id}/complete`,
+          collectionRunId: run.id,
+          eventId: crypto.randomUUID(),
+          jobPosting: {
+            html: response.body,
+            id: posting.id,
+            source: "wanted",
+            url: posting.canonical_url,
+          },
+          kind: "job_posting_extraction",
+          outputSchema: toOpenAiStructuredOutputSchema(
+            z.toJSONSchema(JobPostingAiExtractionSchema, {
+              target: "draft-07",
+            }),
+          ),
+          requestId: run.request_id,
+          schemaVersion: CONTRACT_VERSION,
+        };
+
+        const unsupportedSchemaKeys = findOpenAiUnsupportedSchemaKeys(
+          z.toJSONSchema(JobPostingAiExtractionSchema, {
+            target: "draft-07",
+          }),
+        );
+        logInfo({
+          collectionRunId: run.id,
+          event: "job_posting_ai_extraction_dispatched",
+          requestId: run.request_id,
+          schemaIssue: unsupportedSchemaKeys.join(",") || undefined,
+          stage: "ai_dispatch",
+        });
+
+        try {
+          await this.dispatch(extractionPayload, this.env);
+          return this.get(run.owner_id, run.id);
+        } catch (dispatchError) {
+          const retryable =
+            dispatchError instanceof N8nDispatchError
+              ? dispatchError.retryable
+              : true;
+          return this.completeTerminal({
+            collectionRunId: run.id,
+            errorCode: "DISPATCH_FAILED",
+            eventId: extractionPayload.eventId,
+            ownerId: run.owner_id,
+            retryable,
+            status: "failed",
+          });
+        }
+      }
+
       return this.completeTerminal({
         collectionRunId: run.id,
         errorCode: parseError.code,

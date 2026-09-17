@@ -18,12 +18,14 @@ import {
   ApplicationStateInputSchema,
   ApplicationStatusSchema,
   calculateAnalysisFitScore,
+  CompleteDocumentUploadRequestSchema,
   CreateApplicationRequestSchema,
   CreateInterviewNoteRequestSchema,
   CreateJobPostingCollectionRequestSchema,
   CreateJobPostingRequestSchema,
   DOCUMENT_MAX_FILE_SIZE,
   DocumentDownloadUrlResponseSchema,
+  DocumentExtractionCallbackSchema,
   DocumentExtractionStatusSchema,
   DocumentTypeSchema,
   DocumentUploadMetadataSchema,
@@ -73,6 +75,22 @@ const validAnalysisResult: AnalysisResult = {
     title: "AX Engineer - Infra",
     companyName: "미리디",
     summary: "인프라 자동화와 서비스 운영 역량을 요구하는 공고입니다.",
+    bodySections: {
+      companyIntroduction: null,
+      positionIntroduction: null,
+      expectations: null,
+      mainResponsibilities: null,
+      requirements: null,
+      preferred: null,
+      employmentConditions: null,
+      process: null,
+      benefits: null,
+      technologies: null,
+      traits: null,
+      deadline: null,
+      location: null,
+      other: null,
+    },
     requirements: [
       {
         id: "requirement-1",
@@ -84,6 +102,7 @@ const validAnalysisResult: AnalysisResult = {
             sourceVersionId: validUuid,
             section: "자격요건",
             excerpt: "클라우드 인프라 운영 경험",
+            context: null,
           },
         ],
       },
@@ -106,12 +125,20 @@ const validAnalysisResult: AnalysisResult = {
             sourceVersionId: validUuid,
             section: "프로젝트 경험",
             excerpt: "배포 및 모니터링 환경을 구성했습니다.",
+            context: null,
           },
         ],
       },
     ],
     gaps: [],
     interviewQuestions: [],
+    applicationStrategy: {
+      motivationDraft: null,
+      keyMessages: [],
+      resumeFocus: null,
+      portfolioFocus: null,
+      warnings: [],
+    },
     warnings: [],
   },
   fitScore: 50,
@@ -128,6 +155,20 @@ describe("career operations contracts", () => {
       AdminLoginInputSchema.safeParse({
         email: "admin@example.com",
         password: "strong-password",
+      }).success,
+    ).toBe(true);
+    expect(
+      PrepareDocumentUploadResponseSchema.safeParse({
+        data: {
+          documentVersionId: validUuid,
+          expiresAt: null,
+          resumableEndpoint:
+            "https://example.supabase.co/storage/v1/upload/resumable",
+          storagePath: `${validUuid}/portfolio/portfolio-000000.pdf`,
+          uploadMethod: "tus",
+          uploadToken: null,
+        },
+        meta: { requestId: validUuid },
       }).success,
     ).toBe(true);
     expect(
@@ -221,6 +262,34 @@ describe("career operations contracts", () => {
     expect(
       JobPostingCollectionCallbackSchema.safeParse({ ...callback, extra: true })
         .success,
+    ).toBe(false);
+
+    const aiExtractionCallback = {
+      ...callback,
+      extraction: {
+        companyName: "미리디",
+        description: "공고 본문 구조화 결과",
+        evidence: [{ excerpt: "공고 본문", section: "자격요건" }],
+        title: "AX Engineer - Infra",
+        warnings: [],
+      },
+      outcome: "ai_extraction",
+      response: {
+        body: "<main>공고 본문</main>",
+        contentLength: 25,
+        contentType: "text/html",
+        status: 200,
+      },
+    };
+    expect(
+      JobPostingCollectionCallbackSchema.safeParse(aiExtractionCallback)
+        .success,
+    ).toBe(true);
+    expect(
+      JobPostingCollectionCallbackSchema.safeParse({
+        ...aiExtractionCallback,
+        extraction: null,
+      }).success,
     ).toBe(false);
   });
 
@@ -369,6 +438,18 @@ describe("career operations contracts", () => {
         contentHash: "A".repeat(64),
       }).success,
     ).toBe(false);
+    expect(
+      CompleteDocumentUploadRequestSchema.safeParse({
+        ...validMetadata,
+        storagePath: `${validUuid}/resume/resume-000000.pdf`,
+      }).success,
+    ).toBe(true);
+    expect(
+      CompleteDocumentUploadRequestSchema.safeParse({
+        ...validMetadata,
+        storagePath: `${validUuid}/resume/이력서-000000.pdf`,
+      }).success,
+    ).toBe(false);
   });
 
   it("validates document actions and strict response envelopes", () => {
@@ -434,6 +515,15 @@ describe("career operations contracts", () => {
       }).success,
     ).toBe(false);
     expect(
+      DocumentVersionResponseSchema.safeParse({
+        data: {
+          ...document,
+          storagePath: `${validUuid}/portfolio/포트폴리오-000000.pdf`,
+        },
+        meta: { requestId: validUuid },
+      }).success,
+    ).toBe(false);
+    expect(
       DocumentDownloadUrlResponseSchema.safeParse({
         data: {
           expiresAt: "2026-09-11T00:01:00.000Z",
@@ -463,6 +553,59 @@ describe("career operations contracts", () => {
           documentVersionId: validUuid,
           storagePath: "private/resume.pdf",
         },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("validates automatic PDF extraction callbacks", () => {
+    const base = {
+      contentHash: "a".repeat(64),
+      documentVersionId: validUuid,
+      eventId: "00000000-0000-4000-8000-000000000002",
+      occurredAt: "2026-09-16T00:00:00.000Z",
+      requestId: "00000000-0000-4000-8000-000000000003",
+      schemaVersion: "1.0.0",
+    };
+
+    expect(
+      DocumentExtractionCallbackSchema.safeParse({
+        ...base,
+        errorCode: null,
+        extractedText: "이력서 본문",
+        outcome: "ready",
+      }).success,
+    ).toBe(true);
+    expect(
+      DocumentExtractionCallbackSchema.safeParse({
+        ...base,
+        errorCode: "PDF_TEXT_EMPTY",
+        extractedText: null,
+        outcome: "failed",
+      }).success,
+    ).toBe(true);
+    expect(
+      DocumentExtractionCallbackSchema.safeParse({
+        ...base,
+        errorCode: null,
+        extractedText: null,
+        outcome: "ready",
+      }).success,
+    ).toBe(false);
+    expect(
+      DocumentExtractionCallbackSchema.safeParse({
+        ...base,
+        errorCode: "PDF_PARSE_FAILED",
+        extractedText: "실패 본문",
+        outcome: "failed",
+      }).success,
+    ).toBe(false);
+    expect(
+      DocumentExtractionCallbackSchema.safeParse({
+        ...base,
+        errorCode: null,
+        extractedText: "본문",
+        outcome: "ready",
+        extra: true,
       }).success,
     ).toBe(false);
   });
@@ -805,6 +948,8 @@ describe("career operations contracts", () => {
           attemptNumber: 1,
           companyName: "미리디",
           id: validUuid,
+          interviewAt: timestamp,
+          status: "preparing",
           title: "AX Engineer - Infra",
         },
         checklist: [],

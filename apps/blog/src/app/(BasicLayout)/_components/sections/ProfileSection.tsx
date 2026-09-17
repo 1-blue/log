@@ -4,7 +4,9 @@ import { ME } from "@workspace/constants";
 
 import {
   AtSymbolIcon,
+  BriefcaseIcon,
   DevicePhoneMobileIcon,
+  DocumentTextIcon,
   FingerPrintIcon,
   LinkIcon,
   MapPinIcon,
@@ -16,7 +18,7 @@ import CustomSection from "#/app/(BasicLayout)/_components/sections/CustomSectio
 const ProfileSection: React.FC = () => {
   return (
     <CustomSection className="flex flex-1 flex-col gap-1.5">
-      <figure className="relative mx-auto aspect-square w-full max-w-56 min-w-36 overflow-hidden rounded-full">
+      <figure className="relative mx-auto aspect-square w-full min-w-36 max-w-56 overflow-hidden rounded-full">
         <Image src={ME.AVATAR_URL} alt="프로필 이미지" fill />
       </figure>
       <div className="flex items-center gap-2">
@@ -52,6 +54,24 @@ const ProfileSection: React.FC = () => {
       >
         <DevicePhoneMobileIcon className="h-6 w-6" />
         <span>{ME.PHONE}</span>
+      </a>
+      <a
+        className="flex items-center gap-2 underline-offset-2 hover:underline"
+        href="/resume"
+        rel="noreferrer noopener"
+        target="_blank"
+      >
+        <DocumentTextIcon className="h-6 w-6" />
+        <span>이력서 보기</span>
+      </a>
+      <a
+        className="flex items-center gap-2 underline-offset-2 hover:underline"
+        href="/portfolio"
+        rel="noreferrer noopener"
+        target="_blank"
+      >
+        <BriefcaseIcon className="h-6 w-6" />
+        <span>포트폴리오 보기</span>
       </a>
     </CustomSection>
   );

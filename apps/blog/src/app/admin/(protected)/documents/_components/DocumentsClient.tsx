@@ -11,14 +11,20 @@ import Link from "next/link";
 
 import type { DocumentType, DocumentVersion } from "@workspace/contracts";
 import { Button } from "@workspace/ui/components/Button";
+import { Input } from "@workspace/ui/components/Input";
+import { Label } from "@workspace/ui/components/Label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/Select";
 
 import { FileTextIcon, LoaderCircleIcon, UploadCloudIcon } from "lucide-react";
 
 import { uploadDocumentVersion } from "#/libs/document-upload";
 import { listDocumentVersions, WorkerApiError } from "#/libs/worker-client";
-
-const inputClassName =
-  "border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-10 w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-2";
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof WorkerApiError) return error.message;
@@ -44,7 +50,11 @@ export default function DocumentsClient() {
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [uploadDocumentType, setUploadDocumentType] =
+    useState<DocumentType>("resume");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -98,6 +108,8 @@ export default function DocumentsClient() {
         signal: controller.signal,
       });
       form.reset();
+      setUploadDocumentType("resume");
+      setSelectedFile(null);
       await load();
     } catch (caught) {
       setError(getErrorMessage(caught));
@@ -117,41 +129,77 @@ export default function DocumentsClient() {
       </div>
 
       <form
-        className="border-border bg-card grid gap-4 rounded-lg border p-5 md:grid-cols-[160px_1fr_1fr_auto] md:items-end"
+        className="border-border bg-card grid gap-5 rounded-lg border p-5"
         onSubmit={handleUpload}
       >
-        <label className="grid gap-2 text-sm font-medium">
-          문서 종류
-          <select
-            className={inputClassName}
-            defaultValue="resume"
-            name="documentType"
-          >
-            <option value="resume">이력서</option>
-            <option value="portfolio">포트폴리오</option>
-          </select>
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          버전 이름
-          <input
-            className={inputClassName}
-            maxLength={100}
-            name="label"
-            placeholder="예: 2026 상반기 인프라 직군"
-            required
-          />
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          PDF 파일
-          <input
-            accept="application/pdf,.pdf"
-            className={`${inputClassName} file:text-foreground file:mr-3 file:border-0 file:bg-transparent file:text-sm`}
-            name="file"
-            required
-            type="file"
-          />
-        </label>
-        <div className="flex gap-2">
+        <div className="grid gap-5 lg:grid-cols-[minmax(180px,0.35fr)_minmax(0,1fr)]">
+          <div className="grid content-start gap-2">
+            <Label htmlFor="document-type">문서 종류</Label>
+            <Select
+              name="documentType"
+              onValueChange={(value: string) =>
+                setUploadDocumentType(value as DocumentType)
+              }
+              value={uploadDocumentType}
+            >
+              <SelectTrigger id="document-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="resume">이력서</SelectItem>
+                <SelectItem value="portfolio">포트폴리오</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid content-start gap-2">
+            <Label htmlFor="document-label">버전 이름</Label>
+            <Input
+              id="document-label"
+              maxLength={100}
+              name="label"
+              placeholder="예: 2026 상반기 인프라 직군"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="border-border bg-background grid gap-3 rounded-md border border-dashed p-4">
+          <div>
+            <Label htmlFor="document-file">PDF 파일</Label>
+            <p className="text-muted-foreground mt-1 text-xs">
+              최대 20MiB의 PDF 파일을 선택할 수 있습니다.
+            </p>
+          </div>
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <Button
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+              type="button"
+              variant="outline"
+            >
+              <UploadCloudIcon /> 파일 선택
+            </Button>
+            <Input
+              ref={fileInputRef}
+              accept="application/pdf,.pdf"
+              className="sr-only"
+              id="document-file"
+              name="file"
+              onChange={(event) =>
+                setSelectedFile(event.target.files?.[0] ?? null)
+              }
+              aria-required="true"
+              type="file"
+            />
+            <p className="text-muted-foreground min-w-0 truncate text-sm">
+              {selectedFile
+                ? `${selectedFile.name} · ${formatBytes(selectedFile.size)}`
+                : "선택된 파일이 없습니다."}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
           <Button disabled={uploading} type="submit">
             {uploading ? (
               <LoaderCircleIcon className="animate-spin" />

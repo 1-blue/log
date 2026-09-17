@@ -1,4 +1,5 @@
 import {
+  AbortDocumentUploadRequestSchema,
   AnalysisEventCallbackSchema,
   AnalysisJobActionRequestSchema,
   AnalysisResultCallbackSchema,
@@ -13,6 +14,7 @@ import {
   CreateInterviewChecklistItemRequestSchema,
   CreateInterviewNoteRequestSchema,
   CreateJobPostingCollectionRequestSchema,
+  DocumentExtractionCallbackSchema,
   DocumentTypeSchema,
   ExpectedUpdatedAtQuerySchema,
   IdempotencyKeySchema,
@@ -72,7 +74,7 @@ import {
   JobPostingCollectionServiceError,
 } from "./job-posting-collections.js";
 import { logError, logInfo } from "./logger.js";
-import { verifySignedRequest } from "./n8n.js";
+import { dispatchToN8n, verifySignedRequest } from "./n8n.js";
 import {
   createSlackNotificationService,
   type SlackNotificationService,
@@ -94,6 +96,19 @@ const SERVICE_NAME = "bluelog-career-ops-api" as const;
 
 function getRequestId(c: { get: (key: "requestId") => string }): string {
   return c.get("requestId");
+}
+
+function scheduleBackground(
+  c: Context<WorkerAppEnv>,
+  task: () => Promise<void>,
+): void {
+  const promise = task();
+  try {
+    c.executionCtx.waitUntil(promise);
+  } catch {
+    // Hono's app.request() test context has no Cloudflare ExecutionContext.
+    void promise;
+  }
 }
 
 function errorResponse(
@@ -1485,6 +1500,38 @@ export function createApp(dependencies?: AppDependencies) {
     }
   });
 
+  app.post("/v1/internal/document-versions/:id/extract", async (c) => {
+    const documentVersionId = parseDocumentVersionId(c);
+    if (documentVersionId instanceof Response) return documentVersionId;
+    const input = await parseJsonBody(
+      c,
+      DocumentExtractionCallbackSchema,
+      INTERNAL_CALLBACK_MAX_BYTES,
+    );
+    if (input instanceof Response) return input;
+    if (
+      input.documentVersionId !== documentVersionId ||
+      input.eventId !== c.get("signedEventId") ||
+      input.requestId !== getRequestId(c)
+    ) {
+      return errorResponse(
+        c,
+        401,
+        "INVALID_SIGNATURE",
+        "내부 요청 식별자가 일치하지 않습니다.",
+      );
+    }
+    try {
+      const data = await getDocumentService(c.env).completeExtraction(
+        c.env.ADMIN_USER_ID,
+        input,
+      );
+      return jsonData(c, data);
+    } catch (error) {
+      return documentServiceErrorResponse(c, error);
+    }
+  });
+
   app.post("/v1/internal/analysis-jobs/:id/events", async (c) => {
     const analysisJobId = parseResourceId(c, "분석 작업");
     if (analysisJobId instanceof Response) return analysisJobId;
@@ -1649,11 +1696,28 @@ export function createApp(dependencies?: AppDependencies) {
       input,
       async () => {
         try {
-          const data = await getDocumentService(c.env).completeUpload(
+          const documentService = getDocumentService(c.env);
+          const data = await documentService.completeUpload(
             c.get("adminUserId"),
             documentVersionId,
             input,
           );
+          scheduleBackground(c, async () => {
+            try {
+              const payload = await documentService.prepareExtraction(
+                c.get("adminUserId"),
+                documentVersionId,
+                getRequestId(c),
+              );
+              if (payload) await dispatchToN8n(payload, c.env);
+            } catch {
+              await documentService.failExtraction(
+                c.get("adminUserId"),
+                documentVersionId,
+                "EXTRACTION_DISPATCH_FAILED",
+              );
+            }
+          });
           return jsonData(c, data, 201);
         } catch (error) {
           return documentServiceErrorResponse(c, error);
@@ -1661,6 +1725,60 @@ export function createApp(dependencies?: AppDependencies) {
       },
     );
   });
+
+  app.post("/v1/document-versions/:id/extract", requireAdmin, async (c) => {
+    const documentVersionId = parseDocumentVersionId(c);
+    if (documentVersionId instanceof Response) return documentVersionId;
+
+    const documentService = getDocumentService(c.env);
+    try {
+      const data = await documentService.get(
+        c.get("adminUserId"),
+        documentVersionId,
+      );
+      scheduleBackground(c, async () => {
+        try {
+          const payload = await documentService.prepareExtraction(
+            c.get("adminUserId"),
+            documentVersionId,
+            getRequestId(c),
+          );
+          if (payload) await dispatchToN8n(payload, c.env);
+        } catch {
+          await documentService.failExtraction(
+            c.get("adminUserId"),
+            documentVersionId,
+            "EXTRACTION_DISPATCH_FAILED",
+          );
+        }
+      });
+      return jsonData(c, data, 202);
+    } catch (error) {
+      return documentServiceErrorResponse(c, error);
+    }
+  });
+
+  app.post(
+    "/v1/document-versions/:id/abort-upload",
+    requireAdmin,
+    async (c) => {
+      const documentVersionId = parseDocumentVersionId(c);
+      if (documentVersionId instanceof Response) return documentVersionId;
+      const input = await parseJsonBody(c, AbortDocumentUploadRequestSchema);
+      if (input instanceof Response) return input;
+
+      try {
+        const status = await getDocumentService(c.env).abortUpload(
+          c.get("adminUserId"),
+          documentVersionId,
+          input,
+        );
+        return jsonData(c, { status });
+      } catch (error) {
+        return documentServiceErrorResponse(c, error);
+      }
+    },
+  );
 
   app.get("/v1/document-versions", requireAdmin, async (c) => {
     const query = DocumentListQuerySchema.safeParse({

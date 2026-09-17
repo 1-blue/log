@@ -88,6 +88,7 @@ export type Database = {
           id: string
           job_posting_content_hash: string
           job_posting_id: string
+          job_posting_profile_id: string | null
           job_posting_snapshot_id: string
           job_posting_text: string
           last_heartbeat_at: string | null
@@ -97,12 +98,14 @@ export type Database = {
             | Database["public"]["Enums"]["document_type"]
             | null
           portfolio_original_length: number
+          portfolio_profile_id: string | null
           portfolio_text: string
           portfolio_truncated: boolean
           portfolio_version_id: string
           request_id: string
           resume_content_hash: string
           resume_original_length: number
+          resume_profile_id: string | null
           resume_text: string
           resume_truncated: boolean
           resume_version_id: string
@@ -125,6 +128,7 @@ export type Database = {
           id?: string
           job_posting_content_hash: string
           job_posting_id: string
+          job_posting_profile_id?: string | null
           job_posting_snapshot_id: string
           job_posting_text: string
           last_heartbeat_at?: string | null
@@ -134,12 +138,14 @@ export type Database = {
             | Database["public"]["Enums"]["document_type"]
             | null
           portfolio_original_length: number
+          portfolio_profile_id?: string | null
           portfolio_text: string
           portfolio_truncated?: boolean
           portfolio_version_id: string
           request_id: string
           resume_content_hash: string
           resume_original_length: number
+          resume_profile_id?: string | null
           resume_text: string
           resume_truncated?: boolean
           resume_version_id: string
@@ -162,6 +168,7 @@ export type Database = {
           id?: string
           job_posting_content_hash?: string
           job_posting_id?: string
+          job_posting_profile_id?: string | null
           job_posting_snapshot_id?: string
           job_posting_text?: string
           last_heartbeat_at?: string | null
@@ -171,12 +178,14 @@ export type Database = {
             | Database["public"]["Enums"]["document_type"]
             | null
           portfolio_original_length?: number
+          portfolio_profile_id?: string | null
           portfolio_text?: string
           portfolio_truncated?: boolean
           portfolio_version_id?: string
           request_id?: string
           resume_content_hash?: string
           resume_original_length?: number
+          resume_profile_id?: string | null
           resume_text?: string
           resume_truncated?: boolean
           resume_version_id?: string
@@ -195,6 +204,13 @@ export type Database = {
             referencedColumns: ["id", "owner_id"]
           },
           {
+            foreignKeyName: "analysis_jobs_job_posting_profile_fk"
+            columns: ["job_posting_profile_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "job_posting_analysis_profiles"
+            referencedColumns: ["id", "owner_id"]
+          },
+          {
             foreignKeyName: "analysis_jobs_portfolio_fk"
             columns: [
               "portfolio_version_id",
@@ -204,6 +220,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "document_versions"
             referencedColumns: ["id", "owner_id", "document_type"]
+          },
+          {
+            foreignKeyName: "analysis_jobs_portfolio_profile_fk"
+            columns: ["portfolio_profile_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "document_analysis_profiles"
+            referencedColumns: ["id", "owner_id"]
           },
           {
             foreignKeyName: "analysis_jobs_posting_fk"
@@ -218,6 +241,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "document_versions"
             referencedColumns: ["id", "owner_id", "document_type"]
+          },
+          {
+            foreignKeyName: "analysis_jobs_resume_profile_fk"
+            columns: ["resume_profile_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "document_analysis_profiles"
+            referencedColumns: ["id", "owner_id"]
           },
           {
             foreignKeyName: "analysis_jobs_snapshot_fk"
@@ -573,6 +603,59 @@ export type Database = {
           },
         ]
       }
+      document_analysis_profiles: {
+        Row: {
+          created_at: string
+          document_type: Database["public"]["Enums"]["document_type"]
+          document_version_id: string
+          id: string
+          input_hash: string
+          model: string | null
+          owner_id: string
+          profile: Json
+          prompt_version: string
+          reasoning_effort: string | null
+          source: Database["public"]["Enums"]["career_analysis_source"]
+          status: Database["public"]["Enums"]["career_analysis_profile_status"]
+        }
+        Insert: {
+          created_at?: string
+          document_type: Database["public"]["Enums"]["document_type"]
+          document_version_id: string
+          id?: string
+          input_hash: string
+          model?: string | null
+          owner_id: string
+          profile: Json
+          prompt_version: string
+          reasoning_effort?: string | null
+          source: Database["public"]["Enums"]["career_analysis_source"]
+          status: Database["public"]["Enums"]["career_analysis_profile_status"]
+        }
+        Update: {
+          created_at?: string
+          document_type?: Database["public"]["Enums"]["document_type"]
+          document_version_id?: string
+          id?: string
+          input_hash?: string
+          model?: string | null
+          owner_id?: string
+          profile?: Json
+          prompt_version?: string
+          reasoning_effort?: string | null
+          source?: Database["public"]["Enums"]["career_analysis_source"]
+          status?: Database["public"]["Enums"]["career_analysis_profile_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_analysis_profiles_document_fk"
+            columns: ["document_version_id", "owner_id", "document_type"]
+            isOneToOne: false
+            referencedRelation: "document_versions"
+            referencedColumns: ["id", "owner_id", "document_type"]
+          },
+        ]
+      }
       document_publications: {
         Row: {
           document_type: Database["public"]["Enums"]["document_type"]
@@ -863,6 +946,66 @@ export type Database = {
           },
         ]
       }
+      job_posting_analysis_profiles: {
+        Row: {
+          created_at: string
+          id: string
+          input_hash: string
+          job_posting_id: string
+          model: string | null
+          owner_id: string
+          profile: Json
+          prompt_version: string
+          reasoning_effort: string | null
+          snapshot_id: string
+          source: Database["public"]["Enums"]["career_analysis_source"]
+          status: Database["public"]["Enums"]["career_analysis_profile_status"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          input_hash: string
+          job_posting_id: string
+          model?: string | null
+          owner_id: string
+          profile: Json
+          prompt_version: string
+          reasoning_effort?: string | null
+          snapshot_id: string
+          source: Database["public"]["Enums"]["career_analysis_source"]
+          status: Database["public"]["Enums"]["career_analysis_profile_status"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          input_hash?: string
+          job_posting_id?: string
+          model?: string | null
+          owner_id?: string
+          profile?: Json
+          prompt_version?: string
+          reasoning_effort?: string | null
+          snapshot_id?: string
+          source?: Database["public"]["Enums"]["career_analysis_source"]
+          status?: Database["public"]["Enums"]["career_analysis_profile_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_posting_analysis_profiles_posting_fk"
+            columns: ["job_posting_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "job_postings"
+            referencedColumns: ["id", "owner_id"]
+          },
+          {
+            foreignKeyName: "job_posting_analysis_profiles_snapshot_fk"
+            columns: ["snapshot_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "job_posting_snapshots"
+            referencedColumns: ["id", "owner_id"]
+          },
+        ]
+      }
       job_posting_collection_runs: {
         Row: {
           created_at: string
@@ -949,6 +1092,7 @@ export type Database = {
           owner_id: string
           parser_version: string
           raw_content: string
+          sections: Json
           source: Database["public"]["Enums"]["job_posting_snapshot_source"]
           source_metadata: Json
         }
@@ -962,6 +1106,7 @@ export type Database = {
           owner_id: string
           parser_version: string
           raw_content: string
+          sections?: Json
           source: Database["public"]["Enums"]["job_posting_snapshot_source"]
           source_metadata: Json
         }
@@ -975,6 +1120,7 @@ export type Database = {
           owner_id?: string
           parser_version?: string
           raw_content?: string
+          sections?: Json
           source?: Database["public"]["Enums"]["job_posting_snapshot_source"]
           source_metadata?: Json
         }
@@ -1218,6 +1364,7 @@ export type Database = {
           id: string
           job_posting_content_hash: string
           job_posting_id: string
+          job_posting_profile_id: string | null
           job_posting_snapshot_id: string
           job_posting_text: string
           last_heartbeat_at: string | null
@@ -1227,12 +1374,14 @@ export type Database = {
             | Database["public"]["Enums"]["document_type"]
             | null
           portfolio_original_length: number
+          portfolio_profile_id: string | null
           portfolio_text: string
           portfolio_truncated: boolean
           portfolio_version_id: string
           request_id: string
           resume_content_hash: string
           resume_original_length: number
+          resume_profile_id: string | null
           resume_text: string
           resume_truncated: boolean
           resume_version_id: string
@@ -1268,6 +1417,7 @@ export type Database = {
           id: string
           job_posting_content_hash: string
           job_posting_id: string
+          job_posting_profile_id: string | null
           job_posting_snapshot_id: string
           job_posting_text: string
           last_heartbeat_at: string | null
@@ -1277,12 +1427,14 @@ export type Database = {
             | Database["public"]["Enums"]["document_type"]
             | null
           portfolio_original_length: number
+          portfolio_profile_id: string | null
           portfolio_text: string
           portfolio_truncated: boolean
           portfolio_version_id: string
           request_id: string
           resume_content_hash: string
           resume_original_length: number
+          resume_profile_id: string | null
           resume_text: string
           resume_truncated: boolean
           resume_version_id: string
@@ -1379,6 +1531,7 @@ export type Database = {
           id: string
           job_posting_content_hash: string
           job_posting_id: string
+          job_posting_profile_id: string | null
           job_posting_snapshot_id: string
           job_posting_text: string
           last_heartbeat_at: string | null
@@ -1388,12 +1541,14 @@ export type Database = {
             | Database["public"]["Enums"]["document_type"]
             | null
           portfolio_original_length: number
+          portfolio_profile_id: string | null
           portfolio_text: string
           portfolio_truncated: boolean
           portfolio_version_id: string
           request_id: string
           resume_content_hash: string
           resume_original_length: number
+          resume_profile_id: string | null
           resume_text: string
           resume_truncated: boolean
           resume_version_id: string
@@ -1433,6 +1588,50 @@ export type Database = {
           p_parser_version?: string
           p_raw_content?: string
           p_retryable?: boolean
+          p_snapshot_source?: Database["public"]["Enums"]["job_posting_snapshot_source"]
+          p_source_metadata?: Json
+          p_status: Database["public"]["Enums"]["job_posting_collection_status"]
+        }
+        Returns: {
+          created_at: string
+          error_code:
+            | Database["public"]["Enums"]["job_posting_collection_error_code"]
+            | null
+          final_event_id: string | null
+          finished_at: string | null
+          http_status: number | null
+          id: string
+          job_posting_id: string
+          mode: Database["public"]["Enums"]["job_posting_collection_mode"]
+          owner_id: string
+          request_id: string
+          retryable: boolean
+          snapshot_id: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["job_posting_collection_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "job_posting_collection_runs"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      complete_job_posting_collection_v2: {
+        Args: {
+          p_collection_run_id: string
+          p_content_hash?: string
+          p_error_code?: Database["public"]["Enums"]["job_posting_collection_error_code"]
+          p_event_id: string
+          p_fetched_at?: string
+          p_http_status?: number
+          p_normalized_content?: string
+          p_owner_id: string
+          p_parser_version?: string
+          p_raw_content?: string
+          p_retryable?: boolean
+          p_sections?: Json
           p_snapshot_source?: Database["public"]["Enums"]["job_posting_snapshot_source"]
           p_source_metadata?: Json
           p_status: Database["public"]["Enums"]["job_posting_collection_status"]
@@ -1661,6 +1860,7 @@ export type Database = {
           id: string
           job_posting_content_hash: string
           job_posting_id: string
+          job_posting_profile_id: string | null
           job_posting_snapshot_id: string
           job_posting_text: string
           last_heartbeat_at: string | null
@@ -1670,12 +1870,14 @@ export type Database = {
             | Database["public"]["Enums"]["document_type"]
             | null
           portfolio_original_length: number
+          portfolio_profile_id: string | null
           portfolio_text: string
           portfolio_truncated: boolean
           portfolio_version_id: string
           request_id: string
           resume_content_hash: string
           resume_original_length: number
+          resume_profile_id: string | null
           resume_text: string
           resume_truncated: boolean
           resume_version_id: string
@@ -1924,6 +2126,8 @@ export type Database = {
         | "offer"
         | "rejected"
         | "withdrawn"
+      career_analysis_profile_status: "succeeded" | "failed"
+      career_analysis_source: "fixture" | "ai"
       document_extraction_status: "pending" | "processing" | "ready" | "failed"
       document_type: "resume" | "portfolio"
       interview_checklist_source: "gap_action" | "custom"
@@ -1948,7 +2152,11 @@ export type Database = {
         | "succeeded"
         | "needs_input"
         | "failed"
-      job_posting_snapshot_source: "wanted_json_ld" | "manual"
+      job_posting_snapshot_source:
+        | "wanted_json_ld"
+        | "manual"
+        | "wanted_html"
+        | "wanted_ai"
       job_posting_source: "wanted"
       slack_notification_event_type:
         | "job_posting_registered"
@@ -2130,6 +2338,8 @@ export const Constants = {
         "rejected",
         "withdrawn",
       ],
+      career_analysis_profile_status: ["succeeded", "failed"],
+      career_analysis_source: ["fixture", "ai"],
       document_extraction_status: ["pending", "processing", "ready", "failed"],
       document_type: ["resume", "portfolio"],
       interview_checklist_source: ["gap_action", "custom"],
@@ -2156,7 +2366,12 @@ export const Constants = {
         "needs_input",
         "failed",
       ],
-      job_posting_snapshot_source: ["wanted_json_ld", "manual"],
+      job_posting_snapshot_source: [
+        "wanted_json_ld",
+        "manual",
+        "wanted_html",
+        "wanted_ai",
+      ],
       job_posting_source: ["wanted"],
       slack_notification_event_type: [
         "job_posting_registered",

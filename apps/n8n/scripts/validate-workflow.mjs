@@ -52,6 +52,16 @@ for (const name of [
   "Slack Callback 서명",
   "Slack Callback 전송",
   "분석 요청 여부",
+  "문서 추출 요청 여부",
+  "문서 PDF 다운로드",
+  "PDF 텍스트 추출",
+  "문서 추출 결과 구성",
+  "문서 추출 실패 구성",
+  "AI 원문 보완 요청 여부",
+  "AI 원문 보완 준비",
+  "OpenAI 공고 원문 보완",
+  "AI 원문 보완 결과 구성",
+  "AI 원문 보완 실패 구성",
   "수동 원문 여부",
   "Wanted HTML 수집",
   "OpenAI 공고 사실 분석",
@@ -90,13 +100,40 @@ assert(
   hmacCode.includes("slack_notification"),
   "Slack 알림 payload 검증이 없습니다.",
 );
+assert(
+  hmacCode.includes("job_posting_extraction"),
+  "AI 원문 보완 payload 검증이 없습니다.",
+);
+assert(
+  hmacCode.includes("document_extraction"),
+  "문서 추출 payload 검증이 없습니다.",
+);
 assert(hmacCode.includes("payload?.runAttempt"), "실행 회차 검증이 없습니다.");
 
+const documentDownload = nodes.get("문서 PDF 다운로드");
+assert(
+  documentDownload.parameters.options.response.response.responseFormat ===
+    "file",
+  "문서 다운로드는 PDF binary 응답을 사용해야 합니다.",
+);
+assert(
+  documentDownload.parameters.options.response.response.fullResponse === false,
+  "문서 다운로드는 전체 HTTP 응답을 본문으로 변환하면 안 됩니다.",
+);
+const documentExtract = nodes.get("PDF 텍스트 추출");
+assert(
+  documentExtract.type === "n8n-nodes-base.extractFromFile" &&
+    documentExtract.parameters.operation === "pdf" &&
+    documentExtract.parameters.binaryPropertyName === "data",
+  "PDF 텍스트 추출 노드 설정이 올바르지 않습니다.",
+);
+
 const expectedOpenAi = [
-  ["OpenAI 공고 사실 분석", 6000, "low", "job_posting_facts"],
-  ["OpenAI 공고 사실 분석 재시도", 6000, "low", "job_posting_facts"],
-  ["OpenAI 프로필 비교", 10000, "medium", "profile_comparison"],
-  ["OpenAI 프로필 비교 재시도", 10000, "medium", "profile_comparison"],
+  ["OpenAI 공고 원문 보완", 4000, "medium", "job_posting_ai_extraction"],
+  ["OpenAI 공고 사실 분석", 6000, "medium", "job_posting_facts"],
+  ["OpenAI 공고 사실 분석 재시도", 6000, "medium", "job_posting_facts"],
+  ["OpenAI 프로필 비교", 10000, "high", "profile_comparison"],
+  ["OpenAI 프로필 비교 재시도", 10000, "high", "profile_comparison"],
 ];
 for (const [name, maxTokens, effort, schemaName] of expectedOpenAi) {
   const node = nodes.get(name);
@@ -108,7 +145,7 @@ for (const [name, maxTokens, effort, schemaName] of expectedOpenAi) {
   );
   assert(node.typeVersion === 2.2, `${name}은 OpenAI V2.2여야 합니다.`);
   assert(
-    node.parameters.modelId.value === "gpt-5.4-mini-2026-03-17",
+    node.parameters.modelId.value === "gpt-5.6-luna",
     `${name} 모델이 고정되지 않았습니다.`,
   );
   assert(

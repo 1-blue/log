@@ -12,7 +12,7 @@ export default async function ProtectedAdminLayout({
   await requireAdmin();
 
   return (
-    <div className="mx-auto min-h-[calc(100vh-2rem)] max-w-7xl overflow-hidden rounded-xl border lg:grid lg:grid-cols-[240px_1fr]">
+    <div className="mx-auto min-h-[calc(100vh-2rem)] w-full max-w-[1600px] overflow-hidden rounded-xl border lg:grid lg:grid-cols-[240px_1fr]">
       <aside className="bg-muted/40 border-b p-5 lg:border-b-0 lg:border-r">
         <div className="mb-6">
           <p className="text-primary text-xs font-semibold tracking-widest">

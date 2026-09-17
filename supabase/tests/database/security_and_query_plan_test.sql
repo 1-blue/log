@@ -3,7 +3,7 @@ begin;
 set local search_path = public, extensions;
 set local enable_seqscan = off;
 
-select plan(12);
+select plan(13);
 
 select is_empty(
   $$
@@ -80,6 +80,11 @@ select is_empty(
        and not pg_catalog.has_function_privilege('service_role', procedure.oid, 'execute')
   $$,
   'service_role can execute service write RPCs'
+);
+
+select ok(
+  pg_catalog.has_schema_privilege('service_role', 'private', 'USAGE'),
+  'service_role can resolve private validation helpers'
 );
 
 create function pg_temp.query_plan(statement text)

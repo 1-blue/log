@@ -35,11 +35,62 @@ docker compose logs --tail=100 n8n
 docker compose logs --tail=100 postgres
 ```
 
-브라우저에서 `http://localhost:5678`을 열어 owner 계정을 한 번 생성한다. OpenAI API Key는 `OpenAI Career Analysis`라는 OpenAI Credential로 등록하고, Workflow의 공고 사실·프로필 비교 최초 및 재시도 노드 네 개에 같은 Credential을 연결한다. API Key는 `.env`나 Workflow JSON에 넣지 않는다. Slack Bot Token은 16단계 외부 연동에서 n8n Slack API Credential로 등록한다.
+### 로컬 Workflow 실행 진단
+
+로컬 Compose는 실행 원인 확인을 위해 다음을 적용한다.
+
+- `N8N_LOG_LEVEL=debug`: Workflow와 노드의 시작·완료·오류 로그를 남긴다.
+- `EXECUTIONS_DATA_SAVE_ON_SUCCESS=all`: 성공 실행도 n8n Executions에서 확인한다.
+- `N8N_CONCURRENCY_PRODUCTION_LIMIT=-1`: 이전에 멈춘 production 실행이 새 Webhook을 막지 않게 한다.
+
+환경을 변경했으면 컨테이너를 재생성해야 한다.
+
+```bash
+docker compose up -d --force-recreate n8n
+docker compose logs --since=10m --timestamps n8n
+```
+
+실행 목록은 payload를 출력하지 않고 상태와 실행 버전만 확인한다.
+
+```bash
+docker compose exec -T postgres psql -U n8n -d n8n -X -A -F $'\t' -c \
+  "SELECT id, status, finished, \"startedAt\", \"stoppedAt\", \"workflowVersionId\"
+   FROM execution_entity
+   WHERE \"workflowId\"='careerAnalysis'
+   ORDER BY id::bigint DESC LIMIT 20;"
+```
+
+로그에서 다음 순서를 확인한다.
+
+`Execution added` → `Execution ... assigned` → `Start executing node` →
+`finished successfully` 또는 `finished with error` → `Execution finalized`.
+
+`Execution added` 뒤에 노드 로그가 없고 `running`이 오래 유지되면 동시 실행 제한,
+stale 실행, Workflow 활성화 상태를 먼저 확인한다. `Worker Callback 전송`에서
+`404`가 발생하면 n8n 실행 자체는 정상 진행된 것이며, callback의 공고·분석 ID 또는
+Worker의 데이터 상태 문제로 분리해서 확인한다.
+
+편집 버전과 게시 버전이 다른지도 확인한다. 두 값이 다르면 현재 `versionId`를
+명시해 게시한 뒤 n8n을 재시작한다.
+
+```bash
+docker compose exec -T postgres psql -U n8n -d n8n -X -A -F $'\t' -c \
+  "SELECT id, active, \"activeVersionId\", \"versionId\"
+   FROM workflow_entity WHERE id='careerAnalysis';"
+docker compose exec -T n8n n8n publish:workflow \
+  --id=careerAnalysis --versionId=<versionId>
+docker compose restart n8n
+```
+
+debug 로그에는 n8n 노드가 HTTP 오류의 요청 정보를 함께 기록할 수 있으므로 외부에
+공유하지 않는다. 운영 배포 전에는 `N8N_LOG_LEVEL=info`와 필요한 실행 저장 수준으로
+낮추고, 개인 원문·토큰·서명·Webhook URL이 포함된 로그를 보관하지 않는다.
+
+브라우저에서 `http://localhost:5678`을 열어 owner 계정을 한 번 생성한다. OpenAI API Key는 `OpenAI Career Analysis`라는 OpenAI Credential로 등록하고, Workflow의 원문 보완 1개와 공고 사실·프로필 비교 최초 및 재시도 노드 4개, 총 5개 노드에 같은 Credential을 연결한다. API Key는 `.env`나 Workflow JSON에 넣지 않는다. Slack Bot Token은 16단계 외부 연동에서 n8n Slack API Credential로 등록한다.
 
 ## 채용공고 수집 및 지원 분석 Workflow
 
-owner 계정과 OpenAI Credential을 만든 다음 버전 관리 중인 Workflow를 import한다. 두 OpenAI 노드에 Credential이 연결됐는지 확인한 후 publish한다. n8n 2.x의 CLI publish 결과는 서버 재시작 뒤 적용된다. 기존 smoke Workflow는 비활성 상태로 보존하며 동일한 Webhook 경로를 동시에 게시하지 않는다.
+owner 계정과 OpenAI Credential을 만든 다음 버전 관리 중인 Workflow를 import한다. 5개 OpenAI 노드에 Credential이 연결됐는지 확인한 후 publish한다. n8n 2.x의 CLI publish 결과는 서버 재시작 뒤 적용된다. 기존 smoke Workflow는 비활성 상태로 보존하며 동일한 Webhook 경로를 동시에 게시하지 않는다.
 
 ```bash
 docker compose exec -T n8n n8n unpublish:workflow --id=careerAnalysisSmoke
@@ -53,11 +104,14 @@ Workflow는 다음 순서로 동작한다.
 - Worker가 보낸 원문 body와 요청 식별자를 HMAC-SHA256으로 검증한다.
 - 유효한 요청에 즉시 `202 Accepted`, 잘못된 서명에 `401`을 반환한다.
 - 자동 모드는 Wanted HTML을 리다이렉트 없이 최대 10초 동안 요청한다.
+- Worker의 JSON-LD·HTML 결정론적 파서가 핵심 필드를 찾지 못한 경우에만 `job_posting_extraction` 요청으로 OpenAI 원문 구조화를 수행한다. AI가 반환한 제목·회사명·본문·근거는 Worker가 원문과 재검증한다.
 - 수동 모드는 전달받은 원문을 그대로 사용한다.
+- `document_extraction` 요청은 Worker가 발급한 짧은 만료의 Supabase signed URL에서 PDF를 받아 `Extract From File`의 PDF 작업으로 텍스트를 추출하고, 결과를 Worker callback으로 반환한다. 이력서·포트폴리오 업로드 완료 후 자동 실행되며, 실패하면 관리자 화면의 `PDF 다시 추출` 또는 수동 텍스트 보정으로 복구한다.
 - 최대 600KB 정책을 적용하고 결과를 다시 HMAC 서명해 Worker 내부 API로 전달한다.
 - `application_analysis` 요청은 먼저 공고 사실을 구조화하고, 다음 호출에서 이력서·포트폴리오와 비교한다.
-- 두 단계 모두 `gpt-5.4-mini-2026-03-17`, Responses API Structured Outputs, `store: false`를 사용한다.
-- 공고 사실은 reasoning `low`와 최대 6,000 출력 토큰, 프로필 비교는 `medium`과 최대 10,000 출력 토큰을 사용한다.
+- 두 단계 모두 `gpt-5.6-luna`, Responses API Structured Outputs, `store: false`를 사용한다.
+- 공고 원문 보완과 공고 사실 구조화는 reasoning `medium`, 최대 4,000·6,000 출력 토큰을 사용한다. 프로필 비교와 지원 전략 생성은 `high`, 최대 10,000 출력 토큰을 사용한다.
+- 분석 payload에는 등록된 이력서·포트폴리오·공고의 fixture 또는 AI 프로필이 함께 전달된다. PDF는 짧은 만료의 signed URL 메타데이터로 전달하며 실제 OpenAI 파일 입력 연결은 16단계 Credential 연동에서 검증한다.
 - 각 OpenAI 단계 전후에 실행 회차·단계 회차가 포함된 heartbeat를 보내며 네트워크·timeout·일반 429·5xx만 한 번 재시도한다.
 - `Retry-After`가 60초 이하면 따르고 없으면 2초와 결정적 jitter를 사용한다. 인증·결제·quota·입력·미완료·스키마 오류는 자동 재시도하지 않는다.
 - Worker callback은 응답 상태를 직접 분류해 네트워크·429·5xx만 최대 3회 전송하며 4xx는 반복하지 않는다.
@@ -66,6 +120,7 @@ Workflow는 다음 순서로 동작한다.
 - Slack 429는 `Retry-After`가 60초 이하일 때 한 번만 재시도한다. 네트워크·timeout·5xx는 `delivery_unknown`으로 콜백하고 자동 재전송하지 않는다.
 - Slack Bot API 노드는 16단계에 Credential을 연결하기 전까지 실행하지 않으며, 정적 검증과 fixture 테스트만 수행한다.
 - 입력 문서 안의 지시를 따르지 않도록 프롬프트에서 명시하고, Worker가 실제 원문 근거와 결정론적 적합도 점수를 다시 검증한다.
+- 수집 진단 로그는 `job_posting_fetch_completed`, `job_posting_fetch_failed`, `job_posting_ai_extraction_failed` 이벤트로 응답 상태·본문 크기·처리 단계만 기록하며 원문·Secret·개인정보는 기록하지 않는다. Worker는 `job_posting_collection_callback_received`, `job_posting_collection_parse_failed`, `job_posting_collection_terminal`로 콜백부터 저장 결과까지 추적한다.
 
 Workflow JSON 자체는 다음 명령으로 비밀값 없이 정적 검증할 수 있다.
 

@@ -2,7 +2,7 @@
 
 > 기준일: 2026-09-14
 > 작업 브랜치: `codex/career-ops-foundation`  
-> 현재 범위: 15단계 외부 연동 전 개발 검증 완료, 16단계 외부 요소 연결 예정
+> 현재 범위: 13단계 관리자 화면 사용성 개선 및 15.2단계 AI 입력 프로필·공고 본문 보완 완료, 16단계 외부 요소 연결 예정
 
 ## 1. 프로젝트 정의
 
@@ -38,7 +38,7 @@
 | 자동화          | `apps/n8n`의 Docker Compose 기반 n8n             | 로컬 무료 개발 후 운영 호스팅은 사용량을 보고 결정             |
 | 데이터베이스    | Supabase PostgreSQL + Storage                    | Auth, 데이터, 비공개 문서 버전을 한 서비스에서 시작            |
 | 인증            | Supabase Auth, 관리자 1명                        | 브라우저에 비밀번호를 포함하지 않고 확장 가능한 세션 사용      |
-| AI              | OpenAI Responses API + `gpt-5.4-mini-2026-03-17` | 비용·속도와 구조화 분석 품질의 균형, 재현 가능한 snapshot 고정 |
+| AI              | OpenAI Responses API + `gpt-5.6-luna` | 공고·문서 프로필은 medium, 최종 적합도·질문은 high, 재현 가능한 snapshot 고정 |
 | 알림            | Slack Bot API + Incoming Webhook                 | 공고별 스레드와 별도 시스템 오류 채널 운영                     |
 | 최초 공고 소스  | Wanted                                           | MVP 파서와 검증 범위를 한 사이트로 제한                        |
 | 공유 계약       | `packages/contracts`                             | Next.js, Worker, n8n 입출력 형식의 불일치 방지                 |
@@ -245,7 +245,7 @@
 - [ ] 현재 PDF의 개인정보와 공개 범위를 검토하고 최초 버전으로 이전할 파일 확정
 - [x] `/admin/documents`에서 이력서·포트폴리오 PDF 등록, 목록, 상세, archive 기능 구현
 - [x] 6MB를 넘는 PDF는 Supabase resumable upload를 사용하고 Storage로 직접 업로드
-- [x] 업로드마다 UUID 기반 새 경로를 사용하고 `upsert` 또는 기존 파일 덮어쓰기 금지
+- [x] 업로드마다 새 경로를 사용하고 `{ASCII-safe 버전 이름}-{UUID 앞 6자리}.pdf` 형식으로 저장하며 기존 파일 덮어쓰기 금지
 - [x] 문서 유형, 버전명, 원본 파일명, 크기, MIME type, SHA-256 hash, 생성일 저장
 - [x] 기본 선택 버전과 공개 버전을 별도로 지정하고 유형별 하나만 유지
 - [x] 지원·분석에 참조된 버전은 hard delete하지 않고 archive 처리
@@ -258,11 +258,13 @@
 
 - Worker가 JWT 관리자 확인 후 업로드 준비·완료, 목록·상세, metadata 수정, 기본·공개·보관 상태 변경, 60초 signed download URL을 제공한다.
 - 업로드 완료 시 Storage object의 크기, MIME type, PDF signature, SHA-256을 Worker가 다시 검증하고 실패한 object는 제거한다.
-- 6MiB 이하 파일은 signed upload URL, 초과 파일은 6MiB chunk의 TUS resumable upload를 사용하며 최대 크기는 20MiB다.
+- 6MiB 이하 파일은 signed upload URL, 초과 파일은 Supabase access token 기반 6MiB chunk TUS resumable upload를 사용하며 최대 크기는 20MiB다.
+- 새 Storage object는 Supabase key 제한에 맞는 ASCII-safe 버전 이름과 문서 UUID 앞 6자리를 사용한다. 원본 한글 버전명·파일명은 DB에 보존하고, 기존 UUID-only 경로는 호환성을 위해 유지한다.
+- TUS·standard 업로드 실패와 취소는 Worker abort API로 즉시 정리하며, 브라우저 종료로 정리하지 못한 고아 object는 Worker Cron이 후속 삭제한다.
 - 첫 활성 버전만 자동으로 기본 지정하고 이후 버전과 공개 버전 변경은 명시적으로 수행하도록 DB 함수를 추가했다.
 - 원격 `blog` Supabase에 migration을 dry-run 후 적용했고 schema lint와 DB 타입 재생성을 완료했다.
 - contracts 9개, Next.js 인증 16개, Worker 24개 테스트와 전체 타입 검사·lint·production build가 통과했다.
-- Docker가 실행 중이 아니어서 신규 pgTAP 테스트는 로컬에서 실행하지 못했다. 실제 관리자 로그인과 현재 PDF 2개의 업로드·공개 범위 확인, 큰 PDF 완료 검증의 Cloudflare Free CPU 사용량 확인도 사용자 확인 단계로 남겨 둔다.
+- 로컬 Supabase reset, schema lint와 145개 pgTAP 테스트를 통과했다. 실제 관리자 로그인과 현재 PDF 2개의 업로드·공개 범위 확인, 큰 PDF 완료 검증의 Cloudflare Free CPU 사용량 확인은 외부 연동 후 수동 확인 단계로 남겨 둔다.
 - 기존 `apps/blog/public/pdfs` 파일은 실제 공개 화면 전환을 확인할 때까지 유지하되 새 공개 페이지에서는 참조하거나 fallback으로 사용하지 않는다.
 
 ### 6단계 — 공개 이력서·포트폴리오 화면
@@ -271,7 +273,7 @@
 
 - [x] `/resume`, `/portfolio` 페이지를 `document_publications`의 현재 버전에 연결
 - [x] 공개 지정된 Storage object에만 Worker의 짧은 signed URL로 접근 허용
-- [x] PDF 보기, 새 탭 열기, 다운로드, 모바일 fallback 제공
+- [x] 기존 공개 URL을 유지하면서 프로필 카드의 이력서·포트폴리오 링크가 새 탭에서 최신 PDF를 직접 열도록 구성
 - [x] 공개 버전이 없거나 일시적으로 접근할 수 없을 때 안내 상태 제공
 - [x] 메타데이터, sitemap, 내비게이션, 접근성 확인
 - [x] 외부 검색 노출 여부와 PDF 캐시 정책 결정
@@ -283,9 +285,9 @@
 - 인증 없는 `GET /v1/public/document-publications/:type`은 관리자 1명의 현재 공개 포인터만 조회하고 60초 signed URL을 반환한다.
 - 공개 응답은 문서 종류, URL, 만료 시각만 포함하며 문서 버전 ID, 파일명, Storage 경로, hash 등 내부 metadata를 노출하지 않는다.
 - 공개 해제 상태는 404 빈 상태, Storage 장애는 재시도 가능한 503으로 구분하고 모든 응답은 `no-store`로 제공한다.
-- `/resume`, `/portfolio`는 정적 페이지 셸로 생성하고 실제 문서 URL은 브라우저에서 필요할 때만 발급한다. 새 탭과 다운로드도 클릭 시 새 URL을 사용한다.
-- 모바일에서는 숨겨진 iframe으로 큰 PDF를 내려받지 않고 새 탭·다운로드 동작을 안내한다.
-- 두 페이지는 내비게이션에 추가하되 sitemap에서 제외하고 `noindex`, `nofollow`, `noarchive`, `nocache`를 적용했다.
+- `/resume`, `/portfolio`는 기존 주소를 유지하는 동적 redirect 페이지이며, 요청 시 최신 inline signed URL로 이동한다.
+- 이력서·포트폴리오는 공개 내비게이션과 단축 명령 메뉴에서 제거하고 프로필 카드 전화번호 아래에 배치했다.
+- 기존 PDF iframe·다운로드·새 탭 버튼 UI는 제거하고, 공개 문서가 없을 때만 간단한 오류 상태를 표시한다.
 - 기존 `public/pdfs`는 삭제하지 않았으며 `X-Robots-Tag: noindex, nofollow, noarchive`를 적용했다. 새 페이지에는 기존 파일 fallback이 없다.
 - 신규 환경변수, 패키지, DB migration 없이 기존 공개 포인터와 Worker 설정을 재사용했다.
 - contracts 9개, Worker 30개, Next.js 22개 테스트가 통과했고 `/resume`, `/portfolio`가 정적 페이지로 production build되는 것을 확인했다.
@@ -369,14 +371,15 @@
 - n8n 재시작, PostgreSQL 재시작, volume을 보존한 Compose 전체 재생성 후에도 owner와 활성 Workflow가 유지되고 Webhook이 정상 응답했다.
 - PostgreSQL custom-format 백업을 생성하고 `pg_restore --list`로 카탈로그를 비파괴 검증했다. 실제 복원 훈련과 백업 자동화는 운영 배포 단계에서 수행한다.
 
-### 10단계 — Wanted 공고 수집과 수동 fallback
+### 10단계 — Wanted 공고 수집과 계층형 파싱 fallback
 
 목표: Wanted URL에서 분석 가능한 본문을 얻되 수집 실패가 전체 기능을 막지 않게 한다.
 
 - [x] `https://www.wanted.co.kr/wd/{숫자}` 형식만 허용하고 canonical URL 생성
 - [x] redirect, timeout, 응답 크기, Content-Type 제한
 - [x] localhost, 사설 IP, link-local 등 SSRF 대상 차단
-- [x] 공식적으로 노출된 HTML/구조화 데이터에서 제목, 회사, 본문 추출
+- [x] JSON-LD 우선 파싱 후 공개 HTML 본문 fallback으로 제목, 회사, 본문 추출
+- [x] 결정론적 파싱 결과가 불완전할 때만 n8n OpenAI 구조화 fallback 실행
 - [x] 공고 ID와 수집 시각, 원문 hash, parser version 저장
 - [x] 본문 정규화 시 섹션과 원문 근거 위치 보존
 - [x] 로그인, 차단, 만료, 구조 변경을 구분한 오류 코드 정의
@@ -386,6 +389,7 @@
 종료 기준: 지원되는 Wanted 공고는 자동 수집되고, 실패한 공고도 수동 원문으로 동일 분석 흐름을 완료한다.
 
 - 공고 등록 직후 자동 수집을 접수하며 실패해도 지원 정보는 유지한다. 상세 화면에서 진행 상태를 polling하고 자동 재시도 또는 100~100,000자의 수동 원문 저장을 실행할 수 있다.
+- JSON-LD(`wanted-jsonld-v1`)와 HTML(`wanted-html-v1`) 파싱을 우선 적용하고, 핵심 필드가 없을 때만 n8n의 `job_posting_extraction` 요청으로 AI 보완을 시도한다. AI 결과는 `wanted-ai-v1`로 기록하며 제목·회사명·본문·근거 문자열을 Worker에서 재검증한다. AI 호출 실패 또는 근거 불일치는 `needs_input`으로 전환한다.
 - `job_posting_collection_runs`와 불변 `job_posting_snapshots`를 추가했다. 공고별 활성 실행은 하나로 제한하고 동일 SHA-256 콘텐츠는 기존 스냅샷을 재사용한다.
 - Worker는 모든 JSON-LD script의 객체·배열·`@graph`에서 `JobPosting`을 찾고 URL·제목·회사·본문을 검증한다. 입력한 회사명·공고명은 덮어쓰지 않고 추출값과 차이만 관리자 화면에 표시한다.
 - n8n은 양방향 HMAC 검증, 즉시 202 응답, 리다이렉트 금지, 10초 timeout, 600KB 제한과 SSRF 보호를 적용한다. 비공개 API, 브라우저 위장, CAPTCHA 우회와 자동 반복 재시도는 사용하지 않는다.
@@ -416,9 +420,9 @@
 - Worker가 요구사항 ID, 출처 버전 ID, 실제 원문에 존재하는 excerpt, 참조 무결성, matched/partial의 개인 근거를 검증한다. 적합도는 필수 70%·우대 30% 규칙으로 Worker와 n8n에서 동일하게 계산한다.
 - `analysis_jobs`, 불변 `analysis_results`, `analysis_step_executions`, 원자적 완료·상태 이벤트 RPC와 소유자 RLS를 원격 Supabase에 적용했다. 원격 rollback 통합 테스트와 schema lint를 통과했다.
 - 관리자 상세 화면에서 분석 준비 조건, 수동 시작, 2초 polling, 최소 점수·요약·건수·구조화 JSON·최근 이력을 확인할 수 있다. 상세 결과 UX는 13단계에서 구현한다.
-- n8n 소스 Workflow는 기존 수집 분기를 유지하며 두 OpenAI V2.2 노드, `store: false`, 고정 model snapshot, prompt version과 HMAC callback을 포함한다. 현재 실행 중인 Workflow는 OpenAI Credential이 없어 교체·게시하지 않았다.
-- OpenAI Credential 연결과 실제 API 호출은 외부 연동 일괄 작업까지 보류한다. 그전에는 fixture와 mock으로 계약·상태 전이·재시도 동작을 자동 검증하며 12단계 이후 구현을 계속할 수 있다.
-- 외부 연동 시 n8n에 `OpenAI Career Analysis` Credential 생성, 두 OpenAI 노드 연결, 소스 Workflow import·게시, 실제 공고 1건 분석과 비용·오류 확인을 순서대로 수행한다.
+- n8n 소스 Workflow는 기존 수집 분기와 결정론적 파서 실패 시 원문 보완 분기를 포함하며 OpenAI V2.2 노드 5개, `store: false`, 고정 model snapshot, prompt version과 HMAC callback을 포함한다. 최신 Workflow를 로컬 n8n에 import·publish하고 재시작 후 활성화 상태를 확인했다.
+- OpenAI Credential 연결과 실제 API 호출은 외부 연동 일괄 작업까지 보류한다. 현재 Credential이 없을 때 원문 보완 요청은 안전하게 `needs_input`으로 끝나며, 그전에는 fixture와 mock으로 계약·상태 전이·재시도 동작을 자동 검증한다.
+- 외부 연동 시 n8n에 `OpenAI Career Analysis` Credential 생성, 5개 OpenAI 노드 연결, 소스 Workflow import·게시, 실제 공고 1건 분석과 비용·오류 확인을 순서대로 수행한다.
 
 ### 12단계 — 비동기 상태·콜백·재시도
 
@@ -456,6 +460,13 @@
 - [x] 면접 전 체크리스트와 면접 후 회고 저장
 - [x] 이전 분석·자료 버전·프롬프트 버전 비교
 - [x] AI 결과를 사용자가 수정하거나 메모할 수 있게 하되 원본 결과 보존
+- [x] 지원 상세를 지원 정보·채용공고·적합도 분석 탭으로 분리하고 긴 원문·수집 이력을 접기
+- [x] 분석 상세를 분석 요약·요구사항 분석·면접 준비 탭으로 분리하고 분석 이력 비교를 접기
+- [x] 공유 Tabs 컴포넌트와 기존 Accordion을 사용해 키보드 이동·초기 접힘·URL 탭 복원 지원
+- [x] Wanted 본문 종료 경계와 핵심 섹션 검증을 강화해 푸터·탐색 UI·불완전한 기술 스택을 제외
+- [x] 분석 근거에 저장 원문 주변 문맥을 읽기 시점에 추가하고 출처·문서 버전·섹션을 함께 표시
+- [x] 질문을 8~10개 영역으로 생성하고 근거 기반 AI 답변 초안·답변 핵심 포인트를 제공
+- [x] 면접 회고는 면접 일정 또는 면접 이후 상태에서만 노출하며 기존 기록은 보존
 
 종료 기준: 분석 결과 확인부터 답변 작성과 면접 회고까지 관리자 화면에서 이어진다.
 
@@ -464,6 +475,7 @@
 - 분석 결과 저장 시 면접 질문과 부족 역량의 준비 액션을 자동 생성하며, 기존 결과도 같은 규칙으로 backfill한다.
 - 사용자 판정 점수는 AI 점수와 별도로 계산해 함께 표시하고, 이전 분석은 점수·건수·자료 hash·모델·프롬프트 버전 중심으로 비교한다.
 - 실제 외부 데이터 없이도 개발 검수가 가능하도록 `/dev/career-ops/analysis-preview`에 정상·혼합·미작성·긴 콘텐츠·이전 분석 fixture를 제공하며 production에서는 404로 차단한다.
+- 분석 결과 fixture와 기존 분석 결과는 `context: null` 기본값으로 호환하며, 실제 AI 연동 직전에 fixture를 제거하고 실제 결과로 교체한다.
 
 ### 14단계 — Slack 알림 기능 개발 `완료`
 
@@ -527,22 +539,71 @@
 - 전체 public 테이블 RLS, 직접 쓰기 차단, service RPC 권한, 빈 `search_path`와 지원·분석·문서·수집·stale·Slack queue의 index 사용을 pgTAP으로 검증한다.
 - n8n audit 결과 필요한 Code·HTTP Request 노드만 유지하고 Community Packages, Templates, Public API, 버전 알림과 진단 telemetry를 비활성화했다.
 - 배포 체크리스트와 운영 Runbook에 환경변수 대응, 배포 순서, n8n·Supabase DB·Storage backup, rollback, Secret 노출과 장애별 복구 절차를 기록했다.
-- 계약 28개, Worker 97개, Blog 39개, DB 143개 테스트와 전체 타입 검사·lint·production build, Wrangler dry-run, DB 타입 동기화가 통과했다.
+- 계약 28개, Worker 99개, Blog 39개, DB 145개 테스트와 전체 타입 검사·lint·production build, Wrangler dry-run, DB 타입 동기화가 통과했다.
 - 원격 migration, 최신 Workflow 게시, Credential 등록과 실제 외부 호출은 계획대로 16~17단계에 남겼다.
+
+### 15.1단계 — 문서 업로드 안정화 및 관리자 UI 일관성 `완료`
+
+목표: 외부 연동 전에 실제 사용을 막는 대용량 업로드 오류와 관리자 화면의 디자인 불일치를 해결한다.
+
+- [x] 6MiB 초과 TUS 업로드를 Signed Upload Token 대신 Supabase access token 방식으로 전환
+- [x] 업로드 완료 전 오류·취소 시 object 즉시 정리 및 완료 유실 보호
+- [x] Worker Cron 기반 오래된 고아 object 정리 보강
+- [x] 문서 Storage 경로를 버전 이름과 UUID 앞 6자리 기반으로 개선하고 기존 경로 호환
+- [x] 프로필 카드에 이력서·포트폴리오 새 탭 링크 배치 및 공개 문서 viewer 제거
+- [x] `/admin`의 모든 visible input, textarea, select를 공통 디자인 시스템 컴포넌트로 교체
+- [x] 문서 업로드 폼 반응형 레이아웃과 커스텀 파일 선택 UI 구현
+- [x] 업로드 완료 후 n8n `Extract From File` 기반 PDF 텍스트 자동 추출과 재추출 API 연결
+- [x] JSON-LD가 축약된 Wanted 공고에서 검증된 화면 본문을 우선 저장하도록 파서 보강
+- [x] 계약·Worker·Blog·DB 테스트와 production build 검증
+
+구현 결과:
+
+- `POST /v1/document-versions/:id/abort-upload`는 소유자와 Storage 경로를 검증하며, 이미 DB에 등록된 object는 보존한다.
+- 기존 UUID-only 파일은 이동하지 않고 새 업로드부터 읽기 쉬운 파일명을 적용한다.
+- `/admin`에는 로그인용 hidden input과 파일 선택용 내부 input을 제외하고 raw select·textarea·input이 남아 있지 않다.
+- 로컬 Supabase migration reset, schema lint, 145개 pgTAP 테스트, Blog/Worker build와 타입 검사가 통과했다.
+- 연결된 원격 Supabase에 누락되어 있던 5개 migration을 순서대로 적용하고 원격 schema lint를 통과했다. Storage RLS는 ASCII-safe named path를 허용한다.
+- 지원 등록 RPC가 호출하는 `private` 검증 함수에 `service_role` schema USAGE 권한을 추가하고, 원격 rollback 검증에서 지원 등록 RPC 성공을 확인했다.
+- `document_extraction` payload는 Worker가 발급한 signed URL과 문서 hash를 n8n에 전달하고, PDF 추출 결과를 서명된 내부 callback으로 저장한다. 기존 문서는 관리자 화면의 `PDF 다시 추출`로 같은 경로를 실행할 수 있다.
+
+종료 기준: 20MiB 이하 이력서·포트폴리오를 안정적으로 업로드할 수 있고 실패한 임시 object가 즉시 또는 Cron으로 정리되며, 관리자 폼과 공개 문서 동선이 기존 디자인과 일관된다.
+
+### 15.2단계 — AI 입력 프로필 및 공고 본문 보완 `완료`
+
+목표: 실제 AI Credential 연결 전에도 문서·공고를 재사용하는 입력 구조와 결과 화면을 검수할 수 있게 한다.
+
+- [x] 이력서·포트폴리오·공고 스냅샷의 AI 분석 프로필 테이블과 소유권/RLS 추가
+- [x] Wanted JSON-LD의 축약 설명 대신 화면 본문을 섹션별로 보존
+- [x] 분석 dispatch payload에 프로필 ID·프로필 데이터·짧은 만료 PDF signed URL 추가
+- [x] 지원 전략(지원동기·핵심 메시지·문서별 강조점) 결과 계약과 화면 추가
+- [x] 미리캔버스 공고를 대상으로 실제 AI 호출 없는 fixture 스냅샷·프로필·완료 분석 저장
+- [x] n8n OpenAI 노드를 GPT-5.6 Luna로 변경하고 공고/문서 medium, 최종 비교 high 설정
+- [x] OpenAI 연결 후 fixture를 제거·교체해야 한다는 운영 경계 문서화
+
+구현 결과:
+
+- `document_analysis_profiles`와 `job_posting_analysis_profiles`는 `fixture`와 `ai` 출처를 구분하고 입력 hash·prompt version을 보존한다.
+- `JobPostingBodySectionsSchema`가 회사 소개, 직무 소개, 기대 모습, 주요 업무, 자격요건, 우대사항, 고용조건, 채용절차, 복리후생, 기술 스택, 인재상, 마감일, 근무지역을 표현한다.
+- `scripts/seed-career-analysis-fixture.mjs`는 기존 데이터를 삭제하지 않고 미리캔버스의 최신 fixture 분석을 추가한다.
+- 현재 fixture는 화면 검수용이며 OpenAI Credential 연결 직전에 정리하고 실제 AI 결과로 교체해야 한다.
+- 공식 OpenAI 모델 기준으로 공고·문서 프로필은 reasoning `medium`, 최종 적합도·질문·지원 전략은 `high`를 사용한다.
+
+종료 기준: 외부 AI Credential 없이도 등록된 PDF와 공고 본문을 재사용해 분석 입력과 결과 화면을 확인할 수 있고, 실제 AI 연결 시 fixture 교체 지점이 명확하다.
 
 ### 16단계 — 외부 요소 연결 및 운영 배포
 
 목표: 개발이 끝난 코드를 실제 외부 서비스와 연결하고 운영 환경에 배포한다.
 
 - [ ] 외부 연동에 필요한 계정, Credential, URL, Secret 최종 목록 확인
-- [ ] n8n에 `OpenAI Career Analysis` Credential 생성 후 두 OpenAI 노드에 연결
+- [ ] n8n에 `OpenAI Career Analysis` Credential 생성 후 5개 OpenAI 노드에 연결
 - [ ] 최신 n8n Workflow를 백업 후 import·게시
 - [ ] Slack에 `#채용공고`, `#시스템-에러` 채널과 최소 권한 Bot·Incoming Webhook 연결
 - [ ] Vercel에 Next.js 환경변수와 관리자 redirect URL 설정
 - [ ] Cloudflare Worker 개발/운영 환경 분리 및 secret 등록
 - [ ] n8n 운영 위치는 로컬 사용량·안정성 측정 후 결정
 - [ ] 운영 n8n 선택 시 Docker, HTTPS, 방화벽, backup, update 정책 적용
-- [ ] Supabase 운영 환경, Auth redirect URL, Storage와 migration 상태 최종 확인
+- [ ] Supabase 운영 환경 Auth redirect URL, Auth 설정과 Storage 동작 최종 확인
 - [ ] 환경별 Origin, callback URL, Webhook URL과 Secret 조합 검증
 - [ ] 배포 전 Secret rotation과 최소 권한 확인
 
@@ -677,6 +738,7 @@
 | -------- | ------------------------------------------------ | ------------------------------ |
 | `POST`   | `/v1/document-versions/uploads`                  | 문서 버전과 signed upload 준비 |
 | `POST`   | `/v1/document-versions/:id/complete`             | 업로드 검증 및 버전 확정       |
+| `POST`   | `/v1/document-versions/:id/abort-upload`         | 실패·취소한 임시 업로드 정리   |
 | `GET`    | `/v1/document-versions`                          | 문서 유형별 버전 목록 조회     |
 | `PATCH`  | `/v1/document-versions/:id`                      | 이름·기본값·archive 상태 변경  |
 | `PUT`    | `/v1/document-publications/:type`                | 유형별 현재 공개 버전 지정     |
@@ -714,6 +776,7 @@
 | ------ | --------------------------------------- | --------------------------------- |
 | `POST` | `/v1/internal/analysis-jobs/:id/events` | 단계 변경, heartbeat, 실패 이벤트 |
 | `POST` | `/v1/internal/analysis-jobs/:id/result` | 최종 결과 원자적 저장             |
+| `POST` | `/v1/internal/document-versions/:id/extract` | PDF 텍스트 추출 결과 저장 |
 
 내부 요청에는 `X-Request-Id`, `X-Event-Id`, `X-Signature-Timestamp`, `X-Signature`가 필요하다. 서명 대상은 최소 `timestamp + method + path + body hash`이며 허용 시간 차이를 제한한다.
 
@@ -757,7 +820,7 @@
 
 공식 참고:
 
-- [GPT-5.4 Mini 모델](https://developers.openai.com/api/docs/models/gpt-5.4-mini)
+- [GPT-5.6 Luna 모델](https://developers.openai.com/api/docs/models/gpt-5.6-luna)
 - [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
 - [OpenAI API Quickstart](https://platform.openai.com/docs/quickstart/make-your-first-api-request)
 
@@ -954,4 +1017,4 @@ Vercel은 기존 Git Integration 배포를 유지하므로 별도 CLI token, org
 
 ## 14. 다음 작업
 
-다음 작업은 **16단계 — 외부 요소 연결 및 운영 배포**다. OpenAI·Slack Credential, Supabase 원격 migration, 최신 n8n Workflow 게시, Cloudflare Worker와 Vercel 운영 환경을 배포 체크리스트 순서로 연결한다. 실제 정상·장애 흐름 검증은 17단계에서 수행한다.
+다음 작업은 **16단계 — 외부 요소 연결 및 운영 배포**다. OpenAI·Slack Credential, 최신 n8n Workflow 게시, Cloudflare Worker와 Vercel 운영 환경을 배포 체크리스트 순서로 연결한다. 현재 원격 Supabase에는 15.2단계 schema migration이 적용되어 있으며, 실제 정상·장애 흐름 검증은 17단계에서 수행한다.

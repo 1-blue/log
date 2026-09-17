@@ -5,6 +5,9 @@ import Link from "next/link";
 
 import type { DocumentVersion } from "@workspace/contracts";
 import { Button } from "@workspace/ui/components/Button";
+import { Input } from "@workspace/ui/components/Input";
+import { Label } from "@workspace/ui/components/Label";
+import { Textarea } from "@workspace/ui/components/Textarea";
 
 import {
   ArrowLeftIcon,
@@ -15,15 +18,13 @@ import {
 
 import {
   createDocumentDownloadUrl,
+  extractDocumentVersion,
   getDocumentVersion,
   publishDocumentVersion,
   unpublishDocumentVersion,
   updateDocumentVersion,
   WorkerApiError,
 } from "#/libs/worker-client";
-
-const fieldClassName =
-  "border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-2";
 
 function getErrorMessage(error: unknown): string {
   return error instanceof WorkerApiError
@@ -274,39 +275,59 @@ export default function DocumentDetailClient({
         <div>
           <h3 className="font-semibold">분석용 문서 정보</h3>
           <p className="text-muted-foreground mt-1 text-sm">
-            자동 텍스트 추출 전까지 분석에 사용할 내용을 직접 관리합니다.
+            업로드한 PDF에서 텍스트를 자동 추출해 분석에 사용합니다. 추출이
+            어려운 PDF는 아래에서 직접 보정할 수 있습니다.
           </p>
         </div>
-        <label className="grid gap-2 text-sm font-medium">
-          버전 이름
-          <input
-            className={fieldClassName}
+        <div className="grid gap-2 text-sm font-medium">
+          <Label htmlFor="document-detail-label">버전 이름</Label>
+          <Input
+            id="document-detail-label"
             defaultValue={document.label}
             maxLength={100}
             name="label"
             required
           />
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          추출 텍스트
-          <textarea
-            className={`${fieldClassName} min-h-80 resize-y leading-6`}
+        </div>
+        <div className="grid gap-2 text-sm font-medium">
+          <Label htmlFor="document-detail-text">추출 텍스트</Label>
+          <Textarea
+            className="min-h-80 resize-y leading-6"
             defaultValue={document.extractedText ?? ""}
             maxLength={500_000}
             name="extractedText"
-            placeholder="PDF에서 복사한 이력서 또는 포트폴리오 내용을 입력하세요."
+            placeholder="자동 추출 결과를 확인하거나 필요한 경우 직접 보정하세요."
+            id="document-detail-text"
           />
-        </label>
+        </div>
         <div className="flex items-center justify-between gap-3">
           <p className="text-muted-foreground text-xs">
             상태: {document.extractionStatus}
           </p>
-          <Button disabled={disabled} type="submit">
-            {pending === "metadata" ? (
-              <LoaderCircleIcon className="animate-spin" />
-            ) : null}
-            저장
-          </Button>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              disabled={disabled || document.extractionStatus === "processing"}
+              onClick={() =>
+                void runAction("extract", async () => {
+                  const response = await extractDocumentVersion(document.id);
+                  return response.data;
+                })
+              }
+              type="button"
+              variant="outline"
+            >
+              {pending === "extract" ? (
+                <LoaderCircleIcon className="animate-spin" />
+              ) : null}
+              PDF 다시 추출
+            </Button>
+            <Button disabled={disabled} type="submit">
+              {pending === "metadata" ? (
+                <LoaderCircleIcon className="animate-spin" />
+              ) : null}
+              저장
+            </Button>
+          </div>
         </div>
       </form>
     </section>

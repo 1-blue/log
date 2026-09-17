@@ -24,6 +24,28 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@workspace/ui/components/Dialog";
+import { Input } from "@workspace/ui/components/Input";
+import { Label } from "@workspace/ui/components/Label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/Select";
+import { Textarea } from "@workspace/ui/components/Textarea";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@workspace/ui/components/Accordion";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@workspace/ui/components/Tabs";
 
 import {
   ArchiveIcon,
@@ -58,13 +80,17 @@ import {
   WorkerApiError,
 } from "#/libs/worker-client";
 
-const fieldClassName =
-  "border-input bg-background focus-visible:ring-ring/50 w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-60";
-
 function message(error: unknown) {
   return error instanceof WorkerApiError
     ? error.message
     : "요청을 처리하지 못했습니다.";
+}
+
+function normalizeOptionalDocumentId(
+  value: FormDataEntryValue | null,
+): string | null {
+  const normalized = String(value ?? "");
+  return normalized && normalized !== "none" ? normalized : null;
 }
 
 const COLLECTION_ERROR_LABELS: Record<JobPostingCollectionErrorCode, string> = {
@@ -83,6 +109,22 @@ const COLLECTION_ERROR_LABELS: Record<JobPostingCollectionErrorCode, string> = {
   UPSTREAM_ERROR: "Wanted 서버에서 오류를 반환했습니다.",
   URL_MISMATCH: "응답 공고와 등록한 URL이 일치하지 않습니다.",
 };
+
+const JOB_POSTING_SECTION_LABELS = {
+  companyIntroduction: "회사 소개",
+  positionIntroduction: "직무 소개",
+  expectations: "기대 모습",
+  mainResponsibilities: "주요 업무",
+  requirements: "자격요건",
+  preferred: "우대사항",
+  employmentConditions: "고용조건",
+  process: "채용절차",
+  benefits: "복리후생",
+  technologies: "기술 스택",
+  traits: "인재상",
+  deadline: "마감일",
+  location: "근무지역",
+} as const;
 
 function upsertCollection(
   current: JobPostingCollectionRun[],
@@ -142,6 +184,21 @@ export default function ApplicationDetailClient({
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [analysisPollingExpired, setAnalysisPollingExpired] = useState(false);
+  const [activeTab, setActiveTab] = useState("posting");
+
+  const changeTab = useCallback((value: string) => {
+    setActiveTab(value);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", value);
+    window.history.replaceState(null, "", url);
+  }, []);
+
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab && ["info", "posting", "analysis"].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -334,10 +391,10 @@ export default function ApplicationDetailClient({
         note: String(data.get("note") ?? "").trim() || null,
         portfolioVersionId: application.documentsLockedAt
           ? (application.documents.portfolio?.id ?? null)
-          : String(data.get("portfolioVersionId") ?? "") || null,
+          : normalizeOptionalDocumentId(data.get("portfolioVersionId")),
         resumeVersionId: application.documentsLockedAt
           ? (application.documents.resume?.id ?? null)
-          : String(data.get("resumeVersionId") ?? "") || null,
+          : normalizeOptionalDocumentId(data.get("resumeVersionId")),
         status,
       });
       setApplication(response.data);
@@ -448,7 +505,7 @@ export default function ApplicationDetailClient({
   const latestAnalysis = analysisJobs[0] ?? null;
 
   return (
-    <section className="flex max-w-4xl flex-col gap-6">
+    <section className="flex w-full flex-col gap-6">
       <Button asChild className="w-fit" variant="ghost">
         <Link href="/admin/applications">
           <ArrowLeftIcon /> 지원 목록
@@ -547,558 +604,645 @@ export default function ApplicationDetailClient({
         </p>
       ) : null}
 
-      <div className="border-border bg-card rounded-lg border p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h3 className="font-semibold">채용공고 원문 수집</h3>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Wanted의 공식 JobPosting 데이터 또는 직접 입력한 원문을 버전으로
-              보관합니다.
-            </p>
-          </div>
-          <Button
-            disabled={disabled || Boolean(activeCollection)}
-            onClick={() => void collect(null)}
-            type="button"
-            variant="outline"
-          >
-            {pending === "collect" ? (
-              <LoaderCircleIcon className="animate-spin" />
-            ) : (
-              <RotateCcwIcon />
-            )}
-            {latestCollection ? "자동 수집 재시도" : "자동 수집"}
-          </Button>
-        </div>
+      <Tabs value={activeTab} onValueChange={changeTab}>
+        <TabsList aria-label="지원 상세 영역">
+          <TabsTrigger value="info">
+            지원 정보
+          </TabsTrigger>
+          <TabsTrigger value="posting">
+            채용공고
+          </TabsTrigger>
+          <TabsTrigger value="analysis">
+            적합도 분석
+          </TabsTrigger>
+        </TabsList>
 
-        {latestCollection ? (
-          <div className="border-border bg-muted/30 mt-4 rounded-md border p-4 text-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-medium">
-                {latestCollection.status === "queued" ||
-                latestCollection.status === "running"
-                  ? "공고를 수집하고 있습니다."
-                  : latestCollection.status === "succeeded"
-                    ? "공고 원문 수집을 완료했습니다."
-                    : COLLECTION_ERROR_LABELS[
-                        latestCollection.errorCode ?? "INVALID_JOB_POSTING"
-                      ]}
-              </span>
-              <time className="text-muted-foreground text-xs">
-                {formatApplicationDate(latestCollection.updatedAt)}
-              </time>
+        <TabsContent value="posting">
+          <div className="border-border bg-card rounded-lg border p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="font-semibold">채용공고 원문 수집</h3>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Wanted의 공식 JobPosting 데이터 또는 직접 입력한 원문을
+                  버전으로 보관합니다.
+                </p>
+              </div>
+              <Button
+                disabled={disabled || Boolean(activeCollection)}
+                onClick={() => void collect(null)}
+                type="button"
+                variant="outline"
+              >
+                {pending === "collect" ? (
+                  <LoaderCircleIcon className="animate-spin" />
+                ) : (
+                  <RotateCcwIcon />
+                )}
+                {latestCollection ? "자동 수집 재시도" : "자동 수집"}
+              </Button>
             </div>
-            {latestCollection.retryable ? (
-              <p className="text-muted-foreground mt-2 text-xs">
-                일시적인 오류일 수 있으므로 잠시 후 다시 시도할 수 있습니다.
+
+            {latestCollection ? (
+              <div className="border-border bg-muted/30 mt-4 rounded-md border p-4 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium">
+                    {latestCollection.status === "queued" ||
+                    latestCollection.status === "running"
+                      ? "공고를 수집하고 있습니다."
+                      : latestCollection.status === "succeeded"
+                        ? "공고 원문 수집을 완료했습니다."
+                        : COLLECTION_ERROR_LABELS[
+                            latestCollection.errorCode ?? "INVALID_JOB_POSTING"
+                          ]}
+                  </span>
+                  <time className="text-muted-foreground text-xs">
+                    {formatApplicationDate(latestCollection.updatedAt)}
+                  </time>
+                </div>
+                {latestCollection.retryable ? (
+                  <p className="text-muted-foreground mt-2 text-xs">
+                    일시적인 오류일 수 있으므로 잠시 후 다시 시도할 수 있습니다.
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-muted-foreground mt-4 text-sm">
+                아직 수집한 원문이 없습니다.
               </p>
-            ) : null}
-          </div>
-        ) : (
-          <p className="text-muted-foreground mt-4 text-sm">
-            아직 수집한 원문이 없습니다.
-          </p>
-        )}
+            )}
 
-        {latestSnapshot ? (
-          <div className="mt-5 grid gap-4">
-            {metadataDiffers ? (
-              <div className="border-primary/20 bg-primary/5 rounded-md border p-3 text-sm">
-                <p className="font-medium">
-                  입력 정보와 Wanted 추출 정보가 다릅니다.
-                </p>
-                <p className="text-muted-foreground mt-1 text-xs">
-                  추출 회사명:{" "}
-                  {latestSnapshot.sourceMetadata.companyName ?? "확인 불가"} ·
-                  추출 공고명:{" "}
-                  {latestSnapshot.sourceMetadata.title ?? "확인 불가"}
-                </p>
+            {latestSnapshot ? (
+              <div className="mt-5 grid gap-4">
+                {metadataDiffers ? (
+                  <div className="border-primary/20 bg-primary/5 rounded-md border p-3 text-sm">
+                    <p className="font-medium">
+                      입력 정보와 Wanted 추출 정보가 다릅니다.
+                    </p>
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      추출 회사명:{" "}
+                      {latestSnapshot.sourceMetadata.companyName ?? "확인 불가"}{" "}
+                      · 추출 공고명:{" "}
+                      {latestSnapshot.sourceMetadata.title ?? "확인 불가"}
+                    </p>
+                  </div>
+                ) : null}
+                <dl className="text-muted-foreground grid gap-2 text-xs sm:grid-cols-2">
+                  <div>
+                    <dt className="inline font-medium">출처 </dt>
+                    <dd className="inline">
+                      {latestSnapshot.source === "manual"
+                        ? "직접 입력"
+                        : latestSnapshot.source === "wanted_html"
+                          ? "Wanted 본문 HTML"
+                          : latestSnapshot.source === "wanted_ai"
+                            ? "AI 보완 본문"
+                            : "Wanted JSON-LD"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="inline font-medium">파서 </dt>
+                    <dd className="inline">{latestSnapshot.parserVersion}</dd>
+                  </div>
+                  <div>
+                    <dt className="inline font-medium">수집 시각 </dt>
+                    <dd className="inline">
+                      {formatApplicationDate(latestSnapshot.fetchedAt)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="inline font-medium">해시 </dt>
+                    <dd className="inline font-mono">
+                      {latestSnapshot.contentHash.slice(0, 12)}…
+                    </dd>
+                  </div>
+                </dl>
+                <Accordion
+                  className="border-border rounded-md border px-4"
+                  type="multiple"
+                >
+                  {Object.entries(JOB_POSTING_SECTION_LABELS).map(
+                    ([key, label]) => {
+                      const content =
+                        latestSnapshot.sections[
+                          key as keyof typeof latestSnapshot.sections
+                        ];
+                      return content ? (
+                        <AccordionItem key={key} value={key}>
+                          <AccordionTrigger>{label}</AccordionTrigger>
+                          <AccordionContent>
+                            <p className="text-muted-foreground max-w-prose whitespace-pre-wrap break-words text-sm leading-6">
+                              {content}
+                            </p>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ) : null;
+                    },
+                  )}
+                </Accordion>
+                <details className="border-border rounded-md border p-4">
+                  <summary className="cursor-pointer text-sm font-medium">
+                    정규화된 전체 원문 보기
+                  </summary>
+                  <pre className="border-border bg-background mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded-md border p-4 text-xs leading-6">
+                    {latestSnapshot.normalizedContent}
+                  </pre>
+                </details>
               </div>
             ) : null}
-            <dl className="text-muted-foreground grid gap-2 text-xs sm:grid-cols-2">
-              <div>
-                <dt className="inline font-medium">출처 </dt>
-                <dd className="inline">
-                  {latestSnapshot.source === "manual"
-                    ? "직접 입력"
-                    : "Wanted JSON-LD"}
-                </dd>
-              </div>
-              <div>
-                <dt className="inline font-medium">파서 </dt>
-                <dd className="inline">{latestSnapshot.parserVersion}</dd>
-              </div>
-              <div>
-                <dt className="inline font-medium">수집 시각 </dt>
-                <dd className="inline">
-                  {formatApplicationDate(latestSnapshot.fetchedAt)}
-                </dd>
-              </div>
-              <div>
-                <dt className="inline font-medium">해시 </dt>
-                <dd className="inline font-mono">
-                  {latestSnapshot.contentHash.slice(0, 12)}…
-                </dd>
-              </div>
-            </dl>
-            <pre className="border-border bg-background max-h-96 overflow-auto rounded-md border p-4 text-xs leading-6 whitespace-pre-wrap">
-              {latestSnapshot.normalizedContent}
-            </pre>
-          </div>
-        ) : null}
 
-        <form
-          className="border-border mt-5 grid gap-3 border-t pt-5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void collect(manualContent.trim());
-          }}
-        >
-          <label className="grid gap-2 text-sm font-medium">
-            원문 직접 입력
-            <textarea
-              className={`${fieldClassName} min-h-44 resize-y`}
-              maxLength={100_000}
-              minLength={100}
-              onChange={(event) => setManualContent(event.target.value)}
-              placeholder="자동 수집이 불가능하면 Wanted 공고 본문을 붙여 넣어 주세요."
-              value={manualContent}
-            />
-          </label>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-muted-foreground text-xs">
-              {manualContent.trim().length.toLocaleString()} / 100,000자 · 최소
-              100자
-            </span>
-            <Button
-              disabled={
-                disabled ||
-                Boolean(activeCollection) ||
-                manualContent.trim().length < 100
+            <details
+              className="border-border mt-5 border-t pt-5"
+              open={
+                latestCollection?.status === "needs_input" ||
+                latestCollection?.status === "failed"
               }
-              type="submit"
             >
-              {pending === "manual-collect" ? (
-                <LoaderCircleIcon className="animate-spin" />
-              ) : null}
-              수동 원문 저장
-            </Button>
-          </div>
-        </form>
+              <summary className="cursor-pointer text-sm font-medium">
+                원문 직접 입력
+              </summary>
+              <form
+                className="mt-3 grid gap-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void collect(manualContent.trim());
+                }}
+              >
+                <div className="grid gap-2 text-sm font-medium">
+                  <Label htmlFor="manual-job-content">원문 직접 입력</Label>
+                  <Textarea
+                    className="min-h-44 resize-y"
+                    maxLength={100_000}
+                    minLength={100}
+                    id="manual-job-content"
+                    onChange={(event) => setManualContent(event.target.value)}
+                    placeholder="자동 수집이 불가능하면 Wanted 공고 본문을 붙여 넣어 주세요."
+                    value={manualContent}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground text-xs">
+                    {manualContent.trim().length.toLocaleString()} / 100,000자 ·
+                    최소 100자
+                  </span>
+                  <Button
+                    disabled={
+                      disabled ||
+                      Boolean(activeCollection) ||
+                      manualContent.trim().length < 100
+                    }
+                    type="submit"
+                  >
+                    {pending === "manual-collect" ? (
+                      <LoaderCircleIcon className="animate-spin" />
+                    ) : null}
+                    수동 원문 저장
+                  </Button>
+                </div>
+              </form>
+            </details>
 
-        {collections.length > 1 ? (
-          <details className="mt-5 text-sm">
-            <summary className="cursor-pointer font-medium">
-              최근 수집 이력 {collections.length}건
-            </summary>
-            <ol className="mt-3 grid gap-2">
-              {collections.map((item) => (
+            {collections.length > 1 ? (
+              <details className="mt-5 text-sm">
+                <summary className="cursor-pointer font-medium">
+                  최근 수집 이력 {collections.length}건
+                </summary>
+                <ol className="mt-3 grid gap-2">
+                  {collections.map((item) => (
+                    <li
+                      className="border-border flex flex-wrap justify-between gap-2 border-b py-2 last:border-0"
+                      key={item.id}
+                    >
+                      <span>
+                        {item.mode === "manual" ? "직접 입력" : "자동 수집"} ·{" "}
+                        {item.status}
+                      </span>
+                      <time className="text-muted-foreground">
+                        {formatApplicationDate(item.createdAt)}
+                      </time>
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            ) : null}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="analysis">
+          <div className="border-border bg-card rounded-lg border p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="font-semibold">공고 적합도 분석</h3>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  현재 공고 원문과 선택한 이력서·포트폴리오의 고정본을 AI가
+                  비교합니다.
+                </p>
+              </div>
+              <Button
+                disabled={disabled || Boolean(activeAnalysis) || !analysisReady}
+                onClick={() => void analyze()}
+                type="button"
+              >
+                {pending === "analyze" || activeAnalysis ? (
+                  <LoaderCircleIcon className="animate-spin" />
+                ) : null}
+                {latestAnalysis ? "다시 분석" : "분석 시작"}
+              </Button>
+            </div>
+
+            {!analysisReady ? (
+              <div className="border-border bg-muted/30 mt-4 rounded-md border p-4 text-sm">
+                <p className="font-medium">분석 준비가 필요합니다.</p>
+                <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-xs">
+                  {!latestSnapshot ? (
+                    <li>채용공고 원문을 먼저 수집해 주세요.</li>
+                  ) : null}
+                  {!application.documents.resume ||
+                  !application.documents.portfolio ? (
+                    <li>이력서와 포트폴리오를 모두 선택하고 저장해 주세요.</li>
+                  ) : null}
+                  {application.documents.resume &&
+                  selectedResume?.extractionStatus !== "ready" ? (
+                    <li>
+                      선택한 이력서의 문서 상세 화면에서 분석용 텍스트를 등록해
+                      주세요.
+                    </li>
+                  ) : null}
+                  {application.documents.portfolio &&
+                  selectedPortfolio?.extractionStatus !== "ready" ? (
+                    <li>
+                      선택한 포트폴리오의 문서 상세 화면에서 분석용 텍스트를
+                      등록해 주세요.
+                    </li>
+                  ) : null}
+                </ul>
+                <Button asChild className="mt-3" size="sm" variant="outline">
+                  <Link href="/admin/documents">문서 관리로 이동</Link>
+                </Button>
+              </div>
+            ) : null}
+
+            {latestAnalysis ? (
+              <div className="border-border mt-4 rounded-md border p-4 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium">
+                    {ANALYSIS_STATUS_LABELS[latestAnalysis.status]}
+                  </span>
+                  <time className="text-muted-foreground text-xs">
+                    {formatApplicationDate(latestAnalysis.updatedAt)}
+                  </time>
+                </div>
+                <dl className="text-muted-foreground mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                  <div>
+                    <dt className="inline font-medium">실행 회차 </dt>
+                    <dd className="inline">
+                      {latestAnalysis.attemptCount} / 2
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="inline font-medium">현재 단계 </dt>
+                    <dd className="inline">
+                      {latestAnalysis.stage
+                        ? ANALYSIS_STAGE_LABELS[latestAnalysis.stage]
+                        : "대기 중"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="inline font-medium">최근 응답 </dt>
+                    <dd className="inline">
+                      {latestAnalysis.lastHeartbeatAt
+                        ? formatApplicationDate(latestAnalysis.lastHeartbeatAt)
+                        : "아직 없음"}
+                    </dd>
+                  </div>
+                  {latestAnalysis.retryAt ? (
+                    <div>
+                      <dt className="inline font-medium">다음 단계 재시도 </dt>
+                      <dd className="inline">
+                        {formatApplicationDate(latestAnalysis.retryAt)}
+                      </dd>
+                    </div>
+                  ) : null}
+                </dl>
+                {latestAnalysis.lastError ? (
+                  <p className="text-destructive mt-2 text-xs">
+                    {latestAnalysis.lastError.message}
+                  </p>
+                ) : null}
+                {analysisPollingExpired && activeAnalysisId ? (
+                  <div className="border-border bg-muted/30 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+                    <p className="text-muted-foreground text-xs">
+                      자동 새로고침이 종료되었습니다. 작업은 백그라운드에서
+                      계속될 수 있습니다.
+                    </p>
+                    <Button
+                      disabled={disabled}
+                      onClick={() => void refreshAnalysis(activeAnalysisId)}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      {pending === "analysis-refresh" ? (
+                        <LoaderCircleIcon className="animate-spin" />
+                      ) : (
+                        <RotateCcwIcon />
+                      )}
+                      상태 새로고침
+                    </Button>
+                  </div>
+                ) : null}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {latestAnalysis.status === "failed" &&
+                  latestAnalysis.lastError?.retryable &&
+                  latestAnalysis.attemptCount < 2 ? (
+                    <Button
+                      disabled={disabled}
+                      onClick={() => void retryAnalysis(latestAnalysis.id)}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      {pending === "analysis-retry" ? (
+                        <LoaderCircleIcon className="animate-spin" />
+                      ) : (
+                        <RotateCcwIcon />
+                      )}
+                      같은 작업 재시도
+                    </Button>
+                  ) : null}
+                  {activeAnalysisId === latestAnalysis.id ? (
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button disabled={disabled} size="sm" variant="outline">
+                          <XIcon /> 분석 취소
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>분석 작업을 취소할까요?</DialogTitle>
+                          <DialogDescription>
+                            이미 실행 중인 외부 요청은 즉시 중단되지 않을 수
+                            있지만, 이후 도착한 결과는 저장되지 않습니다.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                          <DialogClose asChild>
+                            <Button variant="outline">계속 진행</Button>
+                          </DialogClose>
+                          <DialogClose asChild>
+                            <Button
+                              onClick={() =>
+                                void cancelAnalysis(latestAnalysis.id)
+                              }
+                            >
+                              취소 확정
+                            </Button>
+                          </DialogClose>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  ) : null}
+                </div>
+                {latestAnalysis.result ? (
+                  <div className="mt-4 grid gap-3">
+                    <div className="flex flex-wrap items-end gap-3">
+                      <strong className="text-primary text-3xl">
+                        {latestAnalysis.result.fitScore}점
+                      </strong>
+                      <span className="text-muted-foreground text-xs">
+                        요구사항 {latestAnalysis.result.job.requirements.length}
+                        개 · 부족 역량{" "}
+                        {latestAnalysis.result.comparison.gaps.length}개 · 면접
+                        질문{" "}
+                        {
+                          latestAnalysis.result.comparison.interviewQuestions
+                            .length
+                        }
+                        개
+                      </span>
+                    </div>
+                    <p className="leading-6">
+                      {latestAnalysis.result.comparison.summary}
+                    </p>
+                    <Button asChild className="w-fit" size="sm">
+                      <Link
+                        href={`/admin/applications/${application.id}/analyses/${latestAnalysis.id}`}
+                      >
+                        상세 결과 및 면접 준비
+                      </Link>
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-muted-foreground mt-4 text-sm">
+                아직 실행한 분석이 없습니다.
+              </p>
+            )}
+
+            {analysisJobs.length > 1 ? (
+              <details className="mt-4 text-sm">
+                <summary className="cursor-pointer font-medium">
+                  최근 분석 이력 {analysisJobs.length}건
+                </summary>
+                <ol className="mt-3 grid gap-2">
+                  {analysisJobs.map((item) => (
+                    <li
+                      className="border-border flex justify-between gap-2 border-b py-2 last:border-0"
+                      key={item.id}
+                    >
+                      <Link
+                        className="underline-offset-4 hover:underline"
+                        href={`/admin/applications/${application.id}/analyses/${item.id}`}
+                      >
+                        {ANALYSIS_STATUS_LABELS[item.status]}
+                        {item.result ? ` · ${item.result.fitScore}점` : ""}
+                      </Link>
+                      <time className="text-muted-foreground">
+                        {formatApplicationDate(item.createdAt)}
+                      </time>
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            ) : null}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="info">
+          <form
+            className="border-border bg-card grid gap-5 rounded-lg border p-5 sm:grid-cols-2"
+            key={application.updatedAt}
+            onSubmit={save}
+          >
+            <div className="grid gap-2 text-sm font-medium">
+              <Label htmlFor="detail-company">회사명</Label>
+              <Input
+                id="detail-company"
+                defaultValue={application.jobPosting.companyName}
+                disabled={archived}
+                maxLength={200}
+                name="companyName"
+                required
+              />
+            </div>
+            <div className="grid gap-2 text-sm font-medium">
+              <Label htmlFor="detail-title">공고 제목</Label>
+              <Input
+                id="detail-title"
+                defaultValue={application.jobPosting.title}
+                disabled={archived}
+                maxLength={300}
+                name="title"
+                required
+              />
+            </div>
+            <div className="grid gap-2 text-sm font-medium">
+              <Label htmlFor="detail-status">지원 상태</Label>
+              <Select
+                disabled={archived}
+                name="status"
+                onValueChange={(value) => setStatus(value as ApplicationStatus)}
+                value={status}
+              >
+                <SelectTrigger id="detail-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {APPLICATION_STATUS_OPTIONS.map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2 text-sm font-medium">
+              <Label htmlFor="detail-applied-on">지원일</Label>
+              <Input
+                id="detail-applied-on"
+                defaultValue={application.appliedOn ?? ""}
+                disabled={archived}
+                name="appliedOn"
+                type="date"
+              />
+            </div>
+            <div className="grid gap-2 text-sm font-medium sm:col-span-2">
+              <Label htmlFor="detail-interview-at">면접 일정</Label>
+              <Input
+                id="detail-interview-at"
+                defaultValue={toLocalDateTimeInput(application.interviewAt)}
+                disabled={archived}
+                name="interviewAt"
+                type="datetime-local"
+              />
+            </div>
+            <div className="grid gap-2 text-sm font-medium">
+              <Label htmlFor="detail-resume">
+                이력서 버전 {documentsRequired ? "(필수)" : "(선택)"}
+              </Label>
+              <Select
+                defaultValue={application.documents.resume?.id ?? "none"}
+                disabled={archived || locked}
+                name="resumeVersionId"
+                required={documentsRequired}
+              >
+                <SelectTrigger id="detail-resume">
+                  <SelectValue placeholder="선택하지 않음" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">선택하지 않음</SelectItem>
+                  {resumes.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.label}
+                      {item.isDefault ? " · 기본" : ""}
+                    </SelectItem>
+                  ))}
+                  {application.documents.resume?.archivedAt ? (
+                    <SelectItem value={application.documents.resume.id}>
+                      {application.documents.resume.label} · 보관됨
+                    </SelectItem>
+                  ) : null}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2 text-sm font-medium">
+              <Label htmlFor="detail-portfolio">
+                포트폴리오 버전 {documentsRequired ? "(필수)" : "(선택)"}
+              </Label>
+              <Select
+                defaultValue={application.documents.portfolio?.id ?? "none"}
+                disabled={archived || locked}
+                name="portfolioVersionId"
+                required={documentsRequired}
+              >
+                <SelectTrigger id="detail-portfolio">
+                  <SelectValue placeholder="선택하지 않음" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">선택하지 않음</SelectItem>
+                  {portfolios.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.label}
+                      {item.isDefault ? " · 기본" : ""}
+                    </SelectItem>
+                  ))}
+                  {application.documents.portfolio?.archivedAt ? (
+                    <SelectItem value={application.documents.portfolio.id}>
+                      {application.documents.portfolio.label} · 보관됨
+                    </SelectItem>
+                  ) : null}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2 text-sm font-medium sm:col-span-2">
+              <Label htmlFor="detail-note">메모</Label>
+              <Textarea
+                className="min-h-44 resize-y"
+                defaultValue={application.note ?? ""}
+                disabled={archived}
+                maxLength={10_000}
+                id="detail-note"
+                name="note"
+              />
+            </div>
+            <div className="text-muted-foreground text-xs sm:col-span-2">
+              최근 수정 {formatApplicationDate(application.updatedAt)}
+            </div>
+            {!archived ? (
+              <div className="flex justify-end sm:col-span-2">
+                <Button disabled={disabled} type="submit">
+                  {pending === "save" ? (
+                    <LoaderCircleIcon className="animate-spin" />
+                  ) : null}{" "}
+                  저장
+                </Button>
+              </div>
+            ) : null}
+          </form>
+
+          <div className="border-border bg-card rounded-lg border p-5">
+            <h3 className="font-semibold">상태 변경 이력</h3>
+            <ol className="mt-4 grid gap-3">
+              {application.statusHistory.map((history) => (
                 <li
-                  className="border-border flex flex-wrap justify-between gap-2 border-b py-2 last:border-0"
-                  key={item.id}
+                  className="border-border flex flex-wrap justify-between gap-2 border-b pb-3 text-sm last:border-0 last:pb-0"
+                  key={history.id}
                 >
                   <span>
-                    {item.mode === "manual" ? "직접 입력" : "자동 수집"} ·{" "}
-                    {item.status}
+                    {history.fromStatus
+                      ? `${getApplicationStatusLabel(history.fromStatus)} → `
+                      : "등록 · "}
+                    {getApplicationStatusLabel(history.toStatus)}
                   </span>
                   <time className="text-muted-foreground">
-                    {formatApplicationDate(item.createdAt)}
+                    {formatApplicationDate(history.changedAt)}
                   </time>
                 </li>
               ))}
             </ol>
-          </details>
-        ) : null}
-      </div>
-
-      <div className="border-border bg-card rounded-lg border p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h3 className="font-semibold">공고 적합도 분석</h3>
-            <p className="text-muted-foreground mt-1 text-sm">
-              현재 공고 원문과 선택한 이력서·포트폴리오의 고정본을 AI가
-              비교합니다.
-            </p>
           </div>
-          <Button
-            disabled={disabled || Boolean(activeAnalysis) || !analysisReady}
-            onClick={() => void analyze()}
-            type="button"
-          >
-            {pending === "analyze" || activeAnalysis ? (
-              <LoaderCircleIcon className="animate-spin" />
-            ) : null}
-            {latestAnalysis ? "다시 분석" : "분석 시작"}
-          </Button>
-        </div>
-
-        {!analysisReady ? (
-          <div className="border-border bg-muted/30 mt-4 rounded-md border p-4 text-sm">
-            <p className="font-medium">분석 준비가 필요합니다.</p>
-            <ul className="text-muted-foreground mt-2 list-disc space-y-1 pl-5 text-xs">
-              {!latestSnapshot ? (
-                <li>채용공고 원문을 먼저 수집해 주세요.</li>
-              ) : null}
-              {!application.documents.resume ||
-              !application.documents.portfolio ? (
-                <li>이력서와 포트폴리오를 모두 선택하고 저장해 주세요.</li>
-              ) : null}
-              {application.documents.resume &&
-              selectedResume?.extractionStatus !== "ready" ? (
-                <li>
-                  선택한 이력서의 문서 상세 화면에서 분석용 텍스트를 등록해
-                  주세요.
-                </li>
-              ) : null}
-              {application.documents.portfolio &&
-              selectedPortfolio?.extractionStatus !== "ready" ? (
-                <li>
-                  선택한 포트폴리오의 문서 상세 화면에서 분석용 텍스트를 등록해
-                  주세요.
-                </li>
-              ) : null}
-            </ul>
-            <Button asChild className="mt-3" size="sm" variant="outline">
-              <Link href="/admin/documents">문서 관리로 이동</Link>
-            </Button>
-          </div>
-        ) : null}
-
-        {latestAnalysis ? (
-          <div className="border-border mt-4 rounded-md border p-4 text-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-medium">
-                {ANALYSIS_STATUS_LABELS[latestAnalysis.status]}
-              </span>
-              <time className="text-muted-foreground text-xs">
-                {formatApplicationDate(latestAnalysis.updatedAt)}
-              </time>
-            </div>
-            <dl className="text-muted-foreground mt-3 grid gap-2 text-xs sm:grid-cols-2">
-              <div>
-                <dt className="inline font-medium">실행 회차 </dt>
-                <dd className="inline">{latestAnalysis.attemptCount} / 2</dd>
-              </div>
-              <div>
-                <dt className="inline font-medium">현재 단계 </dt>
-                <dd className="inline">
-                  {latestAnalysis.stage
-                    ? ANALYSIS_STAGE_LABELS[latestAnalysis.stage]
-                    : "대기 중"}
-                </dd>
-              </div>
-              <div>
-                <dt className="inline font-medium">최근 응답 </dt>
-                <dd className="inline">
-                  {latestAnalysis.lastHeartbeatAt
-                    ? formatApplicationDate(latestAnalysis.lastHeartbeatAt)
-                    : "아직 없음"}
-                </dd>
-              </div>
-              {latestAnalysis.retryAt ? (
-                <div>
-                  <dt className="inline font-medium">다음 단계 재시도 </dt>
-                  <dd className="inline">
-                    {formatApplicationDate(latestAnalysis.retryAt)}
-                  </dd>
-                </div>
-              ) : null}
-            </dl>
-            {latestAnalysis.lastError ? (
-              <p className="text-destructive mt-2 text-xs">
-                {latestAnalysis.lastError.message}
-              </p>
-            ) : null}
-            {analysisPollingExpired && activeAnalysisId ? (
-              <div className="border-border bg-muted/30 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
-                <p className="text-muted-foreground text-xs">
-                  자동 새로고침이 종료되었습니다. 작업은 백그라운드에서 계속될
-                  수 있습니다.
-                </p>
-                <Button
-                  disabled={disabled}
-                  onClick={() => void refreshAnalysis(activeAnalysisId)}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  {pending === "analysis-refresh" ? (
-                    <LoaderCircleIcon className="animate-spin" />
-                  ) : (
-                    <RotateCcwIcon />
-                  )}
-                  상태 새로고침
-                </Button>
-              </div>
-            ) : null}
-            <div className="mt-3 flex flex-wrap gap-2">
-              {latestAnalysis.status === "failed" &&
-              latestAnalysis.lastError?.retryable &&
-              latestAnalysis.attemptCount < 2 ? (
-                <Button
-                  disabled={disabled}
-                  onClick={() => void retryAnalysis(latestAnalysis.id)}
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  {pending === "analysis-retry" ? (
-                    <LoaderCircleIcon className="animate-spin" />
-                  ) : (
-                    <RotateCcwIcon />
-                  )}
-                  같은 작업 재시도
-                </Button>
-              ) : null}
-              {activeAnalysisId === latestAnalysis.id ? (
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button disabled={disabled} size="sm" variant="outline">
-                      <XIcon /> 분석 취소
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>분석 작업을 취소할까요?</DialogTitle>
-                      <DialogDescription>
-                        이미 실행 중인 외부 요청은 즉시 중단되지 않을 수 있지만,
-                        이후 도착한 결과는 저장되지 않습니다.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                      <DialogClose asChild>
-                        <Button variant="outline">계속 진행</Button>
-                      </DialogClose>
-                      <DialogClose asChild>
-                        <Button
-                          onClick={() => void cancelAnalysis(latestAnalysis.id)}
-                        >
-                          취소 확정
-                        </Button>
-                      </DialogClose>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              ) : null}
-            </div>
-            {latestAnalysis.result ? (
-              <div className="mt-4 grid gap-3">
-                <div className="flex flex-wrap items-end gap-3">
-                  <strong className="text-primary text-3xl">
-                    {latestAnalysis.result.fitScore}점
-                  </strong>
-                  <span className="text-muted-foreground text-xs">
-                    요구사항 {latestAnalysis.result.job.requirements.length}개 ·
-                    부족 역량 {latestAnalysis.result.comparison.gaps.length}개 ·
-                    면접 질문{" "}
-                    {latestAnalysis.result.comparison.interviewQuestions.length}
-                    개
-                  </span>
-                </div>
-                <p className="leading-6">
-                  {latestAnalysis.result.comparison.summary}
-                </p>
-                <Button asChild className="w-fit" size="sm">
-                  <Link
-                    href={`/admin/applications/${application.id}/analyses/${latestAnalysis.id}`}
-                  >
-                    상세 결과 및 면접 준비
-                  </Link>
-                </Button>
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <p className="text-muted-foreground mt-4 text-sm">
-            아직 실행한 분석이 없습니다.
-          </p>
-        )}
-
-        {analysisJobs.length > 1 ? (
-          <details className="mt-4 text-sm">
-            <summary className="cursor-pointer font-medium">
-              최근 분석 이력 {analysisJobs.length}건
-            </summary>
-            <ol className="mt-3 grid gap-2">
-              {analysisJobs.map((item) => (
-                <li
-                  className="border-border flex justify-between gap-2 border-b py-2 last:border-0"
-                  key={item.id}
-                >
-                  <Link
-                    className="underline-offset-4 hover:underline"
-                    href={`/admin/applications/${application.id}/analyses/${item.id}`}
-                  >
-                    {ANALYSIS_STATUS_LABELS[item.status]}
-                    {item.result ? ` · ${item.result.fitScore}점` : ""}
-                  </Link>
-                  <time className="text-muted-foreground">
-                    {formatApplicationDate(item.createdAt)}
-                  </time>
-                </li>
-              ))}
-            </ol>
-          </details>
-        ) : null}
-      </div>
-
-      <form
-        className="border-border bg-card grid gap-5 rounded-lg border p-5 sm:grid-cols-2"
-        key={application.updatedAt}
-        onSubmit={save}
-      >
-        <label className="grid gap-2 text-sm font-medium">
-          회사명
-          <input
-            className={fieldClassName}
-            defaultValue={application.jobPosting.companyName}
-            disabled={archived}
-            maxLength={200}
-            name="companyName"
-            required
-          />
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          공고 제목
-          <input
-            className={fieldClassName}
-            defaultValue={application.jobPosting.title}
-            disabled={archived}
-            maxLength={300}
-            name="title"
-            required
-          />
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          지원 상태
-          <select
-            className={fieldClassName}
-            disabled={archived}
-            name="status"
-            onChange={(event) =>
-              setStatus(event.target.value as ApplicationStatus)
-            }
-            value={status}
-          >
-            {APPLICATION_STATUS_OPTIONS.map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          지원일
-          <input
-            className={fieldClassName}
-            defaultValue={application.appliedOn ?? ""}
-            disabled={archived}
-            name="appliedOn"
-            type="date"
-          />
-        </label>
-        <label className="grid gap-2 text-sm font-medium sm:col-span-2">
-          면접 일정
-          <input
-            className={fieldClassName}
-            defaultValue={toLocalDateTimeInput(application.interviewAt)}
-            disabled={archived}
-            name="interviewAt"
-            type="datetime-local"
-          />
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          이력서 버전 {documentsRequired ? "(필수)" : "(선택)"}
-          <select
-            className={fieldClassName}
-            defaultValue={application.documents.resume?.id ?? ""}
-            disabled={archived || locked}
-            name="resumeVersionId"
-            required={documentsRequired}
-          >
-            <option value="">선택하지 않음</option>
-            {resumes.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-                {item.isDefault ? " · 기본" : ""}
-              </option>
-            ))}
-            {application.documents.resume?.archivedAt ? (
-              <option value={application.documents.resume.id}>
-                {application.documents.resume.label} · 보관됨
-              </option>
-            ) : null}
-          </select>
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          포트폴리오 버전 {documentsRequired ? "(필수)" : "(선택)"}
-          <select
-            className={fieldClassName}
-            defaultValue={application.documents.portfolio?.id ?? ""}
-            disabled={archived || locked}
-            name="portfolioVersionId"
-            required={documentsRequired}
-          >
-            <option value="">선택하지 않음</option>
-            {portfolios.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-                {item.isDefault ? " · 기본" : ""}
-              </option>
-            ))}
-            {application.documents.portfolio?.archivedAt ? (
-              <option value={application.documents.portfolio.id}>
-                {application.documents.portfolio.label} · 보관됨
-              </option>
-            ) : null}
-          </select>
-        </label>
-        <label className="grid gap-2 text-sm font-medium sm:col-span-2">
-          메모
-          <textarea
-            className={`${fieldClassName} min-h-44 resize-y`}
-            defaultValue={application.note ?? ""}
-            disabled={archived}
-            maxLength={10_000}
-            name="note"
-          />
-        </label>
-        <div className="text-muted-foreground text-xs sm:col-span-2">
-          최근 수정 {formatApplicationDate(application.updatedAt)}
-        </div>
-        {!archived ? (
-          <div className="flex justify-end sm:col-span-2">
-            <Button disabled={disabled} type="submit">
-              {pending === "save" ? (
-                <LoaderCircleIcon className="animate-spin" />
-              ) : null}{" "}
-              저장
-            </Button>
-          </div>
-        ) : null}
-      </form>
-
-      <div className="border-border bg-card rounded-lg border p-5">
-        <h3 className="font-semibold">상태 변경 이력</h3>
-        <ol className="mt-4 grid gap-3">
-          {application.statusHistory.map((history) => (
-            <li
-              className="border-border flex flex-wrap justify-between gap-2 border-b pb-3 text-sm last:border-0 last:pb-0"
-              key={history.id}
-            >
-              <span>
-                {history.fromStatus
-                  ? `${getApplicationStatusLabel(history.fromStatus)} → `
-                  : "등록 · "}
-                {getApplicationStatusLabel(history.toStatus)}
-              </span>
-              <time className="text-muted-foreground">
-                {formatApplicationDate(history.changedAt)}
-              </time>
-            </li>
-          ))}
-        </ol>
-      </div>
+        </TabsContent>
+      </Tabs>
     </section>
   );
 }

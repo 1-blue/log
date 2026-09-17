@@ -1,6 +1,7 @@
 import type { DocumentVersion } from "@workspace/contracts";
 import {
   AdminSessionResponseSchema,
+  type DocumentExtractionCallback,
   DocumentVersionListResponseSchema,
   DocumentVersionResponseSchema,
   HealthResponseSchema,
@@ -15,9 +16,11 @@ import {
   type DocumentService,
   DocumentServiceError,
   getDocumentUploadMethod,
+  getStoragePath,
   inspectPdfResponse,
 } from "../src/documents.js";
 import type { IdempotencyService } from "../src/idempotency.js";
+import { createSignedHeaders } from "../src/n8n.js";
 
 const ADMIN_USER_ID = "00000000-0000-4000-8000-000000000001";
 const OTHER_USER_ID = "00000000-0000-4000-8000-000000000002";
@@ -91,8 +94,10 @@ const documentFixture: DocumentVersion = {
 
 function createFakeDocumentService(): DocumentService {
   return {
+    abortUpload: vi.fn(async () => "removed" as const),
     clearPublication: vi.fn(async () => undefined),
     completeUpload: vi.fn(async () => documentFixture),
+    completeExtraction: vi.fn(async () => documentFixture),
     createDownloadUrl: vi.fn(async () => ({
       expiresAt: "2026-09-11T00:01:00.000Z",
       url: "https://example.supabase.co/signed/document",
@@ -112,6 +117,9 @@ function createFakeDocumentService(): DocumentService {
       uploadMethod: "standard" as const,
       uploadToken: "signed-upload-token",
     })),
+    prepareExtraction: vi.fn(async () => null),
+    failExtraction: vi.fn(async () => undefined),
+    cleanupOrphanedUploads: vi.fn(async () => undefined),
     setPublication: vi.fn(async () => ({
       ...documentFixture,
       isPublished: true,
@@ -362,6 +370,28 @@ describe("worker document API", () => {
     expect(getDocumentUploadMethod(6 * 1_024 * 1_024 + 1)).toBe("tus");
   });
 
+  it("creates ASCII-safe storage names while preserving the display label", () => {
+    const path = getStoragePath(
+      ADMIN_USER_ID,
+      "portfolio",
+      "00000000-0000-4000-8000-000000000123",
+      "2026 상반기 / 인프라 직군",
+    );
+
+    expect(path).toBe(`${ADMIN_USER_ID}/portfolio/2026-000000.pdf`);
+    expect(path).not.toContain("//");
+    expect(path).toMatch(/^[\x20-\x7E]+$/u);
+
+    expect(
+      getStoragePath(
+        ADMIN_USER_ID,
+        "portfolio",
+        "00000000-0000-4000-8000-000000000123",
+        "포트폴리오",
+      ),
+    ).toBe(`${ADMIN_USER_ID}/portfolio/portfolio-000000.pdf`);
+  });
+
   it("validates PDF signature, size, and SHA-256", async () => {
     const content = new TextEncoder().encode("%PDF-1.7\nvalidated");
     const inspected = await inspectPdfResponse(new Response(content));
@@ -439,6 +469,10 @@ describe("worker document API", () => {
       mimeType: "application/pdf",
       originalFilename: "resume.pdf",
     };
+    const completeInput = {
+      ...metadata,
+      storagePath: `${ADMIN_USER_ID}/resume/${documentFixture.id}.pdf`,
+    };
     const prepared = await requestDocumentApi(
       "/v1/document-versions/uploads",
       { body: JSON.stringify(metadata), method: "POST" },
@@ -446,7 +480,7 @@ describe("worker document API", () => {
     );
     const completed = await requestDocumentApi(
       `/v1/document-versions/${documentFixture.id}/complete`,
-      { body: JSON.stringify(metadata), method: "POST" },
+      { body: JSON.stringify(completeInput), method: "POST" },
       service,
     );
     const payload: unknown = await completed.response.json();
@@ -458,7 +492,91 @@ describe("worker document API", () => {
     expect(service.completeUpload).toHaveBeenCalledWith(
       ADMIN_USER_ID,
       documentFixture.id,
-      metadata,
+      completeInput,
+    );
+  });
+
+  it("starts extraction for an existing document and accepts a signed callback", async () => {
+    const service = createFakeDocumentService();
+    const testApp = createApp({
+      documentServiceFactory: () => service,
+      idempotencyServiceFactory: () => createFakeIdempotencyService(),
+      jwtVerificationKey: publicKey,
+    });
+    const extractResponse = await testApp.request(
+      `http://localhost:8787/v1/document-versions/${documentFixture.id}/extract`,
+      {
+        headers: {
+          Authorization: `Bearer ${await createAccessToken()}`,
+        },
+        method: "POST",
+      },
+      mockEnv,
+    );
+    expect(extractResponse.status).toBe(202);
+    expect(service.prepareExtraction).toHaveBeenCalledWith(
+      ADMIN_USER_ID,
+      documentFixture.id,
+      expect.any(String),
+    );
+
+    const callback: DocumentExtractionCallback = {
+      contentHash: documentFixture.contentHash,
+      documentVersionId: documentFixture.id,
+      errorCode: null,
+      eventId: "00000000-0000-4000-8000-000000000002",
+      extractedText: "이력서에서 추출한 텍스트",
+      occurredAt: "2026-09-16T00:00:00.000Z",
+      outcome: "ready",
+      requestId: "00000000-0000-4000-8000-000000000003",
+      schemaVersion: "1.0.0",
+    };
+    const body = new TextEncoder().encode(JSON.stringify(callback));
+    const path = `/v1/internal/document-versions/${documentFixture.id}/extract`;
+    const headers = await createSignedHeaders({
+      body,
+      eventId: callback.eventId,
+      method: "POST",
+      path,
+      requestId: callback.requestId,
+      secret: mockEnv.N8N_CALLBACK_SECRET,
+      timestamp: Math.floor(Date.now() / 1_000),
+    });
+    const callbackResponse = await testApp.request(
+      `http://localhost:8787${path}`,
+      { body, headers, method: "POST" },
+      mockEnv,
+    );
+
+    expect(callbackResponse.status).toBe(200);
+    expect(service.completeExtraction).toHaveBeenCalledWith(
+      ADMIN_USER_ID,
+      callback,
+    );
+  });
+
+  it("accepts an idempotent upload cleanup request", async () => {
+    const service = createFakeDocumentService();
+    const { response } = await requestDocumentApi(
+      `/v1/document-versions/${documentFixture.id}/abort-upload`,
+      {
+        body: JSON.stringify({
+          documentType: "resume",
+          storagePath: `${ADMIN_USER_ID}/resume/${documentFixture.id}.pdf`,
+        }),
+        method: "POST",
+      },
+      service,
+    );
+
+    expect(response.status).toBe(200);
+    expect(service.abortUpload).toHaveBeenCalledWith(
+      ADMIN_USER_ID,
+      documentFixture.id,
+      {
+        documentType: "resume",
+        storagePath: `${ADMIN_USER_ID}/resume/${documentFixture.id}.pdf`,
+      },
     );
   });
 
@@ -548,6 +666,7 @@ describe("worker document API", () => {
           label: "2026 이력서",
           mimeType: "application/pdf",
           originalFilename: "resume.pdf",
+          storagePath: `${ADMIN_USER_ID}/resume/${documentFixture.id}.pdf`,
         }),
         method: "POST",
       },
