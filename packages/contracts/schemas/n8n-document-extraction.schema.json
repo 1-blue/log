@@ -61,6 +61,13 @@
     "callbackPath": {
       "type": "string",
       "pattern": "^\\/v1\\/internal\\/document-versions\\/[0-9a-f-]+\\/extract$"
+    },
+    "outputSchema": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {}
     }
   },
   "required": [
@@ -69,7 +76,8 @@
     "eventId",
     "requestId",
     "document",
-    "callbackPath"
+    "callbackPath",
+    "outputSchema"
   ],
   "additionalProperties": false
 }

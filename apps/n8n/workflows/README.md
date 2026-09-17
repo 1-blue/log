@@ -9,4 +9,5 @@ n8n UI에서 export한 Workflow JSON을 이 디렉터리에 저장한다.
 - export 파일에는 Credential 이름과 ID가 포함될 수 있으므로 비밀값, 인증 헤더, 개인 식별 정보가 없는지 확인한 뒤 커밋한다.
 - Credential 자체를 export하거나 `--decrypted` 옵션을 사용한 결과를 이 디렉터리에 저장하지 않는다.
 - `job_posting_extraction` 요청은 Worker가 JSON-LD·HTML 파싱에 실패했을 때만 발송되며, OpenAI는 원문을 구조화하고 Worker는 근거 문자열을 다시 검증한 뒤 저장한다.
-- `document_extraction` 요청은 PDF signed URL을 `문서 PDF 다운로드`로 받은 뒤 `PDF 텍스트 추출`에서 텍스트를 만들고, `문서 추출 결과 구성` 또는 `문서 추출 실패 구성`을 거쳐 Worker callback으로 반환한다.
+- `document_extraction` 요청은 PDF signed URL을 `문서 PDF 다운로드`로 받은 뒤 `PDF 텍스트 추출`에서 텍스트를 만들고, `OpenAI 문서 프로필 분석`에 같은 PDF를 file URL로 전달한다. 성공하면 프로필과 텍스트를 함께, AI 프로필 실패 시 텍스트와 실패 코드만 `문서 추출 결과 구성` 또는 `문서 프로필 실패 구성`에서 Worker callback으로 반환한다.
+- `OpenAI 프로필 비교`와 재시도 노드는 이력서·포트폴리오의 signed PDF URL을 각각 `file` 메시지로 전달하고, 추출 텍스트·저장된 프로필과 함께 비교한다.

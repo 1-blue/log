@@ -2,7 +2,7 @@
 
 > 기준일: 2026-09-14
 > 작업 브랜치: `codex/internal-improvements`
-> 현재 범위: 13단계 관리자 화면 사용성 개선 및 내부 개선 1~3번 완료, 16단계 외부 요소 연결 및 운영 배포 준비
+> 현재 범위: 13단계 관리자 화면 사용성 개선 및 내부 개선 1~4번 완료, 16단계 외부 요소 연결 및 운영 배포 준비
 
 ## 1. 프로젝트 정의
 
@@ -591,6 +591,23 @@
 - 공식 OpenAI 모델 기준으로 공고·문서 프로필은 reasoning `medium`, 최종 적합도·질문·지원 전략은 `high`를 사용한다.
 
 종료 기준: 외부 AI Credential 없이도 등록된 PDF와 공고 본문을 재사용해 분석 입력과 결과 화면을 확인할 수 있고, 실제 AI 연결 시 fixture 교체 지점이 명확하다.
+
+### 4번 — PDF 원본 입력과 AI 프로필 저장 경로 완성 `완료`
+
+- [x] 문서 추출 payload에 DocumentAnalysisProfile Structured Outputs 스키마를 포함
+- [x] n8n에서 PDF 텍스트 추출 후 같은 PDF를 OpenAI `input_file`로 전달해 이력서·포트폴리오 프로필 생성
+- [x] 프로필 분석 실패 시 추출 텍스트를 보존하고 프로필 실패 코드를 callback으로 전달
+- [x] Worker가 AI 프로필 callback을 검증하고 `document_analysis_profiles`에 입력 hash·모델·프롬프트 버전과 함께 upsert
+- [x] 최종 공고 적합도 비교와 재시도에도 이력서·포트폴리오 signed PDF를 file input으로 전달
+- [x] n8n 정적 검증으로 문서 프로필·PDF file input·callback 분기와 도달성을 확인
+
+구현 결과:
+
+- PDF는 텍스트 추출 결과만 사용하는 것이 아니라 프로필 생성과 최종 비교 모두에서 원본 시각 정보를 함께 전달한다.
+- 프로필 생성 실패가 문서 텍스트 추출 성공을 덮어쓰지 않으므로, 이후 프로필만 재생성할 수 있는 상태를 유지한다.
+- signed URL은 Worker가 발급하고 n8n/OpenAI에는 분석 실행 중에만 전달되며, 저장되는 것은 프로필과 입력 hash다.
+
+종료 기준: 외부 OpenAI Credential 연결 후 문서 업로드 → 텍스트 추출·PDF 프로필 저장 → 공고 적합도 비교까지 동일한 원본 PDF를 안전하게 재사용할 수 있다.
 
 ### 16단계 — 외부 요소 연결 및 운영 배포
 

@@ -3,6 +3,7 @@ import {
   type CompleteDocumentUploadRequest,
   CONTRACT_VERSION,
   DOCUMENT_RESUMABLE_THRESHOLD,
+  DocumentAnalysisProfileSchema,
   type DocumentExtractionCallback,
   type DocumentType,
   type DocumentUploadMetadata,
@@ -14,6 +15,9 @@ import {
 import type { Database } from "@workspace/contracts/database";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import * as z from "zod";
+
+import { toOpenAiStructuredOutputSchema } from "./openai-schema.js";
 
 const DOCUMENT_BUCKET = "career-documents";
 const UPLOAD_TOKEN_TTL_MS = 2 * 60 * 60 * 1_000;
@@ -631,6 +635,9 @@ class SupabaseDocumentService implements DocumentService {
       },
       eventId: crypto.randomUUID(),
       kind: "document_extraction",
+      outputSchema: toOpenAiStructuredOutputSchema(
+        z.toJSONSchema(DocumentAnalysisProfileSchema, { target: "draft-07" }),
+      ),
       requestId,
       schemaVersion: CONTRACT_VERSION,
     };
@@ -671,6 +678,39 @@ class SupabaseDocumentService implements DocumentService {
       throw new DocumentServiceError("validation", {
         reason: "empty_extracted_text",
       });
+    }
+
+    if (input.profile) {
+      const profile = DocumentAnalysisProfileSchema.safeParse(input.profile);
+      if (!profile.success) {
+        throw new DocumentServiceError("validation", {
+          reason: "invalid_document_analysis_profile",
+        });
+      }
+
+      const profileMetadata = input.profileMetadata;
+      const { error: profileError } = await this.supabase
+        .from("document_analysis_profiles")
+        .upsert(
+          {
+            document_type: current.document_type,
+            document_version_id: current.id,
+            input_hash: input.contentHash,
+            model: profileMetadata?.model ?? null,
+            owner_id: ownerId,
+            profile: profile.data,
+            prompt_version:
+              profileMetadata?.promptVersion ?? "document-profile-v1",
+            reasoning_effort: profileMetadata?.reasoningEffort ?? null,
+            source: "ai",
+            status: "succeeded",
+          },
+          {
+            onConflict:
+              "owner_id,document_version_id,source,input_hash,prompt_version",
+          },
+        );
+      if (profileError) throw new DocumentServiceError("unavailable");
     }
 
     const { error } = await this.supabase

@@ -36,6 +36,7 @@ import {
   isValidSlackNotificationTransition,
   JobPostingCollectionCallbackSchema,
   JobPostingCollectionStatusSchema,
+  N8nDocumentExtractionDispatchPayloadSchema,
   N8nSlackNotificationDispatchPayloadSchema,
   PatchApplicationRequestSchema,
   PatchInterviewChecklistItemRequestSchema,
@@ -573,6 +574,9 @@ describe("career operations contracts", () => {
         errorCode: null,
         extractedText: "이력서 본문",
         outcome: "ready",
+        profile: null,
+        profileErrorCode: "DOCUMENT_PROFILE_AI_FAILED",
+        profileMetadata: null,
       }).success,
     ).toBe(true);
     expect(
@@ -607,6 +611,39 @@ describe("career operations contracts", () => {
         outcome: "ready",
         extra: true,
       }).success,
+    ).toBe(false);
+  });
+
+  it("requires a structured profile schema when dispatching document extraction", () => {
+    const payload = {
+      callbackPath: `/v1/internal/document-versions/${validUuid}/extract`,
+      document: {
+        contentHash: "a".repeat(64),
+        downloadUrl: "https://example.supabase.co/signed/document.pdf",
+        fileSize: 1_024,
+        id: validUuid,
+        type: "portfolio",
+      },
+      eventId: "00000000-0000-4000-8000-000000000002",
+      kind: "document_extraction",
+      outputSchema: {
+        additionalProperties: false,
+        properties: {},
+        required: [],
+        type: "object",
+      },
+      requestId: "00000000-0000-4000-8000-000000000003",
+      schemaVersion: "1.0.0",
+    };
+    expect(
+      N8nDocumentExtractionDispatchPayloadSchema.safeParse(payload).success,
+    ).toBe(true);
+    const withoutSchema = Object.fromEntries(
+      Object.entries(payload).filter(([key]) => key !== "outputSchema"),
+    );
+    expect(
+      N8nDocumentExtractionDispatchPayloadSchema.safeParse(withoutSchema)
+        .success,
     ).toBe(false);
   });
 

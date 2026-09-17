@@ -55,7 +55,9 @@ for (const name of [
   "문서 추출 요청 여부",
   "문서 PDF 다운로드",
   "PDF 텍스트 추출",
+  "OpenAI 문서 프로필 분석",
   "문서 추출 결과 구성",
+  "문서 프로필 실패 구성",
   "문서 추출 실패 구성",
   "AI 원문 보완 요청 여부",
   "AI 원문 보완 준비",
@@ -108,6 +110,10 @@ assert(
   hmacCode.includes("document_extraction"),
   "문서 추출 payload 검증이 없습니다.",
 );
+assert(
+  hmacCode.includes("payload?.outputSchema"),
+  "문서 프로필 출력 스키마 검증이 없습니다.",
+);
 assert(hmacCode.includes("payload?.runAttempt"), "실행 회차 검증이 없습니다.");
 
 const documentDownload = nodes.get("문서 PDF 다운로드");
@@ -129,6 +135,7 @@ assert(
 );
 
 const expectedOpenAi = [
+  ["OpenAI 문서 프로필 분석", 12000, "medium", "document_analysis_profile"],
   ["OpenAI 공고 원문 보완", 4000, "medium", "job_posting_ai_extraction"],
   ["OpenAI 공고 사실 분석", 6000, "medium", "job_posting_facts"],
   ["OpenAI 공고 사실 분석 재시도", 6000, "medium", "job_posting_facts"],
@@ -173,6 +180,25 @@ for (const [name, maxTokens, effort, schemaName] of expectedOpenAi) {
   assert(
     node.onError === "continueErrorOutput",
     `${name}은 오류 분류 출력이 필요합니다.`,
+  );
+}
+
+for (const name of [
+  "OpenAI 문서 프로필 분석",
+  "OpenAI 프로필 비교",
+  "OpenAI 프로필 비교 재시도",
+]) {
+  const messages = nodes.get(name).parameters.responses.values;
+  assert(
+    messages.some(
+      (message) =>
+        message.type === "file" &&
+        message.fileType === "url" &&
+        typeof message.fileUrl === "string" &&
+        (message.fileUrl.includes("downloadUrl") ||
+          message.fileUrl.includes("file?.url")),
+    ),
+    `${name}은 signed PDF file URL을 OpenAI에 전달해야 합니다.`,
   );
 }
 

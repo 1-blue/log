@@ -106,12 +106,12 @@ Workflow는 다음 순서로 동작한다.
 - 자동 모드는 Wanted HTML을 리다이렉트 없이 최대 10초 동안 요청한다.
 - Worker의 JSON-LD·HTML 결정론적 파서가 핵심 필드를 찾지 못한 경우에만 `job_posting_extraction` 요청으로 OpenAI 원문 구조화를 수행한다. AI가 반환한 제목·회사명·본문·근거는 Worker가 원문과 재검증한다.
 - 수동 모드는 전달받은 원문을 그대로 사용한다.
-- `document_extraction` 요청은 Worker가 발급한 짧은 만료의 Supabase signed URL에서 PDF를 받아 `Extract From File`의 PDF 작업으로 텍스트를 추출하고, 결과를 Worker callback으로 반환한다. 이력서·포트폴리오 업로드 완료 후 자동 실행되며, 실패하면 관리자 화면의 `PDF 다시 추출` 또는 수동 텍스트 보정으로 복구한다.
+- `document_extraction` 요청은 Worker가 발급한 짧은 만료의 Supabase signed URL에서 PDF를 받아 `Extract From File`의 PDF 작업으로 텍스트를 추출한 뒤, 같은 PDF를 OpenAI Responses API의 `input_file`로 전달해 이력서·포트폴리오 프로필을 생성한다. 프로필 분석이 실패해도 PDF 텍스트는 보존하고 프로필만 재생성 대상으로 남긴다.
 - 최대 600KB 정책을 적용하고 결과를 다시 HMAC 서명해 Worker 내부 API로 전달한다.
 - `application_analysis` 요청은 먼저 공고 사실을 구조화하고, 다음 호출에서 이력서·포트폴리오와 비교한다.
 - 두 단계 모두 `gpt-5.6-luna`, Responses API Structured Outputs, `store: false`를 사용한다.
 - 공고 원문 보완과 공고 사실 구조화는 reasoning `medium`, 최대 4,000·6,000 출력 토큰을 사용한다. 프로필 비교와 지원 전략 생성은 `high`, 최대 10,000 출력 토큰을 사용한다.
-- 분석 payload에는 등록된 이력서·포트폴리오·공고의 fixture 또는 AI 프로필이 함께 전달된다. PDF는 짧은 만료의 signed URL 메타데이터로 전달하며 실제 OpenAI 파일 입력 연결은 16단계 Credential 연동에서 검증한다.
+- 분석 payload에는 등록된 이력서·포트폴리오·공고의 fixture 또는 AI 프로필이 함께 전달된다. 최종 프로필 비교에는 이력서·포트폴리오의 짧은 만료 signed URL을 `input_file`로 함께 전달해 PDF의 시각 정보도 확인한다. 실제 호출은 16단계 Credential 연동에서 검증한다.
 - 각 OpenAI 단계 전후에 실행 회차·단계 회차가 포함된 heartbeat를 보내며 네트워크·timeout·일반 429·5xx만 한 번 재시도한다.
 - `Retry-After`가 60초 이하면 따르고 없으면 2초와 결정적 jitter를 사용한다. 인증·결제·quota·입력·미완료·스키마 오류는 자동 재시도하지 않는다.
 - Worker callback은 응답 상태를 직접 분류해 네트워크·429·5xx만 최대 3회 전송하며 4xx는 반복하지 않는다. 모든 시도가 실패하면 n8n 실행은 실패로 남고, 최종 로그에는 상태 코드·오류 코드·응답 유형만 기록한다.

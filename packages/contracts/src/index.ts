@@ -284,6 +284,7 @@ export const N8nDocumentExtractionDispatchPayloadSchema = z.strictObject({
   callbackPath: z
     .string()
     .regex(/^\/v1\/internal\/document-versions\/[0-9a-f-]+\/extract$/),
+  outputSchema: z.record(z.string(), z.unknown()),
 });
 export type N8nDocumentExtractionDispatchPayload = z.infer<
   typeof N8nDocumentExtractionDispatchPayloadSchema
@@ -549,6 +550,19 @@ export const DocumentExtractionCallbackSchema = z
       .string()
       .max(DOCUMENT_EXTRACTED_TEXT_MAX_LENGTH)
       .nullable(),
+    profile: z
+      .lazy(() => DocumentAnalysisProfileSchema)
+      .nullable()
+      .optional(),
+    profileMetadata: z
+      .strictObject({
+        model: z.string().max(100).nullable(),
+        promptVersion: z.string().min(1).max(100),
+        reasoningEffort: z.enum(["low", "medium", "high"]).nullable(),
+      })
+      .nullable()
+      .optional(),
+    profileErrorCode: z.string().min(1).max(100).nullable().optional(),
     errorCode: DocumentExtractionErrorCodeSchema.nullable(),
     occurredAt: Rfc3339TimestampSchema,
   })
