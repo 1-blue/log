@@ -1,8 +1,13 @@
 import {
+  type AbortDocumentUploadRequest,
+  type CompleteDocumentUploadRequest,
+  CONTRACT_VERSION,
   DOCUMENT_RESUMABLE_THRESHOLD,
+  type DocumentExtractionCallback,
   type DocumentType,
   type DocumentUploadMetadata,
   type DocumentVersion,
+  type N8nDocumentExtractionDispatchPayload,
   type PublicDocumentDisposition,
   type UpdateDocumentVersionRequest,
 } from "@workspace/contracts";
@@ -13,6 +18,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 const DOCUMENT_BUCKET = "career-documents";
 const UPLOAD_TOKEN_TTL_MS = 2 * 60 * 60 * 1_000;
 const DOWNLOAD_URL_TTL_SECONDS = 60;
+const EXTRACTION_URL_TTL_SECONDS = 5 * 60;
 const ORPHAN_MAX_AGE_MS = UPLOAD_TOKEN_TTL_MS;
 
 type DocumentRow = Database["public"]["Tables"]["document_versions"]["Row"];
@@ -24,11 +30,11 @@ export type DocumentListFilters = {
 
 export type PreparedDocumentUpload = {
   documentVersionId: string;
-  expiresAt: string;
+  expiresAt: string | null;
   resumableEndpoint: string | null;
   storagePath: string;
   uploadMethod: "standard" | "tus";
-  uploadToken: string;
+  uploadToken: string | null;
 };
 
 export type DocumentDownloadUrl = {
@@ -56,10 +62,15 @@ export class DocumentServiceError extends Error {
 
 export interface DocumentService {
   clearPublication(ownerId: string, documentType: DocumentType): Promise<void>;
+  cleanupOrphanedUploads(ownerId: string): Promise<void>;
   completeUpload(
     ownerId: string,
     documentVersionId: string,
-    metadata: DocumentUploadMetadata,
+    input: CompleteDocumentUploadRequest,
+  ): Promise<DocumentVersion>;
+  completeExtraction(
+    ownerId: string,
+    input: DocumentExtractionCallback,
   ): Promise<DocumentVersion>;
   createDownloadUrl(
     ownerId: string,
@@ -80,6 +91,21 @@ export interface DocumentService {
     ownerId: string,
     metadata: DocumentUploadMetadata,
   ): Promise<PreparedDocumentUpload>;
+  prepareExtraction(
+    ownerId: string,
+    documentVersionId: string,
+    requestId: string,
+  ): Promise<N8nDocumentExtractionDispatchPayload | null>;
+  failExtraction(
+    ownerId: string,
+    documentVersionId: string,
+    errorCode: string,
+  ): Promise<void>;
+  abortUpload(
+    ownerId: string,
+    documentVersionId: string,
+    input: AbortDocumentUploadRequest,
+  ): Promise<"removed" | "preserved" | "not_found">;
   setPublication(
     ownerId: string,
     documentType: DocumentType,
@@ -92,12 +118,50 @@ export interface DocumentService {
   ): Promise<DocumentVersion>;
 }
 
-function getStoragePath(
+export function getStoragePath(
   ownerId: string,
   documentType: DocumentType,
   documentVersionId: string,
+  label?: string,
 ): string {
-  return `${ownerId}/${documentType}/${documentVersionId}.pdf`;
+  const shortId = documentVersionId.replaceAll("-", "").slice(0, 6);
+  if (!label) return `${ownerId}/${documentType}/${documentVersionId}.pdf`;
+
+  const safeLabel = label
+    .normalize("NFKD")
+    .trim()
+    .replace(/\s+/gu, "-")
+    .replace(/[\u0300-\u036f]/gu, "")
+    .replace(/[^A-Za-z0-9_-]+/gu, "-")
+    .replace(/-{2,}/gu, "-")
+    .replace(/^-+|-+$/gu, "")
+    .slice(0, 80)
+    .replace(/^-+|-+$/gu, "");
+
+  return `${ownerId}/${documentType}/${safeLabel || documentType}-${shortId}.pdf`;
+}
+
+function isUploadPathForDocument(
+  ownerId: string,
+  documentType: DocumentType,
+  documentVersionId: string,
+  storagePath: string,
+): boolean {
+  const oldPath = getStoragePath(ownerId, documentType, documentVersionId);
+  if (storagePath === oldPath) return true;
+
+  const prefix = `${ownerId}/${documentType}/`;
+  const shortId = documentVersionId.replaceAll("-", "").slice(0, 6);
+  const filename = storagePath.startsWith(prefix)
+    ? storagePath.slice(prefix.length)
+    : "";
+
+  return (
+    /^[A-Za-z0-9_-]+-[0-9a-f]{6}\.pdf$/u.test(filename) &&
+    filename.endsWith(`-${shortId}.pdf`) &&
+    !filename.includes("/") &&
+    !filename.includes("\\")
+  );
 }
 
 function toDocumentVersion(
@@ -257,10 +321,11 @@ class SupabaseDocumentService implements DocumentService {
   private async createSignedDocumentUrl(
     row: DocumentRow,
     disposition: PublicDocumentDisposition,
+    expiresIn = DOWNLOAD_URL_TTL_SECONDS,
   ): Promise<DocumentDownloadUrl> {
     const { data, error } = await this.supabase.storage
       .from(DOCUMENT_BUCKET)
-      .createSignedUrl(row.storage_path, DOWNLOAD_URL_TTL_SECONDS, {
+      .createSignedUrl(row.storage_path, expiresIn, {
         ...(disposition === "attachment"
           ? { download: row.original_filename }
           : {}),
@@ -271,14 +336,12 @@ class SupabaseDocumentService implements DocumentService {
     }
 
     return {
-      expiresAt: new Date(
-        Date.now() + DOWNLOAD_URL_TTL_SECONDS * 1_000,
-      ).toISOString(),
+      expiresAt: new Date(Date.now() + expiresIn * 1_000).toISOString(),
       url: data.signedUrl,
     };
   }
 
-  private async cleanupOrphanedUploads(ownerId: string): Promise<void> {
+  async cleanupOrphanedUploads(ownerId: string): Promise<void> {
     try {
       const { data: referencedRows, error } = await this.supabase
         .from("document_versions")
@@ -304,7 +367,7 @@ class SupabaseDocumentService implements DocumentService {
               object.id &&
               object.created_at &&
               Date.parse(object.created_at) < cutoff &&
-              /^[0-9a-f-]{36}\.pdf$/i.test(object.name),
+              /^(?:[0-9a-f-]{36}|.+-[0-9a-f]{6})\.pdf$/iu.test(object.name),
           )
           .map((object) => `${folder}/${object.name}`)
           .filter((path) => !referenced.has(path));
@@ -345,33 +408,88 @@ class SupabaseDocumentService implements DocumentService {
       ownerId,
       metadata.documentType,
       documentVersionId,
+      metadata.label,
     );
-    const { data, error } = await this.supabase.storage
-      .from(DOCUMENT_BUCKET)
-      .createSignedUploadUrl(storagePath, { upsert: false });
-
-    if (error || !data?.token) {
-      throw new DocumentServiceError("unavailable");
-    }
-
     const uploadMethod = getDocumentUploadMethod(metadata.fileSize);
+
+    let uploadToken: string | null = null;
+    let expiresAt: string | null = null;
+    if (uploadMethod === "standard") {
+      const { data, error } = await this.supabase.storage
+        .from(DOCUMENT_BUCKET)
+        .createSignedUploadUrl(storagePath, { upsert: false });
+
+      if (error || !data?.token) {
+        throw new DocumentServiceError("unavailable");
+      }
+      uploadToken = data.token;
+      expiresAt = new Date(Date.now() + UPLOAD_TOKEN_TTL_MS).toISOString();
+    }
 
     return {
       documentVersionId,
-      expiresAt: new Date(Date.now() + UPLOAD_TOKEN_TTL_MS).toISOString(),
+      expiresAt,
       resumableEndpoint:
         uploadMethod === "tus" ? getResumableEndpoint(this.supabaseUrl) : null,
       storagePath,
       uploadMethod,
-      uploadToken: data.token,
+      uploadToken,
     };
+  }
+
+  async abortUpload(
+    ownerId: string,
+    documentVersionId: string,
+    input: AbortDocumentUploadRequest,
+  ): Promise<"removed" | "preserved" | "not_found"> {
+    const { data: existing, error } = await this.supabase
+      .from("document_versions")
+      .select("storage_path")
+      .eq("owner_id", ownerId)
+      .eq("id", documentVersionId)
+      .maybeSingle();
+
+    if (error) throw new DocumentServiceError("unavailable");
+    if (existing) return "preserved";
+    if (
+      !isUploadPathForDocument(
+        ownerId,
+        input.documentType,
+        documentVersionId,
+        input.storagePath,
+      )
+    ) {
+      throw new DocumentServiceError("validation", {
+        reason: "invalid_storage_path",
+      });
+    }
+
+    const { error: removeError } = await this.supabase.storage
+      .from(DOCUMENT_BUCKET)
+      .remove([input.storagePath]);
+    if (removeError) throw new DocumentServiceError("unavailable");
+    return "removed";
   }
 
   async completeUpload(
     ownerId: string,
     documentVersionId: string,
-    metadata: DocumentUploadMetadata,
+    input: CompleteDocumentUploadRequest,
   ): Promise<DocumentVersion> {
+    if (
+      !isUploadPathForDocument(
+        ownerId,
+        input.documentType,
+        documentVersionId,
+        input.storagePath,
+      )
+    ) {
+      throw new DocumentServiceError("validation", {
+        reason: "invalid_storage_path",
+      });
+    }
+
+    const metadata = input;
     const { data: existing, error: existingError } = await this.supabase
       .from("document_versions")
       .select("*")
@@ -387,11 +505,7 @@ class SupabaseDocumentService implements DocumentService {
       );
     }
 
-    const storagePath = getStoragePath(
-      ownerId,
-      metadata.documentType,
-      documentVersionId,
-    );
+    const storagePath = input.storagePath;
     const bucket = this.supabase.storage.from(DOCUMENT_BUCKET);
     const { data: info, error: infoError } = await bucket.info(storagePath);
 
@@ -457,6 +571,87 @@ class SupabaseDocumentService implements DocumentService {
 
     if (error || !data) throw new DocumentServiceError("unavailable");
     return toDocumentVersion(data, new Set());
+  }
+
+  async prepareExtraction(
+    ownerId: string,
+    documentVersionId: string,
+    requestId: string,
+  ): Promise<N8nDocumentExtractionDispatchPayload | null> {
+    const row = await this.getRow(ownerId, documentVersionId);
+    if (row.extraction_status === "ready" && row.extracted_text?.trim()) {
+      return null;
+    }
+
+    const download = await this.createSignedDocumentUrl(
+      row,
+      "inline",
+      EXTRACTION_URL_TTL_SECONDS,
+    );
+    const { error } = await this.supabase
+      .from("document_versions")
+      .update({ extraction_error: null, extraction_status: "processing" })
+      .eq("owner_id", ownerId)
+      .eq("id", documentVersionId);
+    if (error) throw new DocumentServiceError("unavailable");
+
+    return {
+      callbackPath: `/v1/internal/document-versions/${documentVersionId}/extract`,
+      document: {
+        contentHash: row.content_hash,
+        downloadUrl: download.url,
+        fileSize: row.file_size,
+        id: row.id,
+        type: row.document_type,
+      },
+      eventId: crypto.randomUUID(),
+      kind: "document_extraction",
+      requestId,
+      schemaVersion: CONTRACT_VERSION,
+    };
+  }
+
+  async failExtraction(
+    ownerId: string,
+    documentVersionId: string,
+    errorCode: string,
+  ): Promise<void> {
+    await this.supabase
+      .from("document_versions")
+      .update({ extraction_error: errorCode, extraction_status: "failed" })
+      .eq("owner_id", ownerId)
+      .eq("id", documentVersionId);
+  }
+
+  async completeExtraction(
+    ownerId: string,
+    input: DocumentExtractionCallback,
+  ): Promise<DocumentVersion> {
+    const current = await this.getRow(ownerId, input.documentVersionId);
+    if (current.content_hash !== input.contentHash) {
+      throw new DocumentServiceError("conflict", {
+        reason: "stale_extraction_callback",
+      });
+    }
+
+    const extractedText = input.extractedText?.trim() || null;
+    if (input.outcome === "ready" && !extractedText) {
+      throw new DocumentServiceError("validation", {
+        reason: "empty_extracted_text",
+      });
+    }
+
+    const { error } = await this.supabase
+      .from("document_versions")
+      .update({
+        extracted_text: input.outcome === "ready" ? extractedText : null,
+        extraction_error: input.errorCode,
+        extraction_status: input.outcome === "ready" ? "ready" : "failed",
+      })
+      .eq("owner_id", ownerId)
+      .eq("id", input.documentVersionId);
+    if (error) throw new DocumentServiceError("unavailable");
+    return this.get(ownerId, input.documentVersionId);
   }
 
   async list(ownerId: string, filters: DocumentListFilters) {

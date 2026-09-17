@@ -66,13 +66,26 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 2000
+                },
+                "context": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 4000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
                 "source",
                 "sourceVersionId",
                 "section",
-                "excerpt"
+                "excerpt",
+                "context"
               ],
               "additionalProperties": false
             }
@@ -154,13 +167,26 @@
                   "type": "string",
                   "minLength": 1,
                   "maxLength": 2000
+                },
+                "context": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 4000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
                 "source",
                 "sourceVersionId",
                 "section",
-                "excerpt"
+                "excerpt",
+                "context"
               ],
               "additionalProperties": false
             }
@@ -223,6 +249,89 @@
               "minLength": 1,
               "maxLength": 100
             }
+          },
+          "answerOutline": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 3000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "modelAnswer": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 5000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "answerEvidence": {
+            "default": [],
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "enum": [
+                    "job_posting",
+                    "resume",
+                    "portfolio"
+                  ]
+                },
+                "sourceVersionId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "section": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "excerpt": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "context": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 4000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "source",
+                "sourceVersionId",
+                "section",
+                "excerpt",
+                "context"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -230,10 +339,77 @@
           "question",
           "intent",
           "priority",
-          "requirementIds"
+          "requirementIds",
+          "answerOutline",
+          "modelAnswer",
+          "answerEvidence"
         ],
         "additionalProperties": false
       }
+    },
+    "applicationStrategy": {
+      "type": "object",
+      "properties": {
+        "motivationDraft": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 5000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "keyMessages": {
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "resumeFocus": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 2000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "portfolioFocus": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 2000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "warnings": {
+          "maxItems": 10,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        }
+      },
+      "required": [
+        "motivationDraft",
+        "keyMessages",
+        "resumeFocus",
+        "portfolioFocus",
+        "warnings"
+      ],
+      "additionalProperties": false
     },
     "warnings": {
       "maxItems": 20,
@@ -250,6 +426,7 @@
     "matches",
     "gaps",
     "interviewQuestions",
+    "applicationStrategy",
     "warnings"
   ],
   "additionalProperties": false

@@ -1,6 +1,6 @@
 begin;
 
-select plan(18);
+select plan(19);
 
 select has_table(
   'public',
@@ -118,8 +118,8 @@ select is(
        and tablename = 'objects'
        and policyname like 'career_documents_%'
   ),
-  2,
-  'career-documents has only own select and insert policies'
+  3,
+  'career-documents has only own select, insert, and delete policies'
 );
 
 select is(
@@ -197,7 +197,34 @@ select
   'application/pdf',
   1,
   pg_catalog.repeat('0', 64)
-  from document_foundation_test_context;
+from document_foundation_test_context;
+
+select lives_ok(
+  $$
+    insert into public.document_versions (
+      id,
+      owner_id,
+      document_type,
+      label,
+      original_filename,
+      storage_path,
+      mime_type,
+      file_size,
+      content_hash
+    ) values (
+      '00000000-0000-4000-8000-000000000093',
+      '00000000-0000-4000-8000-000000000091',
+      'portfolio',
+      'Named storage path',
+      'portfolio.pdf',
+  '00000000-0000-4000-8000-000000000091/portfolio/2026-portfolio-000000.pdf',
+      'application/pdf',
+      1,
+      pg_catalog.repeat('1', 64)
+    )
+  $$,
+  'document_versions accepts the ASCII-safe named storage path'
+);
 
 select set_config(
   'request.jwt.claims',

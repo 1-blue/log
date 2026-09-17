@@ -107,12 +107,7 @@ describe("public document routes", () => {
   it.each([
     ["/resume", "이력서"],
     ["/portfolio", "포트폴리오"],
-  ])("exposes %s in navigation without adding it to sitemap", (path, label) => {
-    expect(ROUTES).toContainEqual(
-      expect.objectContaining({ isDraft: false, label, path }),
-    );
-    expect(
-      ROUTES.find((route) => route.path === path)?.sitemap,
-    ).toBeUndefined();
+  ])("keeps %s as a direct profile link outside navigation", (path) => {
+    expect(ROUTES.some((route) => route.path === path)).toBe(false);
   });
 });
