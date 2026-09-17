@@ -189,6 +189,108 @@ function evidenceMatchesSource(
   );
 }
 
+/**
+ * Keep only citations that can be found in the exact document version used by
+ * this analysis. Provider output occasionally paraphrases a profile summary
+ * instead of quoting the source PDF; that citation must not be persisted as
+ * if it were a verified fact.
+ */
+export function sanitizeAnalysisResult(
+  result: AnalysisResult,
+  job: AnalysisJobRow,
+): AnalysisResult {
+  let removedEvidence = 0;
+  const filterEvidence = (
+    evidence: Evidence[],
+    predicate: (item: Evidence) => boolean = (item) =>
+      evidenceMatchesSource(item, job),
+  ) => {
+    const filtered = evidence.filter(predicate);
+    removedEvidence += evidence.length - filtered.length;
+    return filtered;
+  };
+
+  const jobFacts = {
+    ...result.job,
+    requirements: result.job.requirements.map((requirement) => ({
+      ...requirement,
+      evidence: filterEvidence(
+        requirement.evidence,
+        (item) =>
+          item.source === "job_posting" && evidenceMatchesSource(item, job),
+      ),
+    })),
+    technologies: result.job.technologies.map((technology) => ({
+      ...technology,
+      evidence: filterEvidence(
+        technology.evidence,
+        (item) =>
+          item.source === "job_posting" && evidenceMatchesSource(item, job),
+      ),
+    })),
+    traits: result.job.traits.map((trait) => ({
+      ...trait,
+      evidence: filterEvidence(
+        trait.evidence,
+        (item) =>
+          item.source === "job_posting" && evidenceMatchesSource(item, job),
+      ),
+    })),
+  };
+
+  const matches = result.comparison.matches.map((match) => {
+    const profileEvidence = filterEvidence(
+      match.profileEvidence,
+      (item) =>
+        item.source !== "job_posting" && evidenceMatchesSource(item, job),
+    );
+    const status =
+      (match.status === "matched" || match.status === "partial") &&
+      profileEvidence.length === 0
+        ? "unknown"
+        : match.status;
+    return { ...match, profileEvidence, status };
+  });
+
+  const gaps = result.comparison.gaps.map((gap) => ({
+    ...gap,
+    evidence: filterEvidence(gap.evidence),
+  }));
+  const interviewQuestions = result.comparison.interviewQuestions.map(
+    (question) => {
+      const answerEvidence = filterEvidence(question.answerEvidence, (item) =>
+        item.source !== "job_posting" && evidenceMatchesSource(item, job),
+      );
+      return {
+        ...question,
+        answerEvidence,
+        modelAnswer: answerEvidence.length > 0 ? question.modelAnswer : null,
+      };
+    },
+  );
+
+  const warnings =
+    removedEvidence > 0
+      ? [
+          ...result.comparison.warnings,
+          "일부 개인 자료 근거가 원문에서 확인되지 않아 해당 항목을 확인 불가로 처리했습니다.",
+        ].slice(-20)
+      : result.comparison.warnings;
+  const comparison = {
+    ...result.comparison,
+    gaps,
+    interviewQuestions,
+    matches,
+    warnings,
+  };
+
+  return {
+    job: jobFacts,
+    comparison,
+    fitScore: calculateAnalysisFitScore(jobFacts.requirements, matches),
+  };
+}
+
 export function validateAnalysisSemantics(
   result: AnalysisResult,
   job: AnalysisJobRow,
@@ -829,20 +931,46 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
     }
     const parsed = AnalysisResultSchema.safeParse(input.result);
     if (!parsed.success) throw new AnalysisJobServiceError("validation");
-    const semantic = validateAnalysisSemantics(parsed.data, row);
-    if (!semantic.ok) {
-      throw new AnalysisJobServiceError("validation", {
-        reason: semantic.reason,
+    const failValidation = () => {
+      // A terminal result callback can be rejected after the workflow has
+      // already finished its provider work. Persist that rejection as a
+      // terminal failure so the job cannot remain stuck in `running` while
+      // n8n retries or reports the rejected callback.
+      return this.event({
+        schemaVersion: CONTRACT_VERSION,
+        eventId: input.eventId,
+        requestId: input.requestId,
+        analysisJobId: input.analysisJobId,
+        runAttempt: input.runAttempt,
+        eventType: "failed",
+        status: "failed",
+        stage: "saving",
+        step: "profile_comparison",
+        stepAttempt: 1,
+        retryAt: null,
+        message: "분석 결과 검증에 실패했습니다.",
+        error: {
+          code: "OPENAI_SCHEMA_INVALID",
+          message: "AI 결과의 계약 또는 근거 검증에 실패했습니다.",
+          retryable: false,
+        },
+        occurredAt: new Date().toISOString(),
       });
-    }
+    };
+    const sanitizedCandidate = sanitizeAnalysisResult(parsed.data, row);
+    const sanitizedParsed = AnalysisResultSchema.safeParse(sanitizedCandidate);
+    if (!sanitizedParsed.success) return failValidation();
+    const sanitized = sanitizedParsed.data;
+    const semantic = validateAnalysisSemantics(sanitized, row);
+    if (!semantic.ok) return failValidation();
 
     const { data, error } = await this.supabase.rpc("complete_analysis_job", {
       p_analysis_job_id: row.id,
       p_event_id: input.eventId,
       p_executions: input.executions as unknown as Json,
-      p_job_posting_facts: parsed.data.job as unknown as Json,
+      p_job_posting_facts: sanitized.job as unknown as Json,
       p_occurred_at: input.occurredAt,
-      p_result: parsed.data as unknown as Json,
+      p_result: sanitized as unknown as Json,
       p_run_attempt: input.runAttempt,
       p_schema_version: input.schemaVersion,
     });

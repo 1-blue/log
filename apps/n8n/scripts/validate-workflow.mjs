@@ -132,8 +132,8 @@ const expectedOpenAi = [
   ["OpenAI 공고 원문 보완", 4000, "medium", "job_posting_ai_extraction"],
   ["OpenAI 공고 사실 분석", 6000, "medium", "job_posting_facts"],
   ["OpenAI 공고 사실 분석 재시도", 6000, "medium", "job_posting_facts"],
-  ["OpenAI 프로필 비교", 10000, "high", "profile_comparison"],
-  ["OpenAI 프로필 비교 재시도", 10000, "high", "profile_comparison"],
+  ["OpenAI 프로필 비교", 32000, "high", "profile_comparison"],
+  ["OpenAI 프로필 비교 재시도", 32000, "high", "profile_comparison"],
 ];
 for (const [name, maxTokens, effort, schemaName] of expectedOpenAi) {
   const node = nodes.get(name);
@@ -163,6 +163,12 @@ for (const [name, maxTokens, effort, schemaName] of expectedOpenAi) {
     `${name} Structured Outputs 설정이 없습니다.`,
   );
   assert(format.name === schemaName, `${name} 출력 스키마 이름이 다릅니다.`);
+  assert(
+    typeof format.schema === "string" &&
+      format.schema.includes("JSON.stringify(") &&
+      !format.schema.includes("JSON.stringify(JSON.stringify("),
+    `${name} Schema는 JSON 문자열로 직렬화해야 합니다.`,
+  );
   assert(node.retryOnFail !== true, `${name}의 포괄 재시도는 금지됩니다.`);
   assert(
     node.onError === "continueErrorOutput",

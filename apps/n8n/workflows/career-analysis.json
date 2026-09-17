@@ -330,7 +330,7 @@
             "textOptions": {
               "type": "json_schema",
               "name": "job_posting_ai_extraction",
-              "schema": "={{ $('HMAC 요청 검증').first().json.payload.outputSchema }}",
+              "schema": "={{ JSON.stringify($('HMAC 요청 검증').first().json.payload.outputSchema) }}",
               "strict": true,
               "verbosity": "low"
             }
@@ -342,6 +342,12 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.2,
       "position": [-120, -520],
+      "credentials": {
+        "openAiApi": {
+          "id": "RlSugmibI1sKpYqG",
+          "name": "OpenAI blog-career-ops-n8n-local"
+        }
+      },
       "onError": "continueErrorOutput"
     },
     {
@@ -484,7 +490,7 @@
             "textOptions": {
               "type": "json_schema",
               "name": "job_posting_facts",
-              "schema": "={{ $('HMAC 요청 검증').first().json.payload.outputSchemas.jobPostingFacts }}",
+              "schema": "={{ JSON.stringify($('HMAC 요청 검증').first().json.payload.outputSchemas.jobPostingFacts) }}",
               "strict": true,
               "verbosity": "low"
             }
@@ -496,6 +502,12 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.2,
       "position": [1080, -980],
+      "credentials": {
+        "openAiApi": {
+          "id": "RlSugmibI1sKpYqG",
+          "name": "OpenAI blog-career-ops-n8n-local"
+        }
+      },
       "onError": "continueErrorOutput"
     },
     {
@@ -534,7 +546,7 @@
         },
         "simplify": false,
         "options": {
-          "maxTokens": 10000,
+          "maxTokens": 32000,
           "reasoning": {
             "reasoningOptions": {
               "effort": "high",
@@ -547,7 +559,7 @@
             "textOptions": {
               "type": "json_schema",
               "name": "profile_comparison",
-              "schema": "={{ $('HMAC 요청 검증').first().json.payload.outputSchemas.profileComparison }}",
+              "schema": "={{ JSON.stringify($('HMAC 요청 검증').first().json.payload.outputSchemas.profileComparison) }}",
               "strict": true,
               "verbosity": "medium"
             }
@@ -559,6 +571,12 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.2,
       "position": [1800, -980],
+      "credentials": {
+        "openAiApi": {
+          "id": "RlSugmibI1sKpYqG",
+          "name": "OpenAI blog-career-ops-n8n-local"
+        }
+      },
       "onError": "continueErrorOutput"
     },
     {
@@ -574,7 +592,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const crypto = require('crypto');\nconst payload = $('HMAC 요청 검증').first().json.payload;\nconst failure = $input.first().json;\nconst status = Number(failure.statusCode ?? failure.status ?? failure.httpCode ?? failure.response?.status);\nconst message = String(failure.message ?? failure.description ?? failure.error?.message ?? 'OpenAI 요청에 실패했습니다.');\nconst billing = /billing|credit|quota|spend|usage[_ -]?limit|insufficient_quota/i.test(message);\nconst timeout = /timeout|timed out|aborted|etimedout/i.test(message);\nconst network = /network|econnreset|econnrefused|fetch failed|socket/i.test(message);\nlet code = 'OPENAI_INVALID_REQUEST';\nlet retryable = false;\nif (/incomplete/i.test(message)) code = 'OPENAI_INCOMPLETE';\nelse if (/structured|schema/i.test(message)) code = 'OPENAI_SCHEMA_INVALID';\nelse if (billing) code = 'OPENAI_BILLING_LIMIT';\nelse if (status === 401 || status === 403) code = 'OPENAI_AUTHENTICATION_FAILED';\nelse if (timeout) { code = 'OPENAI_TIMEOUT'; retryable = true; }\nelse if (status === 429) { code = 'OPENAI_RATE_LIMITED'; retryable = true; }\nelse if ((Number.isInteger(status) && status >= 500) || network) { code = 'OPENAI_UNAVAILABLE'; retryable = true; }\nconst retryAfterValue = failure.response?.headers?.['retry-after'] ?? failure.headers?.['retry-after'] ?? failure.retryAfter;\nconst retryAfter = retryAfterValue == null ? null : Number(retryAfterValue);\nlet hash = 0;\nfor (const character of String(payload.eventId)) hash = (hash * 31 + character.charCodeAt(0)) % 1000;\nconst waitSeconds = Number.isFinite(retryAfter) && retryAfter >= 0 ? retryAfter : 2 + hash / 1000;\nconst automaticRetry = retryable && 1 < 2 && waitSeconds <= 60;\nconst now = Date.now();\nconst safeMessages = {\n  OPENAI_AUTHENTICATION_FAILED: 'OpenAI 인증 설정을 확인해 주세요.',\n  OPENAI_BILLING_LIMIT: 'OpenAI 결제 또는 사용 한도를 확인해 주세요.',\n  OPENAI_INCOMPLETE: 'OpenAI 응답이 완료되지 않았습니다.',\n  OPENAI_INVALID_REQUEST: 'OpenAI 요청을 처리할 수 없습니다.',\n  OPENAI_RATE_LIMITED: 'OpenAI 호출 제한에 도달했습니다.',\n  OPENAI_SCHEMA_INVALID: 'OpenAI 구조화 응답이 올바르지 않습니다.',\n  OPENAI_TIMEOUT: 'OpenAI 응답 시간이 초과되었습니다.',\n  OPENAI_UNAVAILABLE: 'OpenAI 서비스를 일시적으로 사용할 수 없습니다.'\n};\nconst error = { code, message: safeMessages[code] ?? '분석 요청을 처리하지 못했습니다.', retryable };\nconst callback = { schemaVersion: '1.0.0', eventId: crypto.randomUUID(), requestId: payload.requestId, analysisJobId: payload.analysisJobId, runAttempt: payload.runAttempt, eventType: automaticRetry ? 'retrying' : 'failed', status: automaticRetry ? 'retrying' : 'failed', stage: 'extracting', step: 'job_facts', stepAttempt: 1, retryAt: automaticRetry ? new Date(now + waitSeconds * 1000).toISOString() : null, message: automaticRetry ? '일시적인 오류로 한 번 더 시도합니다.' : '분석 Workflow 실행에 실패했습니다.', error, occurredAt: new Date(now).toISOString() };\nreturn [{ json: { automaticRetry, callback, callbackAttempt: 1, callbackPath: payload.callbacks.eventPath, continuation: automaticRetry ? 'facts_retry_wait' : 'done', waitSeconds } }];"
+        "jsCode": "const crypto = require('crypto');\nconst payload = $('HMAC 요청 검증').first().json.payload;\nconst failure = $input.first().json;\nconst status = Number(failure.statusCode ?? failure.status ?? failure.httpCode ?? failure.response?.status);\nconst nestedErrorMessage = typeof failure.error === 'string' ? failure.error : failure.error?.message;\nconst message = String(failure.message ?? failure.description ?? nestedErrorMessage ?? 'OpenAI 요청에 실패했습니다.');\nconst billing = /billing|credit|quota|spend|usage[_ -]?limit|insufficient_quota/i.test(message);\nconst timeout = /timeout|timed out|aborted|etimedout/i.test(message);\nconst network = /network|econnreset|econnrefused|fetch failed|socket/i.test(message);\nlet code = 'OPENAI_INVALID_REQUEST';\nlet retryable = false;\nif (/incomplete/i.test(message)) code = 'OPENAI_INCOMPLETE';\nelse if (/structured|schema/i.test(message)) code = 'OPENAI_SCHEMA_INVALID';\nelse if (billing) code = 'OPENAI_BILLING_LIMIT';\nelse if (status === 401 || status === 403) code = 'OPENAI_AUTHENTICATION_FAILED';\nelse if (timeout) { code = 'OPENAI_TIMEOUT'; retryable = true; }\nelse if (status === 429) { code = 'OPENAI_RATE_LIMITED'; retryable = true; }\nelse if ((Number.isInteger(status) && status >= 500) || network) { code = 'OPENAI_UNAVAILABLE'; retryable = true; }\nconst retryAfterValue = failure.response?.headers?.['retry-after'] ?? failure.headers?.['retry-after'] ?? failure.retryAfter;\nconst retryAfter = retryAfterValue == null ? null : Number(retryAfterValue);\nlet hash = 0;\nfor (const character of String(payload.eventId)) hash = (hash * 31 + character.charCodeAt(0)) % 1000;\nconst waitSeconds = Number.isFinite(retryAfter) && retryAfter >= 0 ? retryAfter : 2 + hash / 1000;\nconst automaticRetry = retryable && 1 < 2 && waitSeconds <= 60;\nconst now = Date.now();\nconst safeMessages = {\n  OPENAI_AUTHENTICATION_FAILED: 'OpenAI 인증 설정을 확인해 주세요.',\n  OPENAI_BILLING_LIMIT: 'OpenAI 결제 또는 사용 한도를 확인해 주세요.',\n  OPENAI_INCOMPLETE: 'OpenAI 응답이 완료되지 않았습니다.',\n  OPENAI_INVALID_REQUEST: 'OpenAI 요청을 처리할 수 없습니다.',\n  OPENAI_RATE_LIMITED: 'OpenAI 호출 제한에 도달했습니다.',\n  OPENAI_SCHEMA_INVALID: 'OpenAI 구조화 응답이 올바르지 않습니다.',\n  OPENAI_TIMEOUT: 'OpenAI 응답 시간이 초과되었습니다.',\n  OPENAI_UNAVAILABLE: 'OpenAI 서비스를 일시적으로 사용할 수 없습니다.'\n};\nconst error = { code, message: safeMessages[code] ?? '분석 요청을 처리하지 못했습니다.', retryable };\nconst callback = { schemaVersion: '1.0.0', eventId: crypto.randomUUID(), requestId: payload.requestId, analysisJobId: payload.analysisJobId, runAttempt: payload.runAttempt, eventType: automaticRetry ? 'retrying' : 'failed', status: automaticRetry ? 'retrying' : 'failed', stage: 'extracting', step: 'job_facts', stepAttempt: 1, retryAt: automaticRetry ? new Date(now + waitSeconds * 1000).toISOString() : null, message: automaticRetry ? '일시적인 오류로 한 번 더 시도합니다.' : '분석 Workflow 실행에 실패했습니다.', error, occurredAt: new Date(now).toISOString() };\nreturn [{ json: { automaticRetry, callback, callbackAttempt: 1, callbackPath: payload.callbacks.eventPath, continuation: automaticRetry ? 'facts_retry_wait' : 'done', waitSeconds } }];"
       },
       "id": "12000000-0000-4000-8000-000000000005",
       "name": "공고 사실 오류 분류",
@@ -673,7 +691,7 @@
             "textOptions": {
               "type": "json_schema",
               "name": "job_posting_facts",
-              "schema": "={{ $('HMAC 요청 검증').first().json.payload.outputSchemas.jobPostingFacts }}",
+              "schema": "={{ JSON.stringify($('HMAC 요청 검증').first().json.payload.outputSchemas.jobPostingFacts) }}",
               "strict": true,
               "verbosity": "low"
             }
@@ -685,6 +703,12 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.2,
       "position": [2280, -1420],
+      "credentials": {
+        "openAiApi": {
+          "id": "RlSugmibI1sKpYqG",
+          "name": "OpenAI blog-career-ops-n8n-local"
+        }
+      },
       "onError": "continueErrorOutput"
     },
     {
@@ -700,7 +724,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const crypto = require('crypto');\nconst payload = $('HMAC 요청 검증').first().json.payload;\nconst failure = $input.first().json;\nconst status = Number(failure.statusCode ?? failure.status ?? failure.httpCode ?? failure.response?.status);\nconst message = String(failure.message ?? failure.description ?? failure.error?.message ?? 'OpenAI 요청에 실패했습니다.');\nconst billing = /billing|credit|quota|spend|usage[_ -]?limit|insufficient_quota/i.test(message);\nconst timeout = /timeout|timed out|aborted|etimedout/i.test(message);\nconst network = /network|econnreset|econnrefused|fetch failed|socket/i.test(message);\nlet code = 'OPENAI_INVALID_REQUEST';\nlet retryable = false;\nif (/incomplete/i.test(message)) code = 'OPENAI_INCOMPLETE';\nelse if (/structured|schema/i.test(message)) code = 'OPENAI_SCHEMA_INVALID';\nelse if (billing) code = 'OPENAI_BILLING_LIMIT';\nelse if (status === 401 || status === 403) code = 'OPENAI_AUTHENTICATION_FAILED';\nelse if (timeout) { code = 'OPENAI_TIMEOUT'; retryable = true; }\nelse if (status === 429) { code = 'OPENAI_RATE_LIMITED'; retryable = true; }\nelse if ((Number.isInteger(status) && status >= 500) || network) { code = 'OPENAI_UNAVAILABLE'; retryable = true; }\nconst retryAfterValue = failure.response?.headers?.['retry-after'] ?? failure.headers?.['retry-after'] ?? failure.retryAfter;\nconst retryAfter = retryAfterValue == null ? null : Number(retryAfterValue);\nlet hash = 0;\nfor (const character of String(payload.eventId)) hash = (hash * 31 + character.charCodeAt(0)) % 1000;\nconst waitSeconds = Number.isFinite(retryAfter) && retryAfter >= 0 ? retryAfter : 2 + hash / 1000;\nconst automaticRetry = retryable && 2 < 2 && waitSeconds <= 60;\nconst now = Date.now();\nconst safeMessages = {\n  OPENAI_AUTHENTICATION_FAILED: 'OpenAI 인증 설정을 확인해 주세요.',\n  OPENAI_BILLING_LIMIT: 'OpenAI 결제 또는 사용 한도를 확인해 주세요.',\n  OPENAI_INCOMPLETE: 'OpenAI 응답이 완료되지 않았습니다.',\n  OPENAI_INVALID_REQUEST: 'OpenAI 요청을 처리할 수 없습니다.',\n  OPENAI_RATE_LIMITED: 'OpenAI 호출 제한에 도달했습니다.',\n  OPENAI_SCHEMA_INVALID: 'OpenAI 구조화 응답이 올바르지 않습니다.',\n  OPENAI_TIMEOUT: 'OpenAI 응답 시간이 초과되었습니다.',\n  OPENAI_UNAVAILABLE: 'OpenAI 서비스를 일시적으로 사용할 수 없습니다.'\n};\nconst error = { code, message: safeMessages[code] ?? '분석 요청을 처리하지 못했습니다.', retryable };\nconst callback = { schemaVersion: '1.0.0', eventId: crypto.randomUUID(), requestId: payload.requestId, analysisJobId: payload.analysisJobId, runAttempt: payload.runAttempt, eventType: automaticRetry ? 'retrying' : 'failed', status: automaticRetry ? 'retrying' : 'failed', stage: 'extracting', step: 'job_facts', stepAttempt: 2, retryAt: automaticRetry ? new Date(now + waitSeconds * 1000).toISOString() : null, message: automaticRetry ? '일시적인 오류로 한 번 더 시도합니다.' : '분석 Workflow 실행에 실패했습니다.', error, occurredAt: new Date(now).toISOString() };\nreturn [{ json: { automaticRetry, callback, callbackAttempt: 1, callbackPath: payload.callbacks.eventPath, continuation: automaticRetry ? 'facts_retry_wait' : 'done', waitSeconds } }];"
+        "jsCode": "const crypto = require('crypto');\nconst payload = $('HMAC 요청 검증').first().json.payload;\nconst failure = $input.first().json;\nconst status = Number(failure.statusCode ?? failure.status ?? failure.httpCode ?? failure.response?.status);\nconst nestedErrorMessage = typeof failure.error === 'string' ? failure.error : failure.error?.message;\nconst message = String(failure.message ?? failure.description ?? nestedErrorMessage ?? 'OpenAI 요청에 실패했습니다.');\nconst billing = /billing|credit|quota|spend|usage[_ -]?limit|insufficient_quota/i.test(message);\nconst timeout = /timeout|timed out|aborted|etimedout/i.test(message);\nconst network = /network|econnreset|econnrefused|fetch failed|socket/i.test(message);\nlet code = 'OPENAI_INVALID_REQUEST';\nlet retryable = false;\nif (/incomplete/i.test(message)) code = 'OPENAI_INCOMPLETE';\nelse if (/structured|schema/i.test(message)) code = 'OPENAI_SCHEMA_INVALID';\nelse if (billing) code = 'OPENAI_BILLING_LIMIT';\nelse if (status === 401 || status === 403) code = 'OPENAI_AUTHENTICATION_FAILED';\nelse if (timeout) { code = 'OPENAI_TIMEOUT'; retryable = true; }\nelse if (status === 429) { code = 'OPENAI_RATE_LIMITED'; retryable = true; }\nelse if ((Number.isInteger(status) && status >= 500) || network) { code = 'OPENAI_UNAVAILABLE'; retryable = true; }\nconst retryAfterValue = failure.response?.headers?.['retry-after'] ?? failure.headers?.['retry-after'] ?? failure.retryAfter;\nconst retryAfter = retryAfterValue == null ? null : Number(retryAfterValue);\nlet hash = 0;\nfor (const character of String(payload.eventId)) hash = (hash * 31 + character.charCodeAt(0)) % 1000;\nconst waitSeconds = Number.isFinite(retryAfter) && retryAfter >= 0 ? retryAfter : 2 + hash / 1000;\nconst automaticRetry = retryable && 2 < 2 && waitSeconds <= 60;\nconst now = Date.now();\nconst safeMessages = {\n  OPENAI_AUTHENTICATION_FAILED: 'OpenAI 인증 설정을 확인해 주세요.',\n  OPENAI_BILLING_LIMIT: 'OpenAI 결제 또는 사용 한도를 확인해 주세요.',\n  OPENAI_INCOMPLETE: 'OpenAI 응답이 완료되지 않았습니다.',\n  OPENAI_INVALID_REQUEST: 'OpenAI 요청을 처리할 수 없습니다.',\n  OPENAI_RATE_LIMITED: 'OpenAI 호출 제한에 도달했습니다.',\n  OPENAI_SCHEMA_INVALID: 'OpenAI 구조화 응답이 올바르지 않습니다.',\n  OPENAI_TIMEOUT: 'OpenAI 응답 시간이 초과되었습니다.',\n  OPENAI_UNAVAILABLE: 'OpenAI 서비스를 일시적으로 사용할 수 없습니다.'\n};\nconst error = { code, message: safeMessages[code] ?? '분석 요청을 처리하지 못했습니다.', retryable };\nconst callback = { schemaVersion: '1.0.0', eventId: crypto.randomUUID(), requestId: payload.requestId, analysisJobId: payload.analysisJobId, runAttempt: payload.runAttempt, eventType: automaticRetry ? 'retrying' : 'failed', status: automaticRetry ? 'retrying' : 'failed', stage: 'extracting', step: 'job_facts', stepAttempt: 2, retryAt: automaticRetry ? new Date(now + waitSeconds * 1000).toISOString() : null, message: automaticRetry ? '일시적인 오류로 한 번 더 시도합니다.' : '분석 Workflow 실행에 실패했습니다.', error, occurredAt: new Date(now).toISOString() };\nreturn [{ json: { automaticRetry, callback, callbackAttempt: 1, callbackPath: payload.callbacks.eventPath, continuation: automaticRetry ? 'facts_retry_wait' : 'done', waitSeconds } }];"
       },
       "id": "12000000-0000-4000-8000-000000000013",
       "name": "공고 재시도 오류 분류",
@@ -720,7 +744,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const crypto = require('crypto');\nconst payload = $('HMAC 요청 검증').first().json.payload;\nconst failure = $input.first().json;\nconst status = Number(failure.statusCode ?? failure.status ?? failure.httpCode ?? failure.response?.status);\nconst message = String(failure.message ?? failure.description ?? failure.error?.message ?? 'OpenAI 요청에 실패했습니다.');\nconst billing = /billing|credit|quota|spend|usage[_ -]?limit|insufficient_quota/i.test(message);\nconst timeout = /timeout|timed out|aborted|etimedout/i.test(message);\nconst network = /network|econnreset|econnrefused|fetch failed|socket/i.test(message);\nlet code = 'OPENAI_INVALID_REQUEST';\nlet retryable = false;\nif (/incomplete/i.test(message)) code = 'OPENAI_INCOMPLETE';\nelse if (/structured|schema/i.test(message)) code = 'OPENAI_SCHEMA_INVALID';\nelse if (billing) code = 'OPENAI_BILLING_LIMIT';\nelse if (status === 401 || status === 403) code = 'OPENAI_AUTHENTICATION_FAILED';\nelse if (timeout) { code = 'OPENAI_TIMEOUT'; retryable = true; }\nelse if (status === 429) { code = 'OPENAI_RATE_LIMITED'; retryable = true; }\nelse if ((Number.isInteger(status) && status >= 500) || network) { code = 'OPENAI_UNAVAILABLE'; retryable = true; }\nconst retryAfterValue = failure.response?.headers?.['retry-after'] ?? failure.headers?.['retry-after'] ?? failure.retryAfter;\nconst retryAfter = retryAfterValue == null ? null : Number(retryAfterValue);\nlet hash = 0;\nfor (const character of String(payload.eventId)) hash = (hash * 31 + character.charCodeAt(0)) % 1000;\nconst waitSeconds = Number.isFinite(retryAfter) && retryAfter >= 0 ? retryAfter : 2 + hash / 1000;\nconst automaticRetry = retryable && 1 < 2 && waitSeconds <= 60;\nconst now = Date.now();\nconst safeMessages = {\n  OPENAI_AUTHENTICATION_FAILED: 'OpenAI 인증 설정을 확인해 주세요.',\n  OPENAI_BILLING_LIMIT: 'OpenAI 결제 또는 사용 한도를 확인해 주세요.',\n  OPENAI_INCOMPLETE: 'OpenAI 응답이 완료되지 않았습니다.',\n  OPENAI_INVALID_REQUEST: 'OpenAI 요청을 처리할 수 없습니다.',\n  OPENAI_RATE_LIMITED: 'OpenAI 호출 제한에 도달했습니다.',\n  OPENAI_SCHEMA_INVALID: 'OpenAI 구조화 응답이 올바르지 않습니다.',\n  OPENAI_TIMEOUT: 'OpenAI 응답 시간이 초과되었습니다.',\n  OPENAI_UNAVAILABLE: 'OpenAI 서비스를 일시적으로 사용할 수 없습니다.'\n};\nconst error = { code, message: safeMessages[code] ?? '분석 요청을 처리하지 못했습니다.', retryable };\nconst callback = { schemaVersion: '1.0.0', eventId: crypto.randomUUID(), requestId: payload.requestId, analysisJobId: payload.analysisJobId, runAttempt: payload.runAttempt, eventType: automaticRetry ? 'retrying' : 'failed', status: automaticRetry ? 'retrying' : 'failed', stage: 'matching', step: 'profile_comparison', stepAttempt: 1, retryAt: automaticRetry ? new Date(now + waitSeconds * 1000).toISOString() : null, message: automaticRetry ? '일시적인 오류로 한 번 더 시도합니다.' : '분석 Workflow 실행에 실패했습니다.', error, occurredAt: new Date(now).toISOString() };\nreturn [{ json: { automaticRetry, callback, callbackAttempt: 1, callbackPath: payload.callbacks.eventPath, continuation: automaticRetry ? 'profile_retry_wait' : 'done', waitSeconds } }];"
+        "jsCode": "const crypto = require('crypto');\nconst payload = $('HMAC 요청 검증').first().json.payload;\nconst failure = $input.first().json;\nconst status = Number(failure.statusCode ?? failure.status ?? failure.httpCode ?? failure.response?.status);\nconst nestedErrorMessage = typeof failure.error === 'string' ? failure.error : failure.error?.message;\nconst message = String(failure.message ?? failure.description ?? nestedErrorMessage ?? 'OpenAI 요청에 실패했습니다.');\nconst billing = /billing|credit|quota|spend|usage[_ -]?limit|insufficient_quota/i.test(message);\nconst timeout = /timeout|timed out|aborted|etimedout/i.test(message);\nconst network = /network|econnreset|econnrefused|fetch failed|socket/i.test(message);\nlet code = 'OPENAI_INVALID_REQUEST';\nlet retryable = false;\nif (/incomplete/i.test(message)) code = 'OPENAI_INCOMPLETE';\nelse if (/structured|schema/i.test(message)) code = 'OPENAI_SCHEMA_INVALID';\nelse if (billing) code = 'OPENAI_BILLING_LIMIT';\nelse if (status === 401 || status === 403) code = 'OPENAI_AUTHENTICATION_FAILED';\nelse if (timeout) { code = 'OPENAI_TIMEOUT'; retryable = true; }\nelse if (status === 429) { code = 'OPENAI_RATE_LIMITED'; retryable = true; }\nelse if ((Number.isInteger(status) && status >= 500) || network) { code = 'OPENAI_UNAVAILABLE'; retryable = true; }\nconst retryAfterValue = failure.response?.headers?.['retry-after'] ?? failure.headers?.['retry-after'] ?? failure.retryAfter;\nconst retryAfter = retryAfterValue == null ? null : Number(retryAfterValue);\nlet hash = 0;\nfor (const character of String(payload.eventId)) hash = (hash * 31 + character.charCodeAt(0)) % 1000;\nconst waitSeconds = Number.isFinite(retryAfter) && retryAfter >= 0 ? retryAfter : 2 + hash / 1000;\nconst automaticRetry = retryable && 1 < 2 && waitSeconds <= 60;\nconst now = Date.now();\nconst safeMessages = {\n  OPENAI_AUTHENTICATION_FAILED: 'OpenAI 인증 설정을 확인해 주세요.',\n  OPENAI_BILLING_LIMIT: 'OpenAI 결제 또는 사용 한도를 확인해 주세요.',\n  OPENAI_INCOMPLETE: 'OpenAI 응답이 완료되지 않았습니다.',\n  OPENAI_INVALID_REQUEST: 'OpenAI 요청을 처리할 수 없습니다.',\n  OPENAI_RATE_LIMITED: 'OpenAI 호출 제한에 도달했습니다.',\n  OPENAI_SCHEMA_INVALID: 'OpenAI 구조화 응답이 올바르지 않습니다.',\n  OPENAI_TIMEOUT: 'OpenAI 응답 시간이 초과되었습니다.',\n  OPENAI_UNAVAILABLE: 'OpenAI 서비스를 일시적으로 사용할 수 없습니다.'\n};\nconst error = { code, message: safeMessages[code] ?? '분석 요청을 처리하지 못했습니다.', retryable };\nconst callback = { schemaVersion: '1.0.0', eventId: crypto.randomUUID(), requestId: payload.requestId, analysisJobId: payload.analysisJobId, runAttempt: payload.runAttempt, eventType: automaticRetry ? 'retrying' : 'failed', status: automaticRetry ? 'retrying' : 'failed', stage: 'matching', step: 'profile_comparison', stepAttempt: 1, retryAt: automaticRetry ? new Date(now + waitSeconds * 1000).toISOString() : null, message: automaticRetry ? '일시적인 오류로 한 번 더 시도합니다.' : '분석 Workflow 실행에 실패했습니다.', error, occurredAt: new Date(now).toISOString() };\nreturn [{ json: { automaticRetry, callback, callbackAttempt: 1, callbackPath: payload.callbacks.eventPath, continuation: automaticRetry ? 'profile_retry_wait' : 'done', waitSeconds } }];"
       },
       "id": "12000000-0000-4000-8000-000000000017",
       "name": "프로필 비교 오류 분류",
@@ -806,7 +830,7 @@
         },
         "simplify": false,
         "options": {
-          "maxTokens": 10000,
+          "maxTokens": 32000,
           "reasoning": {
             "reasoningOptions": {
               "effort": "high",
@@ -819,7 +843,7 @@
             "textOptions": {
               "type": "json_schema",
               "name": "profile_comparison",
-              "schema": "={{ $('HMAC 요청 검증').first().json.payload.outputSchemas.profileComparison }}",
+              "schema": "={{ JSON.stringify($('HMAC 요청 검증').first().json.payload.outputSchemas.profileComparison) }}",
               "strict": true,
               "verbosity": "medium"
             }
@@ -831,6 +855,12 @@
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.2,
       "position": [3000, -540],
+      "credentials": {
+        "openAiApi": {
+          "id": "RlSugmibI1sKpYqG",
+          "name": "OpenAI blog-career-ops-n8n-local"
+        }
+      },
       "onError": "continueErrorOutput"
     },
     {
@@ -846,7 +876,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const crypto = require('crypto');\nconst payload = $('HMAC 요청 검증').first().json.payload;\nconst failure = $input.first().json;\nconst status = Number(failure.statusCode ?? failure.status ?? failure.httpCode ?? failure.response?.status);\nconst message = String(failure.message ?? failure.description ?? failure.error?.message ?? 'OpenAI 요청에 실패했습니다.');\nconst billing = /billing|credit|quota|spend|usage[_ -]?limit|insufficient_quota/i.test(message);\nconst timeout = /timeout|timed out|aborted|etimedout/i.test(message);\nconst network = /network|econnreset|econnrefused|fetch failed|socket/i.test(message);\nlet code = 'OPENAI_INVALID_REQUEST';\nlet retryable = false;\nif (/incomplete/i.test(message)) code = 'OPENAI_INCOMPLETE';\nelse if (/structured|schema/i.test(message)) code = 'OPENAI_SCHEMA_INVALID';\nelse if (billing) code = 'OPENAI_BILLING_LIMIT';\nelse if (status === 401 || status === 403) code = 'OPENAI_AUTHENTICATION_FAILED';\nelse if (timeout) { code = 'OPENAI_TIMEOUT'; retryable = true; }\nelse if (status === 429) { code = 'OPENAI_RATE_LIMITED'; retryable = true; }\nelse if ((Number.isInteger(status) && status >= 500) || network) { code = 'OPENAI_UNAVAILABLE'; retryable = true; }\nconst retryAfterValue = failure.response?.headers?.['retry-after'] ?? failure.headers?.['retry-after'] ?? failure.retryAfter;\nconst retryAfter = retryAfterValue == null ? null : Number(retryAfterValue);\nlet hash = 0;\nfor (const character of String(payload.eventId)) hash = (hash * 31 + character.charCodeAt(0)) % 1000;\nconst waitSeconds = Number.isFinite(retryAfter) && retryAfter >= 0 ? retryAfter : 2 + hash / 1000;\nconst automaticRetry = retryable && 2 < 2 && waitSeconds <= 60;\nconst now = Date.now();\nconst safeMessages = {\n  OPENAI_AUTHENTICATION_FAILED: 'OpenAI 인증 설정을 확인해 주세요.',\n  OPENAI_BILLING_LIMIT: 'OpenAI 결제 또는 사용 한도를 확인해 주세요.',\n  OPENAI_INCOMPLETE: 'OpenAI 응답이 완료되지 않았습니다.',\n  OPENAI_INVALID_REQUEST: 'OpenAI 요청을 처리할 수 없습니다.',\n  OPENAI_RATE_LIMITED: 'OpenAI 호출 제한에 도달했습니다.',\n  OPENAI_SCHEMA_INVALID: 'OpenAI 구조화 응답이 올바르지 않습니다.',\n  OPENAI_TIMEOUT: 'OpenAI 응답 시간이 초과되었습니다.',\n  OPENAI_UNAVAILABLE: 'OpenAI 서비스를 일시적으로 사용할 수 없습니다.'\n};\nconst error = { code, message: safeMessages[code] ?? '분석 요청을 처리하지 못했습니다.', retryable };\nconst callback = { schemaVersion: '1.0.0', eventId: crypto.randomUUID(), requestId: payload.requestId, analysisJobId: payload.analysisJobId, runAttempt: payload.runAttempt, eventType: automaticRetry ? 'retrying' : 'failed', status: automaticRetry ? 'retrying' : 'failed', stage: 'matching', step: 'profile_comparison', stepAttempt: 2, retryAt: automaticRetry ? new Date(now + waitSeconds * 1000).toISOString() : null, message: automaticRetry ? '일시적인 오류로 한 번 더 시도합니다.' : '분석 Workflow 실행에 실패했습니다.', error, occurredAt: new Date(now).toISOString() };\nreturn [{ json: { automaticRetry, callback, callbackAttempt: 1, callbackPath: payload.callbacks.eventPath, continuation: automaticRetry ? 'profile_retry_wait' : 'done', waitSeconds } }];"
+        "jsCode": "const crypto = require('crypto');\nconst payload = $('HMAC 요청 검증').first().json.payload;\nconst failure = $input.first().json;\nconst status = Number(failure.statusCode ?? failure.status ?? failure.httpCode ?? failure.response?.status);\nconst nestedErrorMessage = typeof failure.error === 'string' ? failure.error : failure.error?.message;\nconst message = String(failure.message ?? failure.description ?? nestedErrorMessage ?? 'OpenAI 요청에 실패했습니다.');\nconst billing = /billing|credit|quota|spend|usage[_ -]?limit|insufficient_quota/i.test(message);\nconst timeout = /timeout|timed out|aborted|etimedout/i.test(message);\nconst network = /network|econnreset|econnrefused|fetch failed|socket/i.test(message);\nlet code = 'OPENAI_INVALID_REQUEST';\nlet retryable = false;\nif (/incomplete/i.test(message)) code = 'OPENAI_INCOMPLETE';\nelse if (/structured|schema/i.test(message)) code = 'OPENAI_SCHEMA_INVALID';\nelse if (billing) code = 'OPENAI_BILLING_LIMIT';\nelse if (status === 401 || status === 403) code = 'OPENAI_AUTHENTICATION_FAILED';\nelse if (timeout) { code = 'OPENAI_TIMEOUT'; retryable = true; }\nelse if (status === 429) { code = 'OPENAI_RATE_LIMITED'; retryable = true; }\nelse if ((Number.isInteger(status) && status >= 500) || network) { code = 'OPENAI_UNAVAILABLE'; retryable = true; }\nconst retryAfterValue = failure.response?.headers?.['retry-after'] ?? failure.headers?.['retry-after'] ?? failure.retryAfter;\nconst retryAfter = retryAfterValue == null ? null : Number(retryAfterValue);\nlet hash = 0;\nfor (const character of String(payload.eventId)) hash = (hash * 31 + character.charCodeAt(0)) % 1000;\nconst waitSeconds = Number.isFinite(retryAfter) && retryAfter >= 0 ? retryAfter : 2 + hash / 1000;\nconst automaticRetry = retryable && 2 < 2 && waitSeconds <= 60;\nconst now = Date.now();\nconst safeMessages = {\n  OPENAI_AUTHENTICATION_FAILED: 'OpenAI 인증 설정을 확인해 주세요.',\n  OPENAI_BILLING_LIMIT: 'OpenAI 결제 또는 사용 한도를 확인해 주세요.',\n  OPENAI_INCOMPLETE: 'OpenAI 응답이 완료되지 않았습니다.',\n  OPENAI_INVALID_REQUEST: 'OpenAI 요청을 처리할 수 없습니다.',\n  OPENAI_RATE_LIMITED: 'OpenAI 호출 제한에 도달했습니다.',\n  OPENAI_SCHEMA_INVALID: 'OpenAI 구조화 응답이 올바르지 않습니다.',\n  OPENAI_TIMEOUT: 'OpenAI 응답 시간이 초과되었습니다.',\n  OPENAI_UNAVAILABLE: 'OpenAI 서비스를 일시적으로 사용할 수 없습니다.'\n};\nconst error = { code, message: safeMessages[code] ?? '분석 요청을 처리하지 못했습니다.', retryable };\nconst callback = { schemaVersion: '1.0.0', eventId: crypto.randomUUID(), requestId: payload.requestId, analysisJobId: payload.analysisJobId, runAttempt: payload.runAttempt, eventType: automaticRetry ? 'retrying' : 'failed', status: automaticRetry ? 'retrying' : 'failed', stage: 'matching', step: 'profile_comparison', stepAttempt: 2, retryAt: automaticRetry ? new Date(now + waitSeconds * 1000).toISOString() : null, message: automaticRetry ? '일시적인 오류로 한 번 더 시도합니다.' : '분석 Workflow 실행에 실패했습니다.', error, occurredAt: new Date(now).toISOString() };\nreturn [{ json: { automaticRetry, callback, callbackAttempt: 1, callbackPath: payload.callbacks.eventPath, continuation: automaticRetry ? 'profile_retry_wait' : 'done', waitSeconds } }];"
       },
       "id": "12000000-0000-4000-8000-000000000025",
       "name": "프로필 재시도 오류 분류",

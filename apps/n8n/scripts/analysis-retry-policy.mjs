@@ -14,8 +14,11 @@ function statusOf(error) {
 }
 
 function messageOf(error) {
+  if (typeof error === "string") return error;
+  const nestedMessage =
+    typeof error?.error === "string" ? error.error : error?.error?.message;
   return String(
-    error?.message ?? error?.description ?? error?.error?.message ?? "",
+    error?.message ?? error?.description ?? nestedMessage ?? "",
   );
 }
 

@@ -12,6 +12,7 @@ import {
   type AnalysisJobService,
   prepareAnalysisDocumentText,
   prepareAnalysisJobPostingText,
+  sanitizeAnalysisResult,
   validateAnalysisSemantics,
 } from "../src/analysis-jobs.js";
 import { createApp } from "../src/app.js";
@@ -236,6 +237,37 @@ describe("analysis input and evidence validation", () => {
         row,
       ),
     ).toEqual({ ok: false, reason: "answer_without_evidence" });
+  });
+
+  it("removes unverified profile citations and recalculates the fit score", () => {
+    const repaired = sanitizeAnalysisResult(
+      {
+        ...result,
+        comparison: {
+          ...result.comparison,
+          matches: [
+            {
+              ...result.comparison.matches[0]!,
+              profileEvidence: [
+                {
+                  ...result.comparison.matches[0]!.profileEvidence[0]!,
+                  excerpt: "문서 원문에 없는 AI 요약",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      row,
+    );
+
+    expect(repaired.comparison.matches[0]?.status).toBe("unknown");
+    expect(repaired.comparison.matches[0]?.profileEvidence).toEqual([]);
+    expect(repaired.fitScore).toBe(0);
+    expect(repaired.comparison.warnings).toContain(
+      "일부 개인 자료 근거가 원문에서 확인되지 않아 해당 항목을 확인 불가로 처리했습니다.",
+    );
+    expect(validateAnalysisSemantics(repaired, row)).toEqual({ ok: true });
   });
 });
 

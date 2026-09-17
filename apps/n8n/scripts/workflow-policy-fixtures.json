@@ -54,6 +54,11 @@
       "expected": { "code": "OPENAI_SCHEMA_INVALID", "automaticRetry": false }
     },
     {
+      "name": "n8n string schema failure does not retry",
+      "input": { "attempt": 1, "error": "Failed to parse schema" },
+      "expected": { "code": "OPENAI_SCHEMA_INVALID", "automaticRetry": false }
+    },
+    {
       "name": "second 5xx is terminal",
       "input": { "attempt": 2, "error": { "status": 503 } },
       "expected": { "code": "OPENAI_UNAVAILABLE", "automaticRetry": false }
