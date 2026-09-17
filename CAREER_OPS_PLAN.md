@@ -566,6 +566,7 @@
 - 연결된 원격 Supabase에 누락되어 있던 5개 migration을 순서대로 적용하고 원격 schema lint를 통과했다. Storage RLS는 ASCII-safe named path를 허용한다.
 - 지원 등록 RPC가 호출하는 `private` 검증 함수에 `service_role` schema USAGE 권한을 추가하고, 원격 rollback 검증에서 지원 등록 RPC 성공을 확인했다.
 - `document_extraction` payload는 Worker가 발급한 signed URL과 문서 hash를 n8n에 전달하고, PDF 추출 결과를 서명된 내부 callback으로 저장한다. 기존 문서는 관리자 화면의 `PDF 다시 추출`로 같은 경로를 실행할 수 있다.
+- 자체 재검토에서 업로드 검증·DB 등록 실패 시 object 정리, 페이지 단위 고아 object sweep, 중복 추출 방지와 늦은 실패 callback 보호를 보강했다.
 
 종료 기준: 20MiB 이하 이력서·포트폴리오를 안정적으로 업로드할 수 있고 실패한 임시 object가 즉시 또는 Cron으로 정리되며, 관리자 폼과 공개 문서 동선이 기존 디자인과 일관된다.
 

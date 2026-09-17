@@ -20,6 +20,7 @@ const UPLOAD_TOKEN_TTL_MS = 2 * 60 * 60 * 1_000;
 const DOWNLOAD_URL_TTL_SECONDS = 60;
 const EXTRACTION_URL_TTL_SECONDS = 5 * 60;
 const ORPHAN_MAX_AGE_MS = UPLOAD_TOKEN_TTL_MS;
+const EXTRACTION_STALE_AFTER_MS = 15 * 60 * 1_000;
 
 type DocumentRow = Database["public"]["Tables"]["document_versions"]["Row"];
 
@@ -356,24 +357,35 @@ class SupabaseDocumentService implements DocumentService {
 
       for (const documentType of ["resume", "portfolio"] as const) {
         const folder = `${ownerId}/${documentType}`;
-        const { data: objects, error: listError } = await this.supabase.storage
-          .from(DOCUMENT_BUCKET)
-          .list(folder, { limit: 100, sortBy: { column: "created_at" } });
-        if (listError) continue;
+        let offset = 0;
+        const pageSize = 100;
+        while (true) {
+          const { data: objects, error: listError } =
+            await this.supabase.storage.from(DOCUMENT_BUCKET).list(folder, {
+              limit: pageSize,
+              offset,
+              sortBy: { column: "created_at" },
+            });
+          if (listError) break;
 
-        const stalePaths = objects
-          .filter(
-            (object) =>
-              object.id &&
-              object.created_at &&
-              Date.parse(object.created_at) < cutoff &&
-              /^(?:[0-9a-f-]{36}|.+-[0-9a-f]{6})\.pdf$/iu.test(object.name),
-          )
-          .map((object) => `${folder}/${object.name}`)
-          .filter((path) => !referenced.has(path));
+          const stalePaths = objects
+            .filter(
+              (object) =>
+                object.created_at &&
+                Date.parse(object.created_at) < cutoff &&
+                /^(?:[0-9a-f-]{36}|.+-[0-9a-f]{6})\.pdf$/iu.test(object.name),
+            )
+            .map((object) => `${folder}/${object.name}`)
+            .filter((path) => !referenced.has(path));
 
-        if (stalePaths.length > 0) {
-          await this.supabase.storage.from(DOCUMENT_BUCKET).remove(stalePaths);
+          const removedCount = stalePaths.length;
+          if (removedCount > 0) {
+            await this.supabase.storage
+              .from(DOCUMENT_BUCKET)
+              .remove(stalePaths);
+          }
+          if (objects.length < pageSize) break;
+          if (removedCount === 0) offset += pageSize;
         }
       }
     } catch {
@@ -506,71 +518,78 @@ class SupabaseDocumentService implements DocumentService {
     }
 
     const storagePath = input.storagePath;
-    const bucket = this.supabase.storage.from(DOCUMENT_BUCKET);
-    const { data: info, error: infoError } = await bucket.info(storagePath);
+    try {
+      const bucket = this.supabase.storage.from(DOCUMENT_BUCKET);
+      const { data: info, error: infoError } = await bucket.info(storagePath);
 
-    if (infoError || !info) {
-      throw new DocumentServiceError("conflict", {
-        reason: "upload_incomplete",
-      });
+      if (infoError || !info) {
+        throw new DocumentServiceError("conflict", {
+          reason: "upload_incomplete",
+        });
+      }
+
+      const { data: signedDownload, error: signedDownloadError } =
+        await bucket.createSignedUrl(storagePath, DOWNLOAD_URL_TTL_SECONDS);
+      if (signedDownloadError || !signedDownload?.signedUrl) {
+        throw new DocumentServiceError("unavailable");
+      }
+
+      const inspected = await inspectPdfObject(signedDownload.signedUrl);
+      const contentType = info.contentType?.split(";", 1)[0]?.toLowerCase();
+      const invalidFile =
+        info.size !== metadata.fileSize ||
+        inspected.fileSize !== metadata.fileSize ||
+        contentType !== "application/pdf" ||
+        !inspected.validSignature ||
+        inspected.contentHash !== metadata.contentHash;
+
+      if (invalidFile) {
+        throw new DocumentServiceError("validation", {
+          reason: "uploaded_file_mismatch",
+        });
+      }
+
+      const { data: duplicate, error: duplicateError } = await this.supabase
+        .from("document_versions")
+        .select("id")
+        .eq("owner_id", ownerId)
+        .eq("content_hash", inspected.contentHash)
+        .limit(1)
+        .maybeSingle();
+
+      if (duplicateError) throw new DocumentServiceError("unavailable");
+      if (duplicate) {
+        throw new DocumentServiceError("conflict", {
+          existingVersionId: duplicate.id,
+          reason: "duplicate_content",
+        });
+      }
+
+      const { data, error } = await this.supabase.rpc(
+        "register_document_version",
+        {
+          p_content_hash: inspected.contentHash,
+          p_document_type: metadata.documentType,
+          p_file_size: inspected.fileSize,
+          p_id: documentVersionId,
+          p_label: metadata.label,
+          p_mime_type: "application/pdf",
+          p_original_filename: metadata.originalFilename,
+          p_owner_id: ownerId,
+          p_storage_path: storagePath,
+        },
+      );
+
+      if (error || !data) throw new DocumentServiceError("unavailable");
+      return toDocumentVersion(data, new Set());
+    } catch (error) {
+      // Once an object exists, every failed completion path must attempt cleanup.
+      // The scheduled orphan sweep remains the fallback if Storage is temporarily unavailable.
+      await removeObjectBestEffort(this.supabase, storagePath).catch(
+        () => undefined,
+      );
+      throw error;
     }
-
-    const { data: signedDownload, error: signedDownloadError } =
-      await bucket.createSignedUrl(storagePath, DOWNLOAD_URL_TTL_SECONDS);
-    if (signedDownloadError || !signedDownload?.signedUrl) {
-      throw new DocumentServiceError("unavailable");
-    }
-
-    const inspected = await inspectPdfObject(signedDownload.signedUrl);
-    const contentType = info.contentType?.split(";", 1)[0]?.toLowerCase();
-    const invalidFile =
-      info.size !== metadata.fileSize ||
-      inspected.fileSize !== metadata.fileSize ||
-      contentType !== "application/pdf" ||
-      !inspected.validSignature ||
-      inspected.contentHash !== metadata.contentHash;
-
-    if (invalidFile) {
-      await removeObjectBestEffort(this.supabase, storagePath);
-      throw new DocumentServiceError("validation", {
-        reason: "uploaded_file_mismatch",
-      });
-    }
-
-    const { data: duplicate, error: duplicateError } = await this.supabase
-      .from("document_versions")
-      .select("id")
-      .eq("owner_id", ownerId)
-      .eq("content_hash", inspected.contentHash)
-      .limit(1)
-      .maybeSingle();
-
-    if (duplicateError) throw new DocumentServiceError("unavailable");
-    if (duplicate) {
-      await removeObjectBestEffort(this.supabase, storagePath);
-      throw new DocumentServiceError("conflict", {
-        existingVersionId: duplicate.id,
-        reason: "duplicate_content",
-      });
-    }
-
-    const { data, error } = await this.supabase.rpc(
-      "register_document_version",
-      {
-        p_content_hash: inspected.contentHash,
-        p_document_type: metadata.documentType,
-        p_file_size: inspected.fileSize,
-        p_id: documentVersionId,
-        p_label: metadata.label,
-        p_mime_type: "application/pdf",
-        p_original_filename: metadata.originalFilename,
-        p_owner_id: ownerId,
-        p_storage_path: storagePath,
-      },
-    );
-
-    if (error || !data) throw new DocumentServiceError("unavailable");
-    return toDocumentVersion(data, new Set());
   }
 
   async prepareExtraction(
@@ -580,6 +599,12 @@ class SupabaseDocumentService implements DocumentService {
   ): Promise<N8nDocumentExtractionDispatchPayload | null> {
     const row = await this.getRow(ownerId, documentVersionId);
     if (row.extraction_status === "ready" && row.extracted_text?.trim()) {
+      return null;
+    }
+    if (
+      row.extraction_status === "processing" &&
+      Date.parse(row.updated_at) > Date.now() - EXTRACTION_STALE_AFTER_MS
+    ) {
       return null;
     }
 
@@ -616,11 +641,13 @@ class SupabaseDocumentService implements DocumentService {
     documentVersionId: string,
     errorCode: string,
   ): Promise<void> {
-    await this.supabase
+    const { error } = await this.supabase
       .from("document_versions")
       .update({ extraction_error: errorCode, extraction_status: "failed" })
       .eq("owner_id", ownerId)
-      .eq("id", documentVersionId);
+      .eq("id", documentVersionId)
+      .eq("extraction_status", "processing");
+    if (error) throw new DocumentServiceError("unavailable");
   }
 
   async completeExtraction(
@@ -632,6 +659,11 @@ class SupabaseDocumentService implements DocumentService {
       throw new DocumentServiceError("conflict", {
         reason: "stale_extraction_callback",
       });
+    }
+
+    // A late failure callback must not erase a successful extraction or a manual correction.
+    if (current.extraction_status === "ready" && input.outcome === "failed") {
+      return this.get(ownerId, input.documentVersionId);
     }
 
     const extractedText = input.extractedText?.trim() || null;
