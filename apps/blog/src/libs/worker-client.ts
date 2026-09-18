@@ -275,6 +275,17 @@ export function getAnalysisJob(
   );
 }
 
+export function recoverStaleAnalysisJob(
+  analysisJobId: string,
+): Promise<CreateAnalysisJobResponse> {
+  return requestWorker(
+    `/v1/analysis-jobs/${analysisJobId}/recover-stale`,
+    CreateAnalysisJobResponseSchema,
+    { body: JSON.stringify({}), method: "POST" },
+    true,
+  );
+}
+
 export function getAnalysisWorkspace(
   analysisJobId: string,
   compareTo?: string,

@@ -1,5 +1,9 @@
 import {
+  ANALYSIS_DISPATCH_DOCUMENT_TEXT_MAX_LENGTH,
+  ANALYSIS_DISPATCH_JOB_POSTING_TEXT_MAX_LENGTH,
+  ANALYSIS_INPUT_POLICY_VERSION,
   type AnalysisHistoryItem,
+  type AnalysisInputAudit,
   type AnalysisMatchCounts,
   type AnalysisRequirementReview,
   type AnalysisResult,
@@ -17,13 +21,18 @@ import {
   type PatchInterviewChecklistItemRequest,
   type PatchInterviewNoteRequest,
   type SaveInterviewAnswerRequest,
+  summarizeAnalysisExecutions,
   type UpdateAnalysisReviewRequest,
 } from "@workspace/contracts";
 import type { Database, Json } from "@workspace/contracts/database";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-import { mapAnalysisJob } from "./analysis-jobs.js";
+import {
+  mapAnalysisJob,
+  prepareAnalysisDispatchDocumentText,
+  prepareAnalysisDispatchJobPostingText,
+} from "./analysis-jobs.js";
 
 type AnalysisJobRow = Database["public"]["Tables"]["analysis_jobs"]["Row"];
 type AnalysisResultRow =
@@ -104,6 +113,62 @@ function enrichResultEvidence(
         ...trait,
         evidence: trait.evidence.map(enrich),
       })),
+    },
+  };
+}
+
+function normalizedLength(value: string): number {
+  return value.normalize("NFKC").replace(/\r\n?/g, "\n").trim().length;
+}
+
+function mapInputAudit(
+  job: AnalysisJobRow,
+  snapshot: SnapshotRow,
+  resume: DocumentRow,
+  portfolio: DocumentRow,
+): AnalysisInputAudit {
+  const jobPostingStoredLength = normalizedLength(job.job_posting_text);
+  const jobPostingOriginalLength = normalizedLength(
+    snapshot.normalized_content,
+  );
+  const resumeInput = prepareAnalysisDispatchDocumentText(job.resume_text);
+  const portfolioInput = prepareAnalysisDispatchDocumentText(
+    job.portfolio_text,
+  );
+  const jobPostingInput = prepareAnalysisDispatchJobPostingText(
+    job.job_posting_text,
+  );
+
+  return {
+    documentTextMaxLength: ANALYSIS_DISPATCH_DOCUMENT_TEXT_MAX_LENGTH,
+    includesPdf: Boolean(resume.storage_path && portfolio.storage_path),
+    includesProfile: Boolean(
+      job.resume_profile_id &&
+        job.portfolio_profile_id &&
+        job.job_posting_profile_id,
+    ),
+    jobPosting: {
+      dispatchLength: jobPostingInput.inputTextLength,
+      dispatchTruncated: jobPostingInput.truncated,
+      originalLength: jobPostingOriginalLength,
+      storedLength: jobPostingStoredLength,
+      storedTruncated: jobPostingStoredLength < jobPostingOriginalLength,
+    },
+    policyVersion: ANALYSIS_INPUT_POLICY_VERSION,
+    portfolio: {
+      dispatchLength: portfolioInput.inputTextLength,
+      dispatchTruncated: portfolioInput.truncated,
+      originalLength: job.portfolio_original_length,
+      storedLength: normalizedLength(job.portfolio_text),
+      storedTruncated: job.portfolio_truncated,
+    },
+    jobPostingTextMaxLength: ANALYSIS_DISPATCH_JOB_POSTING_TEXT_MAX_LENGTH,
+    resume: {
+      dispatchLength: resumeInput.inputTextLength,
+      dispatchTruncated: resumeInput.truncated,
+      originalLength: job.resume_original_length,
+      storedLength: normalizedLength(job.resume_text),
+      storedTruncated: job.resume_truncated,
     },
   };
 }
@@ -430,18 +495,21 @@ class SupabaseInterviewWorkspaceService implements InterviewWorkspaceService {
       const parsed = AnalysisResultSchema.safeParse(resultRow.result);
       if (!parsed.success)
         throw new InterviewWorkspaceServiceError("unavailable");
+      const executions = executionQuery.data
+        .filter((execution) => execution.analysis_job_id === job.id)
+        .map(mapExecution);
       return {
         analysisJobId: job.id,
         completedAt: job.finished_at,
         createdAt: job.created_at,
-        executions: executionQuery.data
-          .filter((execution) => execution.analysis_job_id === job.id)
-          .map(mapExecution),
+        executions,
         fitScore: parsed.data.fitScore,
         gapCount: parsed.data.comparison.gaps.length,
         matchCounts: countMatches(parsed.data.comparison.matches),
         questionCount: parsed.data.comparison.interviewQuestions.length,
         sources: this.mapSources(job, snapshot, resume, portfolio),
+        usageSummary: summarizeAnalysisExecutions(executions),
+        inputAudit: mapInputAudit(job, snapshot, resume, portfolio),
       };
     });
   }
@@ -621,6 +689,7 @@ class SupabaseInterviewWorkspaceService implements InterviewWorkspaceService {
     if (parsedResult && !parsedResult.success) {
       throw new InterviewWorkspaceServiceError("unavailable");
     }
+    const executions = (executionQuery.data ?? []).map(mapExecution);
     const workspaceJob = mapAnalysisJob(job, resultRow);
     if (workspaceJob.result) {
       workspaceJob.result = enrichResultEvidence(workspaceJob.result, job);
@@ -687,8 +756,10 @@ class SupabaseInterviewWorkspaceService implements InterviewWorkspaceService {
       resultMetadata: resultRow
         ? {
             createdAt: resultRow.created_at,
-            executions: (executionQuery.data ?? []).map(mapExecution),
+            executions,
             schemaVersion: resultRow.schema_version,
+            usageSummary: summarizeAnalysisExecutions(executions),
+            inputAudit: mapInputAudit(job, snapshot, resume, portfolio),
           }
         : null,
       review: mapReview(reviewQuery.data, requirements),

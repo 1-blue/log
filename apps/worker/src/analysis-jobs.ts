@@ -1,18 +1,23 @@
 import {
+  ANALYSIS_DISPATCH_DOCUMENT_TEXT_MAX_LENGTH,
+  ANALYSIS_DISPATCH_JOB_POSTING_TEXT_MAX_LENGTH,
+  ANALYSIS_INPUT_POLICY_VERSION,
   ANALYSIS_JOB_MAX_RUN_ATTEMPTS,
   type AnalysisEventCallback,
+  AnalysisInputPolicySchema,
   type AnalysisJobResponse,
   type AnalysisResult,
   type AnalysisResultCallback,
-  DocumentAnalysisProfileSchema,
   AnalysisResultSchema,
   calculateAnalysisFitScore,
   CONTRACT_VERSION,
+  DocumentAnalysisProfileSchema,
   type Evidence,
+  JobPostingAnalysisProfileSchema,
   JobPostingFactsSchema,
   type N8nDispatchPayload,
+  N8nDispatchPayloadSchema,
   ProfileComparisonSchema,
-  JobPostingAnalysisProfileSchema,
 } from "@workspace/contracts";
 import type { Database, Json } from "@workspace/contracts/database";
 
@@ -41,6 +46,43 @@ const DOCUMENT_TEXT_MIDDLE_LENGTH = 20_000;
 const DOCUMENT_TEXT_TAIL_LENGTH = 20_000;
 const OMISSION_MARKER = "\n\n[...중간 일부 생략...]\n\n";
 const JOB_POSTING_TEXT_MAX_LENGTH = 100_000;
+export const ANALYSIS_STALE_AFTER_MS = 20 * 60 * 1_000;
+
+function prepareAnalysisDispatchText(
+  text: string,
+  maxLength: number,
+): { inputTextLength: number; text: string; truncated: boolean } {
+  const normalized = text.normalize("NFKC").replace(/\r\n?/g, "\n").trim();
+  if (normalized.length <= maxLength) {
+    return {
+      inputTextLength: normalized.length,
+      text: normalized,
+      truncated: false,
+    };
+  }
+
+  const tailLength = Math.min(8_000, Math.floor(maxLength / 4));
+  const headLength = maxLength - tailLength - OMISSION_MARKER.length;
+  return {
+    inputTextLength: maxLength,
+    text: `${normalized.slice(0, headLength)}${OMISSION_MARKER}${normalized.slice(-tailLength)}`,
+    truncated: true,
+  };
+}
+
+export function prepareAnalysisDispatchDocumentText(text: string) {
+  return prepareAnalysisDispatchText(
+    text,
+    ANALYSIS_DISPATCH_DOCUMENT_TEXT_MAX_LENGTH,
+  );
+}
+
+export function prepareAnalysisDispatchJobPostingText(text: string) {
+  return prepareAnalysisDispatchText(
+    text,
+    ANALYSIS_DISPATCH_JOB_POSTING_TEXT_MAX_LENGTH,
+  );
+}
 
 type Dispatch = (
   payload: N8nDispatchPayload,
@@ -70,6 +112,10 @@ export interface AnalysisJobService {
   get(ownerId: string, analysisJobId: string): Promise<AnalysisJobResponse>;
   list(ownerId: string, applicationId: string): Promise<AnalysisJobResponse[]>;
   retry(ownerId: string, analysisJobId: string): Promise<AnalysisJobResponse>;
+  recoverStale(
+    ownerId: string,
+    analysisJobId: string,
+  ): Promise<AnalysisJobResponse>;
 }
 
 export function prepareAnalysisDocumentText(text: string): {
@@ -258,8 +304,10 @@ export function sanitizeAnalysisResult(
   }));
   const interviewQuestions = result.comparison.interviewQuestions.map(
     (question) => {
-      const answerEvidence = filterEvidence(question.answerEvidence, (item) =>
-        item.source !== "job_posting" && evidenceMatchesSource(item, job),
+      const answerEvidence = filterEvidence(
+        question.answerEvidence,
+        (item) =>
+          item.source !== "job_posting" && evidenceMatchesSource(item, job),
       );
       return {
         ...question,
@@ -408,6 +456,36 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
     return data;
   }
 
+  private isStale(row: AnalysisJobRow, now = Date.now()) {
+    if (!["queued", "running", "retrying"].includes(row.status)) return false;
+    const heartbeat = Date.parse(
+      row.last_heartbeat_at ?? row.updated_at ?? row.created_at,
+    );
+    return (
+      Number.isFinite(heartbeat) && now - heartbeat >= ANALYSIS_STALE_AFTER_MS
+    );
+  }
+
+  private async recoverStaleRow(
+    ownerId: string,
+    analysisJobId: string,
+    row?: AnalysisJobRow,
+  ): Promise<AnalysisJobRow> {
+    const current = row ?? (await this.getRow(analysisJobId, ownerId));
+    if (!this.isStale(current)) return current;
+
+    const { data, error } = await this.supabase.rpc(
+      "recover_stale_analysis_job",
+      {
+        p_analysis_job_id: analysisJobId,
+        p_cutoff: new Date(Date.now() - ANALYSIS_STALE_AFTER_MS).toISOString(),
+        p_owner_id: ownerId,
+      },
+    );
+    if (error || !data) throw new AnalysisJobServiceError("unavailable");
+    return data;
+  }
+
   private async getPosting(row: AnalysisJobRow): Promise<PostingRow> {
     const { data, error } = await this.supabase
       .from("job_postings")
@@ -506,7 +584,30 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
       signedFile(row.resume_version_id),
       signedFile(row.portfolio_version_id),
     ]);
-    return {
+    if (!resumeFile || !portfolioFile) {
+      throw new AnalysisJobServiceError("unavailable", {
+        reason: "document_file_unavailable",
+      });
+    }
+    const resumeInput = prepareAnalysisDispatchDocumentText(row.resume_text);
+    const portfolioInput = prepareAnalysisDispatchDocumentText(
+      row.portfolio_text,
+    );
+    const jobPostingInput = prepareAnalysisDispatchJobPostingText(
+      row.job_posting_text,
+    );
+    const inputPolicy = AnalysisInputPolicySchema.parse({
+      version: ANALYSIS_INPUT_POLICY_VERSION,
+      documentTextMaxLength: ANALYSIS_DISPATCH_DOCUMENT_TEXT_MAX_LENGTH,
+      jobPostingTextMaxLength: ANALYSIS_DISPATCH_JOB_POSTING_TEXT_MAX_LENGTH,
+      includesPdf: Boolean(resumeFile && portfolioFile),
+      includesProfile: Boolean(
+        resumeProfile?.success &&
+          portfolioProfile?.success &&
+          postingProfile?.success,
+      ),
+    });
+    const payload = {
       analysisJobId: row.id,
       callbacks: {
         eventPath: `/v1/internal/analysis-jobs/${row.id}/events`,
@@ -519,7 +620,12 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
         id: posting.id,
         snapshotId: row.job_posting_snapshot_id,
         source: posting.source,
-        text: row.job_posting_text,
+        text: jobPostingInput.text,
+        sourceTextLength: row.job_posting_text.length,
+        inputTextLength: jobPostingInput.inputTextLength,
+        inputTextTruncated:
+          jobPostingInput.truncated ||
+          row.job_posting_text.length >= JOB_POSTING_TEXT_MAX_LENGTH,
         title: posting.title,
         url: posting.canonical_url,
         profileId: row.job_posting_profile_id,
@@ -531,8 +637,12 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
       profile: {
         portfolio: {
           contentHash: row.portfolio_content_hash,
+          inputTextLength: portfolioInput.inputTextLength,
+          inputTextTruncated:
+            portfolioInput.truncated || row.portfolio_truncated,
           originalLength: row.portfolio_original_length,
-          text: row.portfolio_text,
+          sourceTextLength: row.portfolio_text.length,
+          text: portfolioInput.text,
           truncated: row.portfolio_truncated,
           versionId: row.portfolio_version_id,
           profileId: row.portfolio_profile_id,
@@ -542,8 +652,10 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
         },
         resume: {
           contentHash: row.resume_content_hash,
+          inputTextLength: resumeInput.inputTextLength,
+          inputTextTruncated: resumeInput.truncated || row.resume_truncated,
           originalLength: row.resume_original_length,
-          text: row.resume_text,
+          sourceTextLength: row.resume_text.length,
           truncated: row.resume_truncated,
           versionId: row.resume_version_id,
           profileId: row.resume_profile_id,
@@ -555,7 +667,9 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
       requestId: row.request_id,
       runAttempt: row.attempt_count,
       schemaVersion: CONTRACT_VERSION,
+      inputPolicy,
     };
+    return N8nDispatchPayloadSchema.parse(payload);
   }
 
   private async beginAttempt(row: AnalysisJobRow): Promise<AnalysisJobRow> {
@@ -616,7 +730,16 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
   }
 
   async get(ownerId: string, analysisJobId: string) {
-    const row = await this.getRow(analysisJobId, ownerId);
+    const row = await this.recoverStaleRow(
+      ownerId,
+      analysisJobId,
+      await this.getRow(analysisJobId, ownerId),
+    );
+    return mapAnalysisJob(row, await this.getResult(row.id));
+  }
+
+  async recoverStale(ownerId: string, analysisJobId: string) {
+    const row = await this.recoverStaleRow(ownerId, analysisJobId);
     return mapAnalysisJob(row, await this.getResult(row.id));
   }
 
@@ -929,8 +1052,6 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
         reason: "analysis_attempt_mismatch",
       });
     }
-    const parsed = AnalysisResultSchema.safeParse(input.result);
-    if (!parsed.success) throw new AnalysisJobServiceError("validation");
     const failValidation = () => {
       // A terminal result callback can be rejected after the workflow has
       // already finished its provider work. Persist that rejection as a
@@ -938,7 +1059,10 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
       // n8n retries or reports the rejected callback.
       return this.event({
         schemaVersion: CONTRACT_VERSION,
-        eventId: input.eventId,
+        // The provider callback event is not inserted when validation fails.
+        // Use a new event ID so the terminal failure cannot be treated as a
+        // duplicate of the rejected result callback.
+        eventId: crypto.randomUUID(),
         requestId: input.requestId,
         analysisJobId: input.analysisJobId,
         runAttempt: input.runAttempt,
@@ -957,6 +1081,8 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
         occurredAt: new Date().toISOString(),
       });
     };
+    const parsed = AnalysisResultSchema.safeParse(input.result);
+    if (!parsed.success) return failValidation();
     const sanitizedCandidate = sanitizeAnalysisResult(parsed.data, row);
     const sanitizedParsed = AnalysisResultSchema.safeParse(sanitizedCandidate);
     if (!sanitizedParsed.success) return failValidation();

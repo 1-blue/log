@@ -1,4 +1,5 @@
 import {
+  ANALYSIS_STALE_AFTER_MS,
   type AnalysisJobService,
   createAnalysisJobService,
 } from "./analysis-jobs.js";
@@ -10,7 +11,6 @@ import {
   type SlackNotificationService,
 } from "./slack-notifications.js";
 
-const ANALYSIS_STALE_AFTER_MS = 20 * 60 * 1_000;
 const ANALYSIS_STALE_SWEEP_LIMIT = 100;
 const SLACK_NOTIFICATION_STALE_AFTER_MS = 10 * 60 * 1_000;
 const SLACK_NOTIFICATION_STALE_SWEEP_LIMIT = 100;

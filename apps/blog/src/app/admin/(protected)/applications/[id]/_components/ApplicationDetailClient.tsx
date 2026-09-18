@@ -13,6 +13,12 @@ import {
   type JobPostingCollectionErrorCode,
   type JobPostingCollectionRun,
 } from "@workspace/contracts";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@workspace/ui/components/Accordion";
 import { Button } from "@workspace/ui/components/Button";
 import {
   Dialog,
@@ -33,19 +39,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/Select";
-import { Textarea } from "@workspace/ui/components/Textarea";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@workspace/ui/components/Accordion";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@workspace/ui/components/Tabs";
+import { Textarea } from "@workspace/ui/components/Textarea";
 
 import {
   ArchiveIcon,
@@ -74,6 +74,7 @@ import {
   listAnalysisJobs,
   listDocumentVersions,
   listJobPostingCollections,
+  recoverStaleAnalysisJob,
   retryAnalysisJob,
   updateApplication,
   updateJobPosting,
@@ -303,6 +304,20 @@ export default function ApplicationDetailClient({
       setAnalysisPollingExpired(
         ["queued", "running", "retrying"].includes(response.data.status),
       );
+    } catch (caught) {
+      setError(message(caught));
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function recoverStaleAnalysis(analysisJobId: string) {
+    setPending("analysis-recover");
+    setError(null);
+    try {
+      const response = await recoverStaleAnalysisJob(analysisJobId);
+      setAnalysisJobs((current) => upsertAnalysis(current, response.data.job));
+      setAnalysisPollingExpired(false);
     } catch (caught) {
       setError(message(caught));
     } finally {
@@ -606,15 +621,9 @@ export default function ApplicationDetailClient({
 
       <Tabs value={activeTab} onValueChange={changeTab}>
         <TabsList aria-label="지원 상세 영역">
-          <TabsTrigger value="info">
-            지원 정보
-          </TabsTrigger>
-          <TabsTrigger value="posting">
-            채용공고
-          </TabsTrigger>
-          <TabsTrigger value="analysis">
-            적합도 분석
-          </TabsTrigger>
+          <TabsTrigger value="info">지원 정보</TabsTrigger>
+          <TabsTrigger value="posting">채용공고</TabsTrigger>
+          <TabsTrigger value="analysis">적합도 분석</TabsTrigger>
         </TabsList>
 
         <TabsContent value="posting">
@@ -931,23 +940,39 @@ export default function ApplicationDetailClient({
                 {analysisPollingExpired && activeAnalysisId ? (
                   <div className="border-border bg-muted/30 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
                     <p className="text-muted-foreground text-xs">
-                      자동 새로고침이 종료되었습니다. 작업은 백그라운드에서
-                      계속될 수 있습니다.
+                      자동 새로고침이 종료되었습니다. 응답이 오래 멈췄다면 중단
+                      여부를 확인해 실패 상태로 전환할 수 있습니다.
                     </p>
-                    <Button
-                      disabled={disabled}
-                      onClick={() => void refreshAnalysis(activeAnalysisId)}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      {pending === "analysis-refresh" ? (
-                        <LoaderCircleIcon className="animate-spin" />
-                      ) : (
-                        <RotateCcwIcon />
-                      )}
-                      상태 새로고침
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        disabled={disabled}
+                        onClick={() =>
+                          void recoverStaleAnalysis(activeAnalysisId)
+                        }
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        {pending === "analysis-recover" ? (
+                          <LoaderCircleIcon className="animate-spin" />
+                        ) : (
+                          <RotateCcwIcon />
+                        )}
+                        중단 여부 확인
+                      </Button>
+                      <Button
+                        disabled={disabled}
+                        onClick={() => void refreshAnalysis(activeAnalysisId)}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        {pending === "analysis-refresh" ? (
+                          <LoaderCircleIcon className="animate-spin" />
+                        ) : null}
+                        상태 새로고침
+                      </Button>
+                    </div>
                   </div>
                 ) : null}
                 <div className="mt-3 flex flex-wrap gap-2">

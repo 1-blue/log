@@ -39,4 +39,36 @@ describe("OpenAI Structured Outputs schema adapter", () => {
     expect(adapted).not.toHaveProperty("$schema");
     expect(adapted).toHaveProperty("properties.title.anyOf");
   });
+
+  it("normalizes every nested object for Structured Outputs", () => {
+    const source = {
+      type: "object",
+      properties: {
+        nested: {
+          type: "object",
+          properties: {
+            value: { type: "string" },
+          },
+        },
+      },
+      required: ["nested"],
+      additionalProperties: false,
+    };
+
+    expect(toOpenAiStructuredOutputSchema(source)).toEqual({
+      type: "object",
+      properties: {
+        nested: {
+          type: "object",
+          properties: {
+            value: { type: "string" },
+          },
+          required: ["value"],
+          additionalProperties: false,
+        },
+      },
+      required: ["nested"],
+      additionalProperties: false,
+    });
+  });
 });

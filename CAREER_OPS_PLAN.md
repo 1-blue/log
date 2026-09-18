@@ -1,8 +1,8 @@
 # 취업 준비 관리·자동화 확장 프로젝트 계획
 
 > 기준일: 2026-09-14
-> 작업 브랜치: `codex/career-ops-foundation`  
-> 현재 범위: 13단계 관리자 화면 사용성 개선 및 15.2단계 AI 입력 프로필·공고 본문 보완 완료, 16단계 외부 요소 연결 예정
+> 작업 브랜치: `master`
+> 현재 범위: 13단계 관리자 화면 사용성 개선 및 내부 개선 1~8번 완료, 16단계 외부 요소 연결 및 운영 배포 준비
 
 ## 1. 프로젝트 정의
 
@@ -30,18 +30,18 @@
 
 ## 2. 확정한 기술 및 운영 결정
 
-| 영역            | 선택                                             | 이유                                                           |
-| --------------- | ------------------------------------------------ | -------------------------------------------------------------- |
-| 웹 애플리케이션 | 기존 `apps/blog`의 Next.js                       | 공개 블로그와 관리자 화면의 디자인·코드 재사용                 |
-| 웹 배포         | 기존 Vercel 유지                                 | 현재 배포 흐름을 보존하고 Cloudflare Pages 중복 도입 방지      |
-| API Gateway     | `apps/worker`의 Cloudflare Worker                | 관리자 인증, 검증, 멱등성, Rate Limit, n8n 은닉                |
-| 자동화          | `apps/n8n`의 Docker Compose 기반 n8n             | 로컬 개발 후 AWS Lightsail 운영 배포 준비                     |
-| 데이터베이스    | Supabase PostgreSQL + Storage                    | Auth, 데이터, 비공개 문서 버전을 한 서비스에서 시작            |
-| 인증            | Supabase Auth, 관리자 1명                        | 브라우저에 비밀번호를 포함하지 않고 확장 가능한 세션 사용      |
+| 영역            | 선택                                  | 이유                                                                          |
+| --------------- | ------------------------------------- | ----------------------------------------------------------------------------- |
+| 웹 애플리케이션 | 기존 `apps/blog`의 Next.js            | 공개 블로그와 관리자 화면의 디자인·코드 재사용                                |
+| 웹 배포         | 기존 Vercel 유지                      | 현재 배포 흐름을 보존하고 Cloudflare Pages 중복 도입 방지                     |
+| API Gateway     | `apps/worker`의 Cloudflare Worker     | 관리자 인증, 검증, 멱등성, Rate Limit, n8n 은닉                               |
+| 자동화          | `apps/n8n`의 Docker Compose 기반 n8n  | 로컬 개발 후 AWS Lightsail 운영 배포                                         |
+| 데이터베이스    | Supabase PostgreSQL + Storage         | Auth, 데이터, 비공개 문서 버전을 한 서비스에서 시작                           |
+| 인증            | Supabase Auth, 관리자 1명             | 브라우저에 비밀번호를 포함하지 않고 확장 가능한 세션 사용                     |
 | AI              | OpenAI Responses API + `gpt-5.6-luna` | 공고·문서 프로필은 medium, 최종 적합도·질문은 high, 재현 가능한 snapshot 고정 |
-| 알림            | Slack Bot API + Incoming Webhook                 | 공고별 스레드와 별도 시스템 오류 채널 운영                     |
-| 최초 공고 소스  | Wanted                                           | MVP 파서와 검증 범위를 한 사이트로 제한                        |
-| 공유 계약       | `packages/contracts`                             | Next.js, Worker, n8n 입출력 형식의 불일치 방지                 |
+| 알림            | Slack Bot API + Incoming Webhook      | 공고별 스레드와 별도 시스템 오류 채널 운영                                    |
+| 최초 공고 소스  | Wanted                                | MVP 파서와 검증 범위를 한 사이트로 제한                                       |
+| 공유 계약       | `packages/contracts`                  | Next.js, Worker, n8n 입출력 형식의 불일치 방지                                |
 
 ### MVP에서 하지 않는 것
 
@@ -566,6 +566,7 @@
 - 연결된 원격 Supabase에 누락되어 있던 5개 migration을 순서대로 적용하고 원격 schema lint를 통과했다. Storage RLS는 ASCII-safe named path를 허용한다.
 - 지원 등록 RPC가 호출하는 `private` 검증 함수에 `service_role` schema USAGE 권한을 추가하고, 원격 rollback 검증에서 지원 등록 RPC 성공을 확인했다.
 - `document_extraction` payload는 Worker가 발급한 signed URL과 문서 hash를 n8n에 전달하고, PDF 추출 결과를 서명된 내부 callback으로 저장한다. 기존 문서는 관리자 화면의 `PDF 다시 추출`로 같은 경로를 실행할 수 있다.
+- 자체 재검토에서 업로드 검증·DB 등록 실패 시 object 정리, 페이지 단위 고아 object sweep, 중복 추출 방지와 늦은 실패 callback 보호를 보강했다.
 
 종료 기준: 20MiB 이하 이력서·포트폴리오를 안정적으로 업로드할 수 있고 실패한 임시 object가 즉시 또는 Cron으로 정리되며, 관리자 폼과 공개 문서 동선이 기존 디자인과 일관된다.
 
@@ -591,6 +592,40 @@
 
 종료 기준: 외부 AI Credential 없이도 등록된 PDF와 공고 본문을 재사용해 분석 입력과 결과 화면을 확인할 수 있고, 실제 AI 연결 시 fixture 교체 지점이 명확하다.
 
+### 4번 — PDF 원본 입력과 AI 프로필 저장 경로 완성 `완료`
+
+- [x] 문서 추출 payload에 DocumentAnalysisProfile Structured Outputs 스키마를 포함
+- [x] n8n에서 PDF 텍스트 추출 후 같은 PDF를 OpenAI `input_file`로 전달해 이력서·포트폴리오 프로필 생성
+- [x] 프로필 분석 실패 시 추출 텍스트를 보존하고 프로필 실패 코드를 callback으로 전달
+- [x] Worker가 AI 프로필 callback을 검증하고 `document_analysis_profiles`에 입력 hash·모델·프롬프트 버전과 함께 upsert
+- [x] 최종 공고 적합도 비교와 재시도에도 이력서·포트폴리오 signed PDF를 file input으로 전달
+- [x] n8n 정적 검증으로 문서 프로필·PDF file input·callback 분기와 도달성을 확인
+
+구현 결과:
+
+- PDF는 텍스트 추출 결과만 사용하는 것이 아니라 프로필 생성과 최종 비교 모두에서 원본 시각 정보를 함께 전달한다.
+- 프로필 생성 실패가 문서 텍스트 추출 성공을 덮어쓰지 않으므로, 이후 프로필만 재생성할 수 있는 상태를 유지한다.
+- signed URL은 Worker가 발급하고 n8n/OpenAI에는 분석 실행 중에만 전달되며, 저장되는 것은 프로필과 입력 hash다.
+
+종료 기준: 외부 OpenAI Credential 연결 후 문서 업로드 → 텍스트 추출·PDF 프로필 저장 → 공고 적합도 비교까지 동일한 원본 PDF를 안전하게 재사용할 수 있다.
+
+### 5번 — AI 분석 입력 예산·중복·실패 방지 `완료`
+
+- [x] 저장된 원문과 분석 요청에 사용하는 보조 텍스트를 분리하고, 저장 데이터는 변경하지 않은 채 dispatch 입력만 제한
+- [x] 이력서·포트폴리오 보조 텍스트는 문서별 32,000자, 공고 보조 텍스트는 60,000자로 제한하고 앞·뒤 문맥과 생략 여부를 보존
+- [x] PDF 원본과 사전 분석 프로필을 함께 사용하는지, 실제 전송 글자 수와 원문 길이를 payload에 명시
+- [x] Worker에서 n8n dispatch payload를 계약으로 재검증하고, PDF signed URL이 없으면 잘못된 빈 file input을 OpenAI로 보내지 않도록 사전 차단
+- [x] 입력 정책 버전과 제한값을 공통 계약·JSON Schema·Worker 테스트로 고정
+
+구현 결과:
+
+- 분석 입력은 `analysis-input-v1` 정책으로 고정했으며, PDF·프로필·제한된 보조 텍스트의 역할을 payload에서 확인할 수 있다.
+- 기존 `analysis_jobs` 원문과 원본 길이·hash는 그대로 보존하므로 재분석과 감사에 필요한 데이터가 사라지지 않는다.
+- 긴 입력은 임의로 앞부분만 남기지 않고 앞·뒤 문맥과 `[...중간 일부 생략...]` 표식을 유지한다.
+- Worker가 최종 payload를 Zod 계약으로 다시 검증하므로 제한값·입력 메타데이터가 n8n Workflow와 어긋나면 OpenAI 호출 전에 실패한다.
+
+종료 기준: 문서 PDF와 프로필을 유지하면서 중복 텍스트 입력을 예산 안으로 제한하고, 입력 초과·파일 누락을 모호한 OpenAI 오류 대신 dispatch 단계에서 식별할 수 있다.
+
 ### 16단계 — 외부 요소 연결 및 운영 배포
 
 목표: 개발이 끝난 코드를 실제 외부 서비스와 연결하고 운영 환경에 배포한다.
@@ -608,8 +643,6 @@
 - [ ] 배포 전 Secret rotation과 최소 권한 확인
 
 종료 기준: 모든 운영 서비스가 연결되고 실제 테스트를 시작할 수 있는 배포 상태가 된다.
-
-운영 배포 전담 작업에서 AWS Lightsail과 `n8n.story-dict.com`을 대상으로 한 Compose, Caddy, 백업 스크립트, 수동 GitHub Actions 배포 절차를 준비했다. 실제 인스턴스·DNS·Credential 연결과 복구 훈련은 외부 값 및 비용 확인 후 진행하므로 위 체크박스는 아직 완료로 표시하지 않는다. 세부 절차는 `apps/n8n/PRODUCTION.md`를 따른다.
 
 ### 17단계 — 외부 연동 통합 테스트
 
@@ -753,6 +786,7 @@
 | `POST`   | `/v1/applications/:id/analysis-jobs`             | 비동기 분석 작업 생성          |
 | `GET`    | `/v1/applications/:id/analysis-jobs`             | 지원별 분석 작업 이력 조회     |
 | `GET`    | `/v1/analysis-jobs/:id`                          | 작업 상태와 결과 조회          |
+| `POST`   | `/v1/analysis-jobs/:id/recover-stale`            | 오래 멈춘 분석 작업 상태 확인·복구 |
 | `POST`   | `/v1/analysis-jobs/:id/retry`                    | 실패 작업 수동 재시도          |
 | `POST`   | `/v1/analysis-jobs/:id/cancel`                   | 가능한 단계에서 작업 취소      |
 | `GET`    | `/v1/analysis-jobs/:id/workspace`                | 분석·면접 준비 작업 화면 조회  |
@@ -774,11 +808,11 @@
 
 - `POST /v1/internal/job-posting-collections/:id/complete`: n8n 수집 결과를 양방향 HMAC으로 검증하고 실행 완료와 스냅샷 저장을 원자적으로 처리한다.
 
-| Method | Path                                    | 역할                              |
-| ------ | --------------------------------------- | --------------------------------- |
-| `POST` | `/v1/internal/analysis-jobs/:id/events` | 단계 변경, heartbeat, 실패 이벤트 |
-| `POST` | `/v1/internal/analysis-jobs/:id/result` | 최종 결과 원자적 저장             |
-| `POST` | `/v1/internal/document-versions/:id/extract` | PDF 텍스트 추출 결과 저장 |
+| Method | Path                                         | 역할                              |
+| ------ | -------------------------------------------- | --------------------------------- |
+| `POST` | `/v1/internal/analysis-jobs/:id/events`      | 단계 변경, heartbeat, 실패 이벤트 |
+| `POST` | `/v1/internal/analysis-jobs/:id/result`      | 최종 결과 원자적 저장             |
+| `POST` | `/v1/internal/document-versions/:id/extract` | PDF 텍스트 추출 결과 저장         |
 
 내부 요청에는 `X-Request-Id`, `X-Event-Id`, `X-Signature-Timestamp`, `X-Signature`가 필요하다. 서명 대상은 최소 `timestamp + method + path + body hash`이며 허용 시간 차이를 제한한다.
 
@@ -991,7 +1025,7 @@ Vercel은 기존 Git Integration 배포를 유지하므로 별도 CLI token, org
 | 위험                              | 영향                | 대응                                                           |
 | --------------------------------- | ------------------- | -------------------------------------------------------------- |
 | Wanted 페이지 구조/접근 정책 변경 | 자동 수집 실패      | parser fixture, 명확한 오류, 수동 본문 fallback                |
-| n8n 로컬 종료                     | 작업 지연           | 작업을 DB에 먼저 생성, 재시도 가능, 운영 위치는 실사용 후 결정 |
+| n8n 로컬 종료                     | 작업 지연           | 작업을 DB에 먼저 생성, 재시도 가능, 운영 n8n은 Lightsail에서 운영 |
 | Worker → 로컬 n8n 접근 불가       | dispatch 실패       | 개발 중 직접 localhost 또는 임시 Tunnel, 운영은 HTTPS endpoint |
 | AI hallucination                  | 잘못된 준비 방향    | 근거 필수, unknown 허용, 2단계 분석, 사용자 검토               |
 | PDF 개인정보 공개                 | 개인정보 노출       | 원본·이전 버전은 비공개 Storage, 명시적으로 선택한 버전만 공개 |
@@ -1020,3 +1054,64 @@ Vercel은 기존 Git Integration 배포를 유지하므로 별도 CLI token, org
 ## 14. 다음 작업
 
 다음 작업은 **16단계 — 외부 요소 연결 및 운영 배포**다. OpenAI·Slack Credential, 최신 n8n Workflow 게시, Cloudflare Worker와 Vercel 운영 환경을 배포 체크리스트 순서로 연결한다. 현재 원격 Supabase에는 15.2단계 schema migration이 적용되어 있으며, 실제 정상·장애 흐름 검증은 17단계에서 수행한다.
+
+## 내부 개선 작업
+
+### 1번 — 분석 실패 상태 복구와 Callback 진단 `완료`
+
+- n8n의 Worker callback 전달 실패를 AI 처리 실패와 구분하고, HTTP 상태 코드·오류 코드·응답 유형만 안전하게 남긴다.
+- callback 최종 실패로 Worker에 종료 callback이 도착하지 않아 `running`에 머무는 경우를 대비해 20분 이상 heartbeat가 없는 작업을 단건 복구하는 service-role RPC와 관리자 API를 제공한다.
+- 분석 상태 조회 시에도 stale 작업을 확인하며, 관리자 화면의 자동 polling 종료 안내에서 `중단 여부 확인`으로 복구할 수 있게 한다. 최근 heartbeat가 있거나 이미 종료된 작업은 변경하지 않는 멱등 동작이다.
+- 검증 범위는 계약·Worker·n8n 정적 검사·DB migration·관리자 화면 회귀이며, 실제 OpenAI 비용이 발생하는 외부 호출은 16~17단계에서 수행한다.
+
+### 2번 — 문서 업로드·PDF 추출 안정화와 관리자 UI 일관성 `완료`
+
+- 대용량 포트폴리오 업로드를 Supabase TUS 방식에 맞게 인증하고, 업로드 완료 전 실패·취소 object를 즉시 정리한다.
+- 문서 Storage 경로를 ASCII 안전한 `{버전 이름}-{UUID 앞 6자리}.pdf` 형식으로 생성하되, DB에는 사용자가 입력한 원래 버전 이름을 보존한다.
+- PDF 업로드 완료 후 n8n `Extract From File` Workflow를 자동 실행하고, 서명된 callback으로 추출 결과를 저장한다. 실패 시 관리자 재추출과 수동 보정으로 복구한다.
+- 공개 문서 viewer는 제거하고 프로필 요약 영역에서 공개 이력서·포트폴리오를 새 탭으로 열며, 관리자 문서 화면은 공통 디자인 시스템 컴포넌트를 사용한다.
+- 관련 계약·Worker·n8n 정적 검증·Blog/Worker/DB 테스트를 수행하고, 기존 AI 프로필·공고 분석 변경과는 별도 커밋으로 분리한다.
+
+### 내부 개선 종료 기준
+
+- 1~8번 구현은 각각 별도 커밋으로 분리했으며, 계약·Blog·Worker·n8n 검증과 필요한 fixture 화면 확인을 완료했다.
+- 실제 OpenAI·Slack 비용이 발생하는 외부 정상·장애 시나리오와 운영 배포 검증은 내부 개선 범위가 아니며 16~17단계에서 수행한다.
+- 다음 개발 작업은 운영 배포 전 외부 Credential·도메인·배포 환경을 연결하는 16단계다.
+
+### 3번 — AI 입력 프로필과 공고 본문 보완 `완료`
+
+- 이력서·포트폴리오·공고 스냅샷의 프로필을 입력 hash와 버전으로 저장해 같은 자료를 반복 분석하지 않도록 했다.
+- Wanted JSON-LD의 축약 설명에만 의존하지 않고 검증된 화면 본문과 섹션을 보존하며, 구조가 바뀌면 AI 보완 경로로 분리했다.
+- 분석 dispatch에 프로필과 15분 만료 PDF signed URL을 포함하고, OpenAI Structured Outputs 스키마의 중첩 객체 제약을 Worker에서 재검증한다.
+- 개인 자료에 존재하지 않는 근거는 저장하지 않고 `unknown` 또는 답변 초안 없음으로 정리하며, 결과 계약 검증 실패는 고유 실패 이벤트로 종료한다.
+- 프로필·파서·분석·n8n·관리자 화면 변경에 대해 계약·Worker·Blog·DB·Workflow 검증을 수행하고 stale 분석 sweep 인덱스를 실제 쿼리에 맞췄다.
+
+### 4번 — PDF 원본 입력과 AI 프로필 저장 경로 완성 `완료`
+
+- 문서 추출 결과와 원본 PDF를 함께 사용해 AI 프로필을 생성하고, 입력 hash·모델·프롬프트 버전을 저장한다.
+- 프로필 생성 실패가 텍스트 추출 성공을 덮어쓰지 않도록 분리하고, 최종 공고 비교에도 문서 PDF를 재사용한다.
+- n8n Workflow의 문서 프로필·PDF 입력·callback 분기와 도달성을 정적 검증한다.
+
+### 5번 — AI 분석 입력 예산·중복·실패 방지 `완료`
+
+- 원본 저장 데이터와 dispatch 입력을 분리하고, 문서·공고 텍스트에 정책별 길이 제한과 앞·뒤 문맥 보존을 적용한다.
+- PDF·프로필 사용 여부, 원문·전송 길이와 생략 여부를 n8n payload에 명시하고 signed PDF가 없으면 호출 전에 차단한다.
+- 계약·Worker 테스트와 전체 오프라인 검증으로 입력 정책을 고정한다.
+
+### 6번 — AI 분석 실행 사용량·처리시간 가시성 `완료`
+
+- 단계별 callback에 저장된 입력·출력 토큰과 지연시간을 공통 계약의 합산 사용량으로 제공한다.
+- 분석 상세 화면에 입력·출력·합계 토큰과 누적 처리 시간을 표시하고, 실제 금액은 모델 가격 변경을 고려해 OpenAI Usage·Billing에서 확인하도록 구분한다.
+- fixture, 계약 테스트, Worker workspace 응답을 동일한 usage summary 구조로 맞추며 기존 원본·분석 결과는 변경하지 않는다.
+
+### 7번 — 분석 이력별 사용량·처리시간 비교 `완료`
+
+- 현재 분석뿐 아니라 이전 분석 이력과 비교 결과에도 단계별 실행을 합산한 입력·출력·합계 토큰, 처리시간, 실행 단계 수를 제공한다.
+- 계약·Worker·fixture·분석 이력 UI를 동기화해 재분석 전후의 자료·점수·실행 버전과 사용량을 함께 확인할 수 있게 했다.
+- 사용량은 실제 API 응답의 실행 메타데이터를 표시하며 모델별 금액은 OpenAI Usage·Billing에서 확인한다. 공식 API 사용량 응답도 입력·출력 토큰과 요청 수를 별도 집계하므로 임의 단가 계산은 하지 않는다.
+
+### 8번 — AI 분석 입력 전달 요약과 생략 가시성 `완료`
+
+- 분석 workspace에서 원문을 노출하지 않고 공고·이력서·포트폴리오의 원문·저장·전달 길이와 저장/전달 단계 생략 여부를 확인할 수 있게 했다.
+- PDF·프로필 포함 여부와 입력 정책 버전을 함께 표시해 OpenAI 오류나 비용 변동을 입력 구성 관점에서 진단할 수 있게 했다.
+- 기존 저장 구조를 변경하지 않고 analysis_jobs, 문서 버전, 공고 스냅샷의 재현 가능한 값으로 workspace 응답을 구성했으며, 현재 정책으로 재구성한 요약임을 UI에 명시했다.

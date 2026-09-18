@@ -3,9 +3,9 @@ import {
   JOB_POSTING_MANUAL_CONTENT_MAX_LENGTH,
   JOB_POSTING_MANUAL_CONTENT_MIN_LENGTH,
   type JobPostingAiExtraction,
-  type JobPostingCollectionErrorCode,
   type JobPostingBodySections,
   JobPostingBodySectionsSchema,
+  type JobPostingCollectionErrorCode,
   type JobPostingSnapshotSource,
   type JobPostingSourceMetadata,
 } from "@workspace/contracts";

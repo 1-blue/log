@@ -36,6 +36,7 @@ import {
   isValidSlackNotificationTransition,
   JobPostingCollectionCallbackSchema,
   JobPostingCollectionStatusSchema,
+  N8nDocumentExtractionDispatchPayloadSchema,
   N8nSlackNotificationDispatchPayloadSchema,
   PatchApplicationRequestSchema,
   PatchInterviewChecklistItemRequestSchema,
@@ -46,6 +47,7 @@ import {
   SlackNotificationResponseSchema,
   SlackNotificationResultCallbackSchema,
   SlackNotificationStatusSchema,
+  summarizeAnalysisExecutions,
   UpdateAnalysisReviewRequestSchema,
   UpdateDocumentVersionRequestSchema,
 } from "../src/index.js";
@@ -573,6 +575,9 @@ describe("career operations contracts", () => {
         errorCode: null,
         extractedText: "이력서 본문",
         outcome: "ready",
+        profile: null,
+        profileErrorCode: "DOCUMENT_PROFILE_AI_FAILED",
+        profileMetadata: null,
       }).success,
     ).toBe(true);
     expect(
@@ -607,6 +612,39 @@ describe("career operations contracts", () => {
         outcome: "ready",
         extra: true,
       }).success,
+    ).toBe(false);
+  });
+
+  it("requires a structured profile schema when dispatching document extraction", () => {
+    const payload = {
+      callbackPath: `/v1/internal/document-versions/${validUuid}/extract`,
+      document: {
+        contentHash: "a".repeat(64),
+        downloadUrl: "https://example.supabase.co/signed/document.pdf",
+        fileSize: 1_024,
+        id: validUuid,
+        type: "portfolio",
+      },
+      eventId: "00000000-0000-4000-8000-000000000002",
+      kind: "document_extraction",
+      outputSchema: {
+        additionalProperties: false,
+        properties: {},
+        required: [],
+        type: "object",
+      },
+      requestId: "00000000-0000-4000-8000-000000000003",
+      schemaVersion: "1.0.0",
+    };
+    expect(
+      N8nDocumentExtractionDispatchPayloadSchema.safeParse(payload).success,
+    ).toBe(true);
+    const withoutSchema = Object.fromEntries(
+      Object.entries(payload).filter(([key]) => key !== "outputSchema"),
+    );
+    expect(
+      N8nDocumentExtractionDispatchPayloadSchema.safeParse(withoutSchema)
+        .success,
     ).toBe(false);
   });
 
@@ -981,6 +1019,41 @@ describe("career operations contracts", () => {
           createdAt: timestamp,
           executions: [],
           schemaVersion: "1.0.0",
+          usageSummary: {
+            inputTokens: 0,
+            outputTokens: 0,
+            stepCount: 0,
+            totalLatencyMs: 0,
+            totalTokens: 0,
+          },
+          inputAudit: {
+            documentTextMaxLength: 32_000,
+            includesPdf: false,
+            includesProfile: false,
+            jobPosting: {
+              dispatchLength: 10,
+              dispatchTruncated: false,
+              originalLength: 10,
+              storedLength: 10,
+              storedTruncated: false,
+            },
+            jobPostingTextMaxLength: 60_000,
+            policyVersion: "analysis-input-v1",
+            portfolio: {
+              dispatchLength: 12,
+              dispatchTruncated: false,
+              originalLength: 12,
+              storedLength: 12,
+              storedTruncated: false,
+            },
+            resume: {
+              dispatchLength: 11,
+              dispatchTruncated: false,
+              originalLength: 11,
+              storedLength: 11,
+              storedTruncated: false,
+            },
+          },
         },
         review: { overallNote: null, requirements: [], updatedAt: null },
         reviewedFitScore: validAnalysisResult.fitScore,
@@ -997,6 +1070,39 @@ describe("career operations contracts", () => {
         data: { ...payload.data, unexpected: true },
       }).success,
     ).toBe(false);
+  });
+
+  it("summarizes immutable AI execution usage", () => {
+    expect(
+      summarizeAnalysisExecutions([
+        {
+          attemptCount: 1,
+          inputTokens: 120,
+          latencyMs: 300,
+          model: "fixture-model",
+          outputTokens: 40,
+          promptVersion: "job-facts-v1",
+          responseId: null,
+          step: "job_facts",
+        },
+        {
+          attemptCount: 2,
+          inputTokens: 80,
+          latencyMs: 700,
+          model: "fixture-model",
+          outputTokens: 60,
+          promptVersion: "profile-match-v1",
+          responseId: null,
+          step: "profile_comparison",
+        },
+      ]),
+    ).toEqual({
+      inputTokens: 200,
+      outputTokens: 100,
+      stepCount: 2,
+      totalLatencyMs: 1_000,
+      totalTokens: 300,
+    });
   });
 
   it("keeps generated schemas synchronized with the source schemas", async () => {

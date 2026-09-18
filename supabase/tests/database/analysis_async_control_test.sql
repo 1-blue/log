@@ -281,11 +281,15 @@ select public.begin_analysis_attempt(
 update public.analysis_jobs
 set last_heartbeat_at = pg_catalog.now() - interval '21 minutes'
 where id = '00000000-0000-4000-8000-000000000324';
-select public.fail_stale_analysis_jobs(pg_catalog.now() - interval '20 minutes', 100);
+select public.recover_stale_analysis_job(
+  '00000000-0000-4000-8000-000000000324',
+  '00000000-0000-4000-8000-000000000301',
+  pg_catalog.now() - interval '20 minutes'
+);
 select is(
   (select error_code from public.analysis_jobs where id = '00000000-0000-4000-8000-000000000324'),
   'WORKFLOW_STALLED',
-  'the stale sweep marks inactive workflows as retryable failures'
+  'single-job stale recovery marks inactive workflows as retryable failures'
 );
 
 select throws_ok(

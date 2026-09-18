@@ -478,6 +478,13 @@ describe("n8n dispatch client", () => {
       resultPath: `/v1/internal/analysis-jobs/${APPLICATION_ID}/result`,
     },
     eventId: EVENT_ID,
+    inputPolicy: {
+      documentTextMaxLength: 32_000,
+      includesPdf: false,
+      includesProfile: false,
+      jobPostingTextMaxLength: 60_000,
+      version: "analysis-input-v1",
+    },
     jobPosting: {
       companyName: "미리디",
       contentHash: "c".repeat(64),
@@ -489,6 +496,9 @@ describe("n8n dispatch client", () => {
       url: "https://www.wanted.co.kr/wd/384409",
       profileId: null,
       profileSource: null,
+      sourceTextLength: 7,
+      inputTextLength: 7,
+      inputTextTruncated: false,
       profile: null,
     },
     kind: "application_analysis",
@@ -500,6 +510,9 @@ describe("n8n dispatch client", () => {
       portfolio: {
         contentHash: "b".repeat(64),
         originalLength: 9,
+        sourceTextLength: 9,
+        inputTextLength: 9,
+        inputTextTruncated: false,
         text: "포트폴리오 본문",
         truncated: false,
         versionId: "00000000-0000-4000-8000-000000000006",
@@ -511,6 +524,9 @@ describe("n8n dispatch client", () => {
       resume: {
         contentHash: "a".repeat(64),
         originalLength: 7,
+        sourceTextLength: 7,
+        inputTextLength: 7,
+        inputTextTruncated: false,
         text: "이력서 본문",
         truncated: false,
         versionId: "00000000-0000-4000-8000-000000000007",

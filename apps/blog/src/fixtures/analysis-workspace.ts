@@ -574,6 +574,41 @@ const base: AnalysisWorkspace = {
       },
     ],
     schemaVersion: "1.0.0",
+    usageSummary: {
+      inputTokens: 11_090,
+      outputTokens: 2_600,
+      stepCount: 2,
+      totalLatencyMs: 7_420,
+      totalTokens: 13_690,
+    },
+    inputAudit: {
+      documentTextMaxLength: 32_000,
+      includesPdf: true,
+      includesProfile: true,
+      jobPosting: {
+        dispatchLength: 12_600,
+        dispatchTruncated: false,
+        originalLength: 12_600,
+        storedLength: 12_600,
+        storedTruncated: false,
+      },
+      jobPostingTextMaxLength: 60_000,
+      policyVersion: "analysis-input-v1",
+      portfolio: {
+        dispatchLength: 32_000,
+        dispatchTruncated: false,
+        originalLength: 92_000,
+        storedLength: 80_000,
+        storedTruncated: true,
+      },
+      resume: {
+        dispatchLength: 32_000,
+        dispatchTruncated: true,
+        originalLength: 35_800,
+        storedLength: 35_800,
+        storedTruncated: false,
+      },
+    },
   },
   review: {
     overallNote:
@@ -619,6 +654,41 @@ const previous: AnalysisWorkspace["history"][number] = {
       label: "인프라 지원 이력서 v2",
     },
   },
+  usageSummary: {
+    inputTokens: 4_850,
+    outputTokens: 1_120,
+    stepCount: 1,
+    totalLatencyMs: 3_240,
+    totalTokens: 5_970,
+  },
+  inputAudit: {
+    documentTextMaxLength: 32_000,
+    includesPdf: true,
+    includesProfile: false,
+    jobPosting: {
+      dispatchLength: 10_400,
+      dispatchTruncated: false,
+      originalLength: 10_400,
+      storedLength: 10_400,
+      storedTruncated: false,
+    },
+    jobPostingTextMaxLength: 60_000,
+    policyVersion: "analysis-input-v1",
+    portfolio: {
+      dispatchLength: 24_000,
+      dispatchTruncated: false,
+      originalLength: 24_000,
+      storedLength: 24_000,
+      storedTruncated: false,
+    },
+    resume: {
+      dispatchLength: 28_000,
+      dispatchTruncated: false,
+      originalLength: 28_000,
+      storedLength: 28_000,
+      storedTruncated: false,
+    },
+  },
 };
 
 export function getAnalysisWorkspaceFixture(
@@ -636,6 +706,8 @@ export function getAnalysisWorkspaceFixture(
       matchCounts: { matched: 1, missing: 1, partial: 1, unknown: 1 },
       questionCount: fixture.questions.length,
       sources: fixture.sources,
+      usageSummary: fixture.resultMetadata!.usageSummary,
+      inputAudit: fixture.resultMetadata!.inputAudit,
     },
     previous,
   ];

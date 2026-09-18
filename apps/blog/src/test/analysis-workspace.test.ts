@@ -43,6 +43,14 @@ describe("analysis workspace fixtures", () => {
     expect(fixture.reviewedFitScore).toBe(reviewed);
   });
 
+  it("keeps current and previous execution usage available for comparison", () => {
+    const fixture = getAnalysisWorkspaceFixture("history");
+
+    expect(fixture.history[0]?.usageSummary.totalTokens).toBe(13_690);
+    expect(fixture.history[1]?.usageSummary.totalTokens).toBe(5_970);
+    expect(fixture.comparison?.usageSummary.totalLatencyMs).toBe(3_240);
+  });
+
   it("provides an eight-question preparation fixture with contextual evidence", () => {
     const fixture = getAnalysisWorkspaceFixture("mixed");
     expect(fixture.questions).toHaveLength(8);

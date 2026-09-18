@@ -1075,6 +1075,30 @@ export function createApp(dependencies?: AppDependencies) {
     }
   });
 
+  app.post("/v1/analysis-jobs/:id/recover-stale", requireAdmin, async (c) => {
+    const analysisJobId = parseResourceId(c, "분석 작업");
+    if (analysisJobId instanceof Response) return analysisJobId;
+    const input = await parseJsonBody(c, AnalysisJobActionRequestSchema);
+    if (input instanceof Response) return input;
+
+    return executeIdempotently(
+      c,
+      getIdempotencyService(c.env),
+      input,
+      async () => {
+        try {
+          const job = await getAnalysisJobService(c.env).recoverStale(
+            c.get("adminUserId"),
+            analysisJobId,
+          );
+          return jsonData(c, { job });
+        } catch (error) {
+          return analysisServiceErrorResponse(c, error);
+        }
+      },
+    );
+  });
+
   app.post("/v1/analysis-jobs/:id/retry", requireAdmin, async (c) => {
     const analysisJobId = parseResourceId(c, "분석 작업");
     if (analysisJobId instanceof Response) return analysisJobId;

@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import prettier from "prettier";
 
 const root = new URL("../", import.meta.url).pathname;
 const safeBuildEnvironment = {
@@ -32,6 +33,43 @@ function commandAvailable(command, args = ["--version"]) {
   const result = spawnSync(command, args, { cwd: root, stdio: "ignore" });
   if (result.status !== 0)
     throw new Error(`${command} 명령을 사용할 수 없습니다.`);
+}
+
+function normalizeDatabaseTypes(source) {
+  const marker = "Functions: {";
+  const markerIndex = source.indexOf(marker);
+  if (markerIndex < 0) return source;
+  const openingBrace = source.indexOf("{", markerIndex);
+  let depth = 0;
+  let closingBrace = -1;
+  for (let index = openingBrace; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    if (source[index] === "}") depth -= 1;
+    if (depth === 0) {
+      closingBrace = index;
+      break;
+    }
+  }
+  if (closingBrace < 0) return source;
+
+  const entries = [];
+  let entry = "";
+  depth = 0;
+  for (const line of source.slice(openingBrace + 1, closingBrace).split("\n")) {
+    entry += `${line}\n`;
+    for (const character of line) {
+      if (character === "{") depth += 1;
+      if (character === "}") depth -= 1;
+    }
+    if (depth === 0 && entry.trim()) {
+      entries.push(entry);
+      entry = "";
+    }
+  }
+  if (entry.trim()) entries.push(entry);
+  entries.sort((left, right) => left.localeCompare(right));
+
+  return `${source.slice(0, openingBrace + 1)}${entries.join("")}${source.slice(closingBrace)}`;
 }
 
 const nodeMajor = Number(process.versions.node.split(".")[0]);
@@ -75,28 +113,34 @@ try {
   run("pnpm", ["db:lint:local"]);
   run("pnpm", ["db:test:local"]);
 
-  const generatedTypes = run(
-    "pnpm",
-    [
-      "exec",
-      "supabase",
-      "gen",
-      "types",
-      "typescript",
-      "--local",
-      "--schema",
-      "public",
-    ],
-    { capture: true, label: "로컬 DB 타입 동기화 확인" },
-  )
-    .replaceAll("\r\n", "\n")
-    .trimEnd();
-  const committedTypes = readFileSync(
-    new URL("../packages/contracts/src/database.types.ts", import.meta.url),
-    "utf8",
-  )
-    .replaceAll("\r\n", "\n")
-    .trimEnd();
+  const generatedTypes = normalizeDatabaseTypes(
+    await prettier.format(
+      run(
+        "pnpm",
+        [
+          "exec",
+          "supabase",
+          "gen",
+          "types",
+          "typescript",
+          "--local",
+          "--schema",
+          "public",
+        ],
+        { capture: true, label: "로컬 DB 타입 동기화 확인" },
+      ),
+      { parser: "typescript" },
+    ),
+  );
+  const committedTypes = normalizeDatabaseTypes(
+    await prettier.format(
+      readFileSync(
+        new URL("../packages/contracts/src/database.types.ts", import.meta.url),
+        "utf8",
+      ),
+      { parser: "typescript" },
+    ),
+  );
   if (generatedTypes !== committedTypes) {
     throw new Error("커밋된 DB 타입이 로컬 migration 결과와 다릅니다.");
   }

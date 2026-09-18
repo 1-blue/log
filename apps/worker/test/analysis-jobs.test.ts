@@ -10,6 +10,8 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
   type AnalysisJobService,
+  prepareAnalysisDispatchDocumentText,
+  prepareAnalysisDispatchJobPostingText,
   prepareAnalysisDocumentText,
   prepareAnalysisJobPostingText,
   sanitizeAnalysisResult,
@@ -184,6 +186,24 @@ describe("analysis input and evidence validation", () => {
     expect(posting).toContain("[...중간 일부 생략...]");
   });
 
+  it("keeps the stored text intact while bounding dispatch text", () => {
+    const long = Array.from({ length: 80_000 }, (_, index) =>
+      String(index % 10),
+    ).join("");
+    const document = prepareAnalysisDispatchDocumentText(long);
+    const posting = prepareAnalysisDispatchJobPostingText(long + long);
+
+    expect(document.text.length).toBeLessThanOrEqual(32_000);
+    expect(document.inputTextLength).toBe(document.text.length);
+    expect(document.truncated).toBe(true);
+    expect(document.text.startsWith("0123456789")).toBe(true);
+    expect(document.text.endsWith("0123456789")).toBe(true);
+    expect(posting.text.length).toBeLessThanOrEqual(60_000);
+    expect(posting.inputTextLength).toBe(posting.text.length);
+    expect(posting.truncated).toBe(true);
+    expect(posting.text).toContain("[...중간 일부 생략...]");
+  });
+
   it("accepts exact evidence and rejects invented excerpts or scores", () => {
     expect(validateAnalysisSemantics(result, row)).toEqual({ ok: true });
     expect(
@@ -318,6 +338,17 @@ describe("analysis job API", () => {
       failStale: vi.fn(async () => []),
       get: vi.fn(async () => response),
       list: vi.fn(async () => [response]),
+      recoverStale: vi.fn(
+        async (): Promise<AnalysisJobResponse> => ({
+          ...response,
+          lastError: {
+            code: "WORKFLOW_STALLED",
+            message: "분석 Workflow 응답이 중단되었습니다.",
+            retryable: true,
+          },
+          status: "failed",
+        }),
+      ),
       retry: vi.fn(
         async (): Promise<AnalysisJobResponse> => ({
           ...response,
@@ -413,6 +444,20 @@ describe("analysis job API", () => {
     expect(cancelled.status).toBe(200);
     await expect(cancelled.json()).resolves.toMatchObject({
       data: { job: { status: "cancelled" } },
+    });
+  });
+
+  it("recovers a stalled analysis job through an idempotent action", async () => {
+    const recovered = await request(
+      `/v1/analysis-jobs/${ANALYSIS_JOB_ID}/recover-stale`,
+      { body: "{}", method: "POST" },
+    );
+
+    expect(recovered.status).toBe(200);
+    await expect(recovered.json()).resolves.toMatchObject({
+      data: {
+        job: { status: "failed", lastError: { code: "WORKFLOW_STALLED" } },
+      },
     });
   });
 
