@@ -1606,6 +1606,19 @@ export default function AnalysisWorkspaceClient({
                       {workspace.resultMetadata?.executions
                         .map((item) => `${item.model} · ${item.promptVersion}`)
                         .join(" / ")}
+                      {workspace.resultMetadata?.usageSummary ? (
+                        <>
+                          <br />
+                          사용량{" "}
+                          {workspace.resultMetadata.usageSummary.totalTokens.toLocaleString()}{" "}
+                          tokens ·{" "}
+                          {(
+                            workspace.resultMetadata.usageSummary.totalLatencyMs /
+                            1000
+                          ).toFixed(1)}
+                          초 · {workspace.resultMetadata.usageSummary.stepCount}단계
+                        </>
+                      ) : null}
                     </p>
                   </div>
                   <div className="bg-muted/30 rounded-md p-4">
@@ -1644,6 +1657,14 @@ export default function AnalysisWorkspaceClient({
                       {workspace.comparison.executions
                         .map((item) => `${item.model} · ${item.promptVersion}`)
                         .join(" / ")}
+                      <br />
+                      사용량{" "}
+                      {workspace.comparison.usageSummary.totalTokens.toLocaleString()}{" "}
+                      tokens ·{" "}
+                      {(workspace.comparison.usageSummary.totalLatencyMs / 1000).toFixed(
+                        1,
+                      )}
+                      초 · {workspace.comparison.usageSummary.stepCount}단계
                     </p>
                   </div>
                 </div>

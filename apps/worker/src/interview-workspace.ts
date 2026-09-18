@@ -444,6 +444,7 @@ class SupabaseInterviewWorkspaceService implements InterviewWorkspaceService {
         matchCounts: countMatches(parsed.data.comparison.matches),
         questionCount: parsed.data.comparison.interviewQuestions.length,
         sources: this.mapSources(job, snapshot, resume, portfolio),
+        usageSummary: summarizeAnalysisExecutions(executions),
       };
     });
   }

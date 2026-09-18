@@ -626,6 +626,13 @@ const previous: AnalysisWorkspace["history"][number] = {
       label: "인프라 지원 이력서 v2",
     },
   },
+  usageSummary: {
+    inputTokens: 4_850,
+    outputTokens: 1_120,
+    stepCount: 1,
+    totalLatencyMs: 3_240,
+    totalTokens: 5_970,
+  },
 };
 
 export function getAnalysisWorkspaceFixture(
@@ -643,6 +650,7 @@ export function getAnalysisWorkspaceFixture(
       matchCounts: { matched: 1, missing: 1, partial: 1, unknown: 1 },
       questionCount: fixture.questions.length,
       sources: fixture.sources,
+      usageSummary: fixture.resultMetadata!.usageSummary,
     },
     previous,
   ];

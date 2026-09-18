@@ -1953,6 +1953,7 @@ export const AnalysisHistoryItemSchema = z.strictObject({
   questionCount: z.int().nonnegative(),
   sources: AnalysisWorkspaceSourceSchema,
   executions: z.array(AnalysisStepSchema).max(10),
+  usageSummary: AnalysisUsageSummarySchema,
 });
 export type AnalysisHistoryItem = z.infer<typeof AnalysisHistoryItemSchema>;
 
