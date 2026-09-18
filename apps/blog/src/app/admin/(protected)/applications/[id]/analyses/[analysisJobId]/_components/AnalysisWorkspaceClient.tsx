@@ -146,6 +146,61 @@ function PreviewBadge() {
   );
 }
 
+function InputAuditDetails({
+  audit,
+}: Readonly<{
+  audit: NonNullable<AnalysisWorkspace["resultMetadata"]>["inputAudit"];
+}>) {
+  const items = [
+    ["공고 본문", audit.jobPosting],
+    ["이력서", audit.resume],
+    ["포트폴리오", audit.portfolio],
+  ] as const;
+
+  return (
+    <details className="border-border rounded-md border p-3">
+      <summary className="cursor-pointer text-sm font-medium">
+        AI 입력 전달 요약
+      </summary>
+      <div className="text-muted-foreground mt-3 grid gap-3 text-xs leading-5">
+        <p>
+          저장된 분석 입력을 현재 <span className="font-mono">{audit.policyVersion}</span>{" "}
+          정책으로 재구성한 요약입니다. 원문은 표시하지 않습니다.
+        </p>
+        <p>
+          PDF {audit.includesPdf ? "포함" : "미포함"} · 프로필{" "}
+          {audit.includesProfile ? "포함" : "미포함"} · 문서 최대{" "}
+          {audit.documentTextMaxLength.toLocaleString()}자 · 공고 최대{" "}
+          {audit.jobPostingTextMaxLength.toLocaleString()}자
+        </p>
+        <dl className="grid gap-2 sm:grid-cols-3">
+          {items.map(([label, item]) => (
+            <div className="border-border rounded-md border p-2" key={label}>
+              <dt className="text-foreground font-medium">{label}</dt>
+              <dd>
+                원문 {item.originalLength.toLocaleString()}자 · 저장{" "}
+                {item.storedLength.toLocaleString()}자
+                <br />
+                전달 {item.dispatchLength.toLocaleString()}자
+                {item.storedTruncated || item.dispatchTruncated ? (
+                  <>
+                    <br />
+                    <span className="text-warning">
+                      {item.storedTruncated ? "저장 시 생략" : ""}
+                      {item.storedTruncated && item.dispatchTruncated ? " · " : ""}
+                      {item.dispatchTruncated ? "전달 시 생략" : ""}
+                    </span>
+                  </>
+                ) : null}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </details>
+  );
+}
+
 function EvidenceList({
   evidence,
 }: Readonly<{
@@ -965,6 +1020,9 @@ export default function AnalysisWorkspaceClient({
                     </dd>
                   </div>
                 </dl>
+                <InputAuditDetails
+                  audit={workspace.resultMetadata.inputAudit}
+                />
               </section>
             ) : null}
             <details>
@@ -1619,6 +1677,19 @@ export default function AnalysisWorkspaceClient({
                           초 · {workspace.resultMetadata.usageSummary.stepCount}단계
                         </>
                       ) : null}
+                      {workspace.resultMetadata?.inputAudit ? (
+                        <>
+                          <br />
+                          입력{" "}
+                          {workspace.resultMetadata.inputAudit.includesPdf
+                            ? "PDF 포함"
+                            : "PDF 미포함"}{" "}
+                          ·{" "}
+                          {workspace.resultMetadata.inputAudit.includesProfile
+                            ? "프로필 포함"
+                            : "프로필 미포함"}
+                        </>
+                      ) : null}
                     </p>
                   </div>
                   <div className="bg-muted/30 rounded-md p-4">
@@ -1665,6 +1736,15 @@ export default function AnalysisWorkspaceClient({
                         1,
                       )}
                       초 · {workspace.comparison.usageSummary.stepCount}단계
+                      <br />
+                      입력{" "}
+                      {workspace.comparison.inputAudit.includesPdf
+                        ? "PDF 포함"
+                        : "PDF 미포함"}{" "}
+                      ·{" "}
+                      {workspace.comparison.inputAudit.includesProfile
+                        ? "프로필 포함"
+                        : "프로필 미포함"}
                     </p>
                   </div>
                 </div>

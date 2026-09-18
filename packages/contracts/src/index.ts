@@ -1616,6 +1616,31 @@ export const AnalysisUsageSummarySchema = z.strictObject({
 });
 export type AnalysisUsageSummary = z.infer<typeof AnalysisUsageSummarySchema>;
 
+export const AnalysisInputAuditItemSchema = z.strictObject({
+  originalLength: z.number().int().positive(),
+  storedLength: z.number().int().positive(),
+  dispatchLength: z.number().int().positive(),
+  storedTruncated: z.boolean(),
+  dispatchTruncated: z.boolean(),
+});
+export type AnalysisInputAuditItem = z.infer<
+  typeof AnalysisInputAuditItemSchema
+>;
+
+export const AnalysisInputAuditSchema = z.strictObject({
+  policyVersion: z.literal(ANALYSIS_INPUT_POLICY_VERSION),
+  documentTextMaxLength: z.literal(ANALYSIS_DISPATCH_DOCUMENT_TEXT_MAX_LENGTH),
+  jobPostingTextMaxLength: z.literal(
+    ANALYSIS_DISPATCH_JOB_POSTING_TEXT_MAX_LENGTH,
+  ),
+  includesPdf: z.boolean(),
+  includesProfile: z.boolean(),
+  jobPosting: AnalysisInputAuditItemSchema,
+  resume: AnalysisInputAuditItemSchema,
+  portfolio: AnalysisInputAuditItemSchema,
+});
+export type AnalysisInputAudit = z.infer<typeof AnalysisInputAuditSchema>;
+
 export function summarizeAnalysisExecutions(
   executions: readonly AnalysisStep[],
 ): AnalysisUsageSummary {
@@ -1954,6 +1979,7 @@ export const AnalysisHistoryItemSchema = z.strictObject({
   sources: AnalysisWorkspaceSourceSchema,
   executions: z.array(AnalysisStepSchema).max(10),
   usageSummary: AnalysisUsageSummarySchema,
+  inputAudit: AnalysisInputAuditSchema,
 });
 export type AnalysisHistoryItem = z.infer<typeof AnalysisHistoryItemSchema>;
 
@@ -1980,6 +2006,7 @@ export const AnalysisWorkspaceSchema = z.strictObject({
       createdAt: Rfc3339TimestampSchema,
       executions: z.array(AnalysisStepSchema).max(10),
       usageSummary: AnalysisUsageSummarySchema,
+      inputAudit: AnalysisInputAuditSchema,
     })
     .nullable(),
   sources: AnalysisWorkspaceSourceSchema,
