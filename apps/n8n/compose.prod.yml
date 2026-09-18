@@ -20,6 +20,10 @@ services:
       timeout: 5s
       retries: 12
       start_period: 10s
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
 
   n8n:
     image: docker.n8n.io/n8nio/n8n:2.38.7@sha256:a8c95f75c6fdf65f5f2b7a7b354744eaa1c62bb911b5c00af6499c3f38e4cd32
@@ -27,8 +31,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    ports:
-      - "127.0.0.1:5678:5678"
     environment:
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: postgres
@@ -37,14 +39,14 @@ services:
       DB_POSTGRESDB_USER: n8n
       DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       DB_POSTGRESDB_SCHEMA: public
-
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?N8N_ENCRYPTION_KEY is required}
-      N8N_HOST: localhost
+      N8N_HOST: n8n.story-dict.com
       N8N_PORT: "5678"
-      N8N_PROTOCOL: http
-      N8N_EDITOR_BASE_URL: http://localhost:5678
-      N8N_WEBHOOK_URL: http://localhost:5678/
-      N8N_SECURE_COOKIE: "false"
+      N8N_PROTOCOL: https
+      N8N_EDITOR_BASE_URL: https://n8n.story-dict.com/
+      WEBHOOK_URL: https://n8n.story-dict.com/
+      N8N_PROXY_HOPS: "1"
+      N8N_SECURE_COOKIE: "true"
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
       N8N_DIAGNOSTICS_ENABLED: "false"
       N8N_COMMUNITY_PACKAGES_ENABLED: "false"
@@ -53,29 +55,23 @@ services:
       N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
       GENERIC_TIMEZONE: Asia/Seoul
       TZ: Asia/Seoul
-
       EXECUTIONS_MODE: regular
-      # 로컬 진단에서는 stale production execution이 새 Webhook 실행을 막지 않도록 제한하지 않는다.
       N8N_CONCURRENCY_PRODUCTION_LIMIT: "-1"
       EXECUTIONS_TIMEOUT: "900"
       EXECUTIONS_TIMEOUT_MAX: "1800"
       N8N_AI_TIMEOUT_MAX: "300000"
-      N8N_LOG_LEVEL: debug
+      N8N_LOG_LEVEL: info
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       NODE_FUNCTION_ALLOW_BUILTIN: crypto
-      EXECUTIONS_DATA_SAVE_ON_ERROR: all
-      # 로컬에서 성공·실패 실행의 마지막 노드와 오류를 모두 확인하기 위한 설정이다.
-      EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
+      EXECUTIONS_DATA_SAVE_ON_ERROR: none
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: none
       EXECUTIONS_DATA_SAVE_ON_PROGRESS: "false"
-      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: "true"
+      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: "false"
       EXECUTIONS_DATA_PRUNE: "true"
       EXECUTIONS_DATA_MAX_AGE: "168"
       EXECUTIONS_DATA_PRUNE_MAX_COUNT: "1000"
-
       N8N_SSRF_PROTECTION_ENABLED: "true"
       N8N_SSRF_BLOCKED_IP_RANGES: default,100.64.0.0/10
-      N8N_SSRF_ALLOWED_HOSTNAMES: host.docker.internal
-
       APP_BASE_URL: ${APP_BASE_URL:?APP_BASE_URL is required}
       WORKER_CALLBACK_URL: ${WORKER_CALLBACK_URL:?WORKER_CALLBACK_URL is required}
       WORKER_CALLBACK_SECRET: ${WORKER_CALLBACK_SECRET:?WORKER_CALLBACK_SECRET is required}
@@ -97,11 +93,39 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  caddy:
+    image: caddy:2.10.2@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb
+    restart: unless-stopped
+    depends_on:
+      n8n:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CADDY_BASIC_AUTH_HASH: ${CADDY_BASIC_AUTH_HASH:?CADDY_BASIC_AUTH_HASH is required}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - career_ops
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
 
 networks:
   career_ops:
     driver: bridge
 
 volumes:
-  n8n_data:
   postgres_data:
+  n8n_data:
+  caddy_data:
+  caddy_config:

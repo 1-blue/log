@@ -1935,7 +1935,7 @@ export type AnalysisWorkspaceResponse = z.infer<
 export const HealthResponseSchema = z.strictObject({
   data: z.strictObject({
     status: z.literal("ok"),
-    service: z.literal("bluelog-career-ops-api"),
+    service: z.literal("blog-career-ops-api"),
     timestamp: Rfc3339TimestampSchema,
   }),
   meta: z.strictObject({ requestId: UuidSchema }),

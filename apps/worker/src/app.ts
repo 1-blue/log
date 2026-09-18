@@ -92,7 +92,7 @@ type WorkerAppEnv = {
 
 const INTERNAL_CALLBACK_MAX_BYTES = 1_250_000;
 
-const SERVICE_NAME = "bluelog-career-ops-api" as const;
+const SERVICE_NAME = "blog-career-ops-api" as const;
 
 function getRequestId(c: { get: (key: "requestId") => string }): string {
   return c.get("requestId");
