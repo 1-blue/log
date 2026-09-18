@@ -19,7 +19,11 @@ const fixtures = JSON.parse(
     "utf8",
   ),
 );
-const nodes = new Map(workflow.nodes.map((node) => [node.name, node]));
+const nodes = new Map(
+  workflow.nodes
+    .filter((node) => node.type !== "n8n-nodes-base.stickyNote")
+    .map((node) => [node.name, node]),
+);
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -234,20 +238,37 @@ assert(
 
 for (const name of ["Slack Bot 메시지 전송", "Slack Bot 메시지 재시도"]) {
   const node = nodes.get(name);
+  const usesSlackCredentialNode =
+    node.type === "n8n-nodes-base.slack" &&
+    node.parameters.authentication === "accessToken" &&
+    node.parameters.resource === "message" &&
+    node.parameters.operation === "post" &&
+    node.credentials?.slackApi;
+  const usesSlackHttpApi =
+    node.type === "n8n-nodes-base.httpRequest" &&
+    node.parameters.url === "https://slack.com/api/chat.postMessage" &&
+    node.parameters.nodeCredentialType === "slackApi";
   assert(
-    node.parameters.url === "https://slack.com/api/chat.postMessage",
-    `${name}은 Slack 공식 메시지 API를 사용해야 합니다.`,
+    usesSlackCredentialNode || usesSlackHttpApi,
+    `${name}은 Slack 공식 메시지 API와 Credential을 사용해야 합니다.`,
   );
-  assert(
-    node.parameters.nodeCredentialType === "slackApi",
-    `${name}은 n8n Slack Credential을 사용해야 합니다.`,
-  );
-  assert(
-    node.parameters.body.includes("thread_ts") &&
-      node.parameters.body.includes("reply_broadcast: false") &&
-      node.parameters.body.includes("unfurl_links: false"),
-    `${name}의 스레드 또는 unfurl 정책이 없습니다.`,
-  );
+
+  if (usesSlackCredentialNode) {
+    const options = JSON.stringify(node.parameters.otherOptions ?? {});
+    assert(
+      options.includes("thread_ts") &&
+        options.includes("reply_broadcast") &&
+        options.includes("unfurl_links"),
+      `${name}의 스레드 또는 unfurl 정책이 없습니다.`,
+    );
+  } else {
+    assert(
+      node.parameters.body.includes("thread_ts") &&
+        node.parameters.body.includes("reply_broadcast: false") &&
+        node.parameters.body.includes("unfurl_links: false"),
+      `${name}의 스레드 또는 unfurl 정책이 없습니다.`,
+    );
+  }
 }
 for (const name of ["Slack 에러 Webhook 전송", "Slack 에러 Webhook 재시도"]) {
   const node = nodes.get(name);
