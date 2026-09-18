@@ -1,6 +1,6 @@
 {
   "createdAt": "2026-09-13T00:00:00.000Z",
-  "updatedAt": "2026-09-15T04:00:00.000Z",
+  "updatedAt": "2026-09-18T04:35:00.000Z",
   "id": "careerAnalysis",
   "name": "[local] 채용공고 수집 및 지원 분석",
   "nodes": [
@@ -17,7 +17,10 @@
       "name": "수집 요청 수신",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [-1800, 0],
+      "position": [
+        -2200,
+        0
+      ],
       "webhookId": "d1578eef-631c-4ab2-a156-4aaed8a12711"
     },
     {
@@ -28,7 +31,10 @@
       "name": "HMAC 요청 검증",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-1560, 0]
+      "position": [
+        -1900,
+        0
+      ]
     },
     {
       "parameters": {
@@ -59,7 +65,10 @@
       "name": "서명 유효 여부",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [-1320, 0]
+      "position": [
+        -1600,
+        0
+      ]
     },
     {
       "parameters": {
@@ -73,7 +82,10 @@
       "name": "요청 접수 응답",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [-1080, -140]
+      "position": [
+        -1300,
+        -140
+      ]
     },
     {
       "parameters": {
@@ -87,7 +99,10 @@
       "name": "서명 오류 응답",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
-      "position": [-1080, 140]
+      "position": [
+        -1300,
+        140
+      ]
     },
     {
       "parameters": {
@@ -118,7 +133,10 @@
       "name": "수동 원문 여부",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [-360, -140]
+      "position": [
+        -650,
+        -100
+      ]
     },
     {
       "parameters": {
@@ -144,7 +162,10 @@
       "name": "Wanted HTML 수집",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-120, -60],
+      "position": [
+        -350,
+        -20
+      ],
       "onError": "continueErrorOutput"
     },
     {
@@ -155,7 +176,10 @@
       "name": "수동 결과 구성",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-120, -300]
+      "position": [
+        -350,
+        -260
+      ]
     },
     {
       "parameters": {
@@ -165,7 +189,10 @@
       "name": "자동 결과 구성",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [120, -60]
+      "position": [
+        -50,
+        -20
+      ]
     },
     {
       "parameters": {
@@ -175,7 +202,10 @@
       "name": "Callback 서명",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [360, -180]
+      "position": [
+        250,
+        -140
+      ]
     },
     {
       "parameters": {
@@ -218,7 +248,10 @@
       "name": "Worker Callback 전송",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [600, -180]
+      "position": [
+        550,
+        -140
+      ]
     },
     {
       "parameters": {
@@ -249,7 +282,10 @@
       "name": "분석 요청 여부",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [-840, -140]
+      "position": [
+        -950,
+        -100
+      ]
     },
     {
       "parameters": {
@@ -280,7 +316,10 @@
       "name": "AI 원문 보완 요청 여부",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [-600, -140]
+      "position": [
+        -850,
+        450
+      ]
     },
     {
       "parameters": {
@@ -290,7 +329,10 @@
       "name": "AI 원문 보완 준비",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-360, -520]
+      "position": [
+        -550,
+        450
+      ]
     },
     {
       "parameters": {
@@ -299,7 +341,7 @@
         "modelId": {
           "__rl": true,
           "mode": "id",
-              "value": "gpt-5.6-luna"
+          "value": "gpt-5.6-luna"
         },
         "responses": {
           "values": [
@@ -341,7 +383,10 @@
       "name": "OpenAI 공고 원문 보완",
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.2,
-      "position": [-120, -520],
+      "position": [
+        -200,
+        450
+      ],
       "credentials": {
         "openAiApi": {
           "id": "RlSugmibI1sKpYqG",
@@ -358,7 +403,10 @@
       "name": "AI 원문 보완 결과 구성",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [120, -520],
+      "position": [
+        150,
+        450
+      ],
       "onError": "continueErrorOutput"
     },
     {
@@ -369,7 +417,10 @@
       "name": "AI 원문 보완 실패 구성",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [120, -760]
+      "position": [
+        150,
+        720
+      ]
     },
     {
       "parameters": {
@@ -379,7 +430,10 @@
       "name": "분석 시작 이벤트 구성",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-600, -980]
+      "position": [
+        900,
+        0
+      ]
     },
     {
       "parameters": {
@@ -389,7 +443,10 @@
       "name": "분석 Callback 서명",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2280, -980]
+      "position": [
+        2400,
+        0
+      ]
     },
     {
       "parameters": {
@@ -439,7 +496,10 @@
       "name": "분석 Callback 전송",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2520, -980],
+      "position": [
+        2700,
+        0
+      ],
       "onError": "continueErrorOutput"
     },
     {
@@ -450,7 +510,10 @@
       "name": "공고 사실 분석 준비",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [840, -980]
+      "position": [
+        3900,
+        -250
+      ]
     },
     {
       "parameters": {
@@ -459,7 +522,7 @@
         "modelId": {
           "__rl": true,
           "mode": "id",
-              "value": "gpt-5.6-luna"
+          "value": "gpt-5.6-luna"
         },
         "responses": {
           "values": [
@@ -501,7 +564,10 @@
       "name": "OpenAI 공고 사실 분석",
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.2,
-      "position": [1080, -980],
+      "position": [
+        4200,
+        -250
+      ],
       "credentials": {
         "openAiApi": {
           "id": "RlSugmibI1sKpYqG",
@@ -518,7 +584,10 @@
       "name": "공고 사실 결과 확정",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1320, -980],
+      "position": [
+        4500,
+        -250
+      ],
       "onError": "continueErrorOutput"
     },
     {
@@ -528,7 +597,7 @@
         "modelId": {
           "__rl": true,
           "mode": "id",
-              "value": "gpt-5.6-luna"
+          "value": "gpt-5.6-luna"
         },
         "responses": {
           "values": [
@@ -570,7 +639,10 @@
       "name": "OpenAI 프로필 비교",
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.2,
-      "position": [1800, -980],
+      "position": [
+        5100,
+        -250
+      ],
       "credentials": {
         "openAiApi": {
           "id": "RlSugmibI1sKpYqG",
@@ -587,7 +659,10 @@
       "name": "분석 결과 구성",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2040, -980],
+      "position": [
+        5400,
+        -250
+      ],
       "onError": "continueErrorOutput"
     },
     {
@@ -598,7 +673,10 @@
       "name": "공고 사실 오류 분류",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1320, -1220]
+      "position": [
+        4200,
+        800
+      ]
     },
     {
       "parameters": {
@@ -629,7 +707,10 @@
       "name": "공고 사실 자동 재시도 여부",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1560, -1220]
+      "position": [
+        4500,
+        800
+      ]
     },
     {
       "parameters": {
@@ -640,7 +721,10 @@
       "name": "공고 재시도 대기",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [1800, -1420],
+      "position": [
+        4800,
+        1000
+      ],
       "webhookId": "12000000-0000-4000-8000-00000000000e"
     },
     {
@@ -651,7 +735,10 @@
       "name": "공고 재시도 Heartbeat 구성",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2040, -1420]
+      "position": [
+        5100,
+        1000
+      ]
     },
     {
       "parameters": {
@@ -660,7 +747,7 @@
         "modelId": {
           "__rl": true,
           "mode": "id",
-              "value": "gpt-5.6-luna"
+          "value": "gpt-5.6-luna"
         },
         "responses": {
           "values": [
@@ -702,7 +789,10 @@
       "name": "OpenAI 공고 사실 분석 재시도",
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.2,
-      "position": [2280, -1420],
+      "position": [
+        5400,
+        1000
+      ],
       "credentials": {
         "openAiApi": {
           "id": "RlSugmibI1sKpYqG",
@@ -719,7 +809,10 @@
       "name": "공고 사실 재시도 결과 확정",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2520, -1420],
+      "position": [
+        5700,
+        1000
+      ],
       "onError": "continueErrorOutput"
     },
     {
@@ -730,7 +823,10 @@
       "name": "공고 재시도 오류 분류",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2520, -1220]
+      "position": [
+        6000,
+        800
+      ]
     },
     {
       "parameters": {
@@ -740,7 +836,10 @@
       "name": "프로필 분석 Heartbeat 구성",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1560, -980]
+      "position": [
+        4800,
+        -250
+      ]
     },
     {
       "parameters": {
@@ -750,7 +849,10 @@
       "name": "프로필 비교 오류 분류",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2040, -740]
+      "position": [
+        5400,
+        1250
+      ]
     },
     {
       "parameters": {
@@ -781,7 +883,10 @@
       "name": "프로필 비교 자동 재시도 여부",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [2280, -740]
+      "position": [
+        5700,
+        1250
+      ]
     },
     {
       "parameters": {
@@ -792,7 +897,10 @@
       "name": "프로필 재시도 대기",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [2520, -540],
+      "position": [
+        6000,
+        1450
+      ],
       "webhookId": "12000000-0000-4000-8000-00000000002e"
     },
     {
@@ -803,7 +911,10 @@
       "name": "프로필 재시도 Heartbeat 구성",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2760, -540]
+      "position": [
+        6300,
+        1450
+      ]
     },
     {
       "parameters": {
@@ -812,7 +923,7 @@
         "modelId": {
           "__rl": true,
           "mode": "id",
-              "value": "gpt-5.6-luna"
+          "value": "gpt-5.6-luna"
         },
         "responses": {
           "values": [
@@ -854,7 +965,10 @@
       "name": "OpenAI 프로필 비교 재시도",
       "type": "@n8n/n8n-nodes-langchain.openAi",
       "typeVersion": 2.2,
-      "position": [3000, -540],
+      "position": [
+        6600,
+        1450
+      ],
       "credentials": {
         "openAiApi": {
           "id": "RlSugmibI1sKpYqG",
@@ -871,7 +985,10 @@
       "name": "프로필 재시도 결과 구성",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3240, -540],
+      "position": [
+        6900,
+        1450
+      ],
       "onError": "continueErrorOutput"
     },
     {
@@ -882,7 +999,10 @@
       "name": "프로필 재시도 오류 분류",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3240, -300]
+      "position": [
+        6900,
+        1700
+      ]
     },
     {
       "parameters": {
@@ -892,7 +1012,10 @@
       "name": "분석 실패 이벤트 구성",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3480, -300]
+      "position": [
+        7200,
+        1700
+      ]
     },
     {
       "parameters": {
@@ -902,7 +1025,10 @@
       "name": "분석 Callback 결과 분류",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2760, -980]
+      "position": [
+        3000,
+        0
+      ]
     },
     {
       "parameters": {
@@ -933,7 +1059,10 @@
       "name": "분석 Callback 성공 여부",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [3000, -980]
+      "position": [
+        3300,
+        0
+      ]
     },
     {
       "parameters": {
@@ -964,7 +1093,10 @@
       "name": "분석 Callback 재시도 여부",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [3000, -740]
+      "position": [
+        3600,
+        300
+      ]
     },
     {
       "parameters": {
@@ -975,7 +1107,10 @@
       "name": "분석 Callback 재시도 대기",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [3240, -740],
+      "position": [
+        3900,
+        300
+      ],
       "webhookId": "12000000-0000-4000-8000-000000000034"
     },
     {
@@ -986,7 +1121,10 @@
       "name": "분석 Callback 회차 증가",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3480, -740]
+      "position": [
+        4200,
+        300
+      ]
     },
     {
       "parameters": {
@@ -1016,7 +1154,10 @@
       "name": "분석 Callback 후 facts_first",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [3240, -1220]
+      "position": [
+        3600,
+        -250
+      ]
     },
     {
       "parameters": {
@@ -1046,7 +1187,10 @@
       "name": "분석 Callback 후 facts_retry_wait",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [3480, -1220]
+      "position": [
+        3900,
+        550
+      ]
     },
     {
       "parameters": {
@@ -1076,7 +1220,10 @@
       "name": "분석 Callback 후 facts_retry_call",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [3720, -1220]
+      "position": [
+        4200,
+        550
+      ]
     },
     {
       "parameters": {
@@ -1106,7 +1253,10 @@
       "name": "분석 Callback 후 profile_first",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [3240, -980]
+      "position": [
+        4500,
+        550
+      ]
     },
     {
       "parameters": {
@@ -1136,7 +1286,10 @@
       "name": "분석 Callback 후 profile_retry_wait",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [3480, -980]
+      "position": [
+        4800,
+        550
+      ]
     },
     {
       "parameters": {
@@ -1166,7 +1319,10 @@
       "name": "분석 Callback 후 profile_retry_call",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [3720, -980]
+      "position": [
+        5100,
+        550
+      ]
     },
     {
       "parameters": {
@@ -1176,7 +1332,10 @@
       "name": "분석 Callback 최종 실패",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3480, -540]
+      "position": [
+        4500,
+        300
+      ]
     },
     {
       "parameters": {
@@ -1207,7 +1366,10 @@
       "name": "Slack 알림 요청 여부",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [-840, 500]
+      "position": [
+        -900,
+        2200
+      ]
     },
     {
       "parameters": {
@@ -1238,35 +1400,51 @@
       "name": "Slack 에러 채널 여부",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [-600, 500]
+      "position": [
+        -600,
+        2200
+      ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://slack.com/api/chat.postMessage",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "slackApi",
-        "sendBody": true,
-        "contentType": "raw",
-        "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ channel: $env.SLACK_JOB_CHANNEL_ID, text: $('HMAC 요청 검증').first().json.payload.text, blocks: $('HMAC 요청 검증').first().json.payload.blocks, ...($('HMAC 요청 검증').first().json.payload.threadTs ? { thread_ts: $('HMAC 요청 검증').first().json.payload.threadTs, reply_broadcast: false } : {}), unfurl_links: false, unfurl_media: false }) }}",
-        "options": {
-          "response": {
-            "response": {
-              "fullResponse": true,
-              "neverError": true,
-              "responseFormat": "json"
+        "authentication": "accessToken",
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.SLACK_JOB_CHANNEL_ID }}"
+        },
+        "messageType": "block",
+        "blocksUi": "={{ JSON.stringify({ blocks: $('HMAC 요청 검증').first().json.payload.blocks }) }}",
+        "text": "={{ $('HMAC 요청 검증').first().json.payload.text }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false,
+          "unfurl_links": false,
+          "unfurl_media": false,
+          "thread_ts": {
+            "replyValues": {
+              "thread_ts": "={{ $('HMAC 요청 검증').first().json.payload.threadTs || '' }}",
+              "reply_broadcast": false
             }
-          },
-          "timeout": 10000
+          }
         }
       },
       "id": "14000000-0000-4000-8000-000000000005",
       "name": "Slack Bot 메시지 전송",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [-360, 700],
-      "onError": "continueErrorOutput"
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        -300,
+        2320
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
     },
     {
       "parameters": {
@@ -1291,18 +1469,24 @@
       "name": "Slack 에러 Webhook 전송",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-360, 500],
+      "position": [
+        -300,
+        2080
+      ],
       "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst payload = $('HMAC 요청 검증').first().json.payload;\nconst attempt = Number(response.slackAttempt ?? 1);\nconst status = Number(response.statusCode ?? response.status ?? response.error?.httpCode ?? 0);\nconst headers = response.headers ?? response.error?.response?.headers ?? {};\nconst body = response.body && typeof response.body === 'object' ? response.body : response;\nconst retryAfter = Number(headers['retry-after'] ?? headers['Retry-After']);\nconst botTarget = payload.target !== 'error_channel';\nlet result;\nif (status >= 200 && status < 300 && (!botTarget || body.ok === true)) result = { outcome: 'sent', channelId: botTarget ? body.channel ?? null : null, messageTs: botTarget ? body.ts ?? null : null, httpStatus: status, error: null, shouldRetry: false, retryAfterSeconds: null };\nelse if (status === 429 && attempt === 1 && Number.isFinite(retryAfter) && retryAfter <= 60) result = { outcome: null, error: null, shouldRetry: true, retryAfterSeconds: Math.max(1, Math.ceil(retryAfter)) };\nelse if (status === 0 || status >= 500 || response.error) result = { outcome: 'delivery_unknown', channelId: null, messageTs: null, httpStatus: status || null, error: { code: 'SLACK_DELIVERY_UNKNOWN', message: 'Slack 전송 결과를 확인할 수 없습니다.', retryable: false }, shouldRetry: false, retryAfterSeconds: null };\nelse { const code = status === 429 ? 'SLACK_RATE_LIMITED' : /auth|token/i.test(String(body.error ?? '')) ? 'SLACK_AUTHENTICATION_FAILED' : /channel/i.test(String(body.error ?? '')) ? 'SLACK_CHANNEL_UNAVAILABLE' : 'SLACK_INVALID_PAYLOAD'; result = { outcome: 'failed', channelId: null, messageTs: null, httpStatus: status || null, error: { code, message: status === 429 ? 'Slack 호출 제한으로 알림을 전송하지 못했습니다.' : 'Slack 설정 또는 요청을 확인해 주세요.', retryable: false }, shouldRetry: false, retryAfterSeconds: null }; }\nreturn [{ json: { ...result, slackAttempt: attempt } }];"
+        "jsCode": "const response = $input.first().json;\nconst payload = $('HMAC 요청 검증').first().json.payload;\nconst attempt = Number(response.slackAttempt ?? 1);\nconst rawError = typeof response.error === 'string' ? response.error : String(response.error?.message ?? response.message ?? '');\nconst directSlackResponse = typeof response.ok === 'boolean';\nconst status = Number(response.slackStatusCode ?? response.statusCode ?? response.status ?? response.error?.httpCode ?? (directSlackResponse ? 200 : 0));\nconst headers = response.headers ?? response.error?.response?.headers ?? {};\nconst body = response.body && typeof response.body === 'object' ? response.body : response;\nconst bodyError = String(body.error ?? '');\nconst retryAfter = Number(headers['retry-after'] ?? headers['Retry-After']);\nconst rateLimited = status === 429 || /ratelimited|rate[_ -]?limited|429/i.test(`${bodyError} ${rawError}`);\nconst botTarget = payload.target !== 'error_channel';\nlet result;\nif (status >= 200 && status < 300 && (!botTarget || body.ok === true)) result = { outcome: 'sent', channelId: botTarget ? body.channel ?? null : null, messageTs: botTarget ? (body.ts ?? body.message_timestamp ?? null) : null, httpStatus: status, error: null, shouldRetry: false, retryAfterSeconds: null };\nelse if (rateLimited && attempt === 1) result = { outcome: null, error: null, shouldRetry: true, retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter > 0 && retryAfter <= 60 ? Math.ceil(retryAfter) : 5 };\nelse if (status === 0 || status >= 500 || response.error) result = { outcome: 'delivery_unknown', channelId: null, messageTs: null, httpStatus: status || null, error: { code: 'SLACK_DELIVERY_UNKNOWN', message: 'Slack 전송 결과를 확인할 수 없습니다.', retryable: false }, shouldRetry: false, retryAfterSeconds: null };\nelse { const code = status === 429 ? 'SLACK_RATE_LIMITED' : /auth|token/i.test(bodyError) ? 'SLACK_AUTHENTICATION_FAILED' : /channel/i.test(bodyError) ? 'SLACK_CHANNEL_UNAVAILABLE' : 'SLACK_INVALID_PAYLOAD'; result = { outcome: 'failed', channelId: null, messageTs: null, httpStatus: status || null, error: { code, message: status === 429 ? 'Slack 호출 제한으로 알림을 전송하지 못했습니다.' : 'Slack 설정 또는 요청을 확인해 주세요.', retryable: false }, shouldRetry: false, retryAfterSeconds: null }; }\nreturn [{ json: { ...result, slackAttempt: attempt } }];"
       },
       "id": "14000000-0000-4000-8000-000000000007",
       "name": "Slack 결과 분류",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-120, 600]
+      "position": [
+        0,
+        2200
+      ]
     },
     {
       "parameters": {
@@ -1333,7 +1517,10 @@
       "name": "Slack 429 재시도 여부",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [120, 600]
+      "position": [
+        300,
+        2200
+      ]
     },
     {
       "parameters": {
@@ -1344,7 +1531,10 @@
       "name": "Slack 재시도 대기",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [360, 420],
+      "position": [
+        600,
+        2040
+      ],
       "webhookId": "14000000-0000-4000-8000-000000000011"
     },
     {
@@ -1355,7 +1545,10 @@
       "name": "Slack 재시도 회차 증가",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [600, 420]
+      "position": [
+        900,
+        2040
+      ]
     },
     {
       "parameters": {
@@ -1365,7 +1558,10 @@
       "name": "Slack Callback 구성",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [360, 700]
+      "position": [
+        2100,
+        2200
+      ]
     },
     {
       "parameters": {
@@ -1375,7 +1571,10 @@
       "name": "Slack Callback 서명",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [600, 700]
+      "position": [
+        2400,
+        2200
+      ]
     },
     {
       "parameters": {
@@ -1384,8 +1583,14 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Content-Type", "value": "application/json" },
-            { "name": "X-Event-Id", "value": "={{ $json.headers.eventId }}" },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Event-Id",
+              "value": "={{ $json.headers.eventId }}"
+            },
             {
               "name": "X-Request-Id",
               "value": "={{ $json.headers.requestId }}"
@@ -1419,7 +1624,10 @@
       "name": "Slack Callback 전송",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [840, 700],
+      "position": [
+        2700,
+        2200
+      ],
       "onError": "continueRegularOutput"
     },
     {
@@ -1451,35 +1659,51 @@
       "name": "Slack 재시도 에러 채널 여부",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [840, 420]
+      "position": [
+        1200,
+        2040
+      ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://slack.com/api/chat.postMessage",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "slackApi",
-        "sendBody": true,
-        "contentType": "raw",
-        "rawContentType": "application/json",
-        "body": "={{ JSON.stringify({ channel: $env.SLACK_JOB_CHANNEL_ID, text: $('HMAC 요청 검증').first().json.payload.text, blocks: $('HMAC 요청 검증').first().json.payload.blocks, ...($('HMAC 요청 검증').first().json.payload.threadTs ? { thread_ts: $('HMAC 요청 검증').first().json.payload.threadTs, reply_broadcast: false } : {}), unfurl_links: false, unfurl_media: false }) }}",
-        "options": {
-          "response": {
-            "response": {
-              "fullResponse": true,
-              "neverError": true,
-              "responseFormat": "json"
+        "authentication": "accessToken",
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.SLACK_JOB_CHANNEL_ID }}"
+        },
+        "messageType": "block",
+        "blocksUi": "={{ JSON.stringify({ blocks: $('HMAC 요청 검증').first().json.payload.blocks }) }}",
+        "text": "={{ $('HMAC 요청 검증').first().json.payload.text }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false,
+          "unfurl_links": false,
+          "unfurl_media": false,
+          "thread_ts": {
+            "replyValues": {
+              "thread_ts": "={{ $('HMAC 요청 검증').first().json.payload.threadTs || '' }}",
+              "reply_broadcast": false
             }
-          },
-          "timeout": 10000
+          }
         }
       },
       "id": "14000000-0000-4000-8000-000000000018",
       "name": "Slack Bot 메시지 재시도",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1080, 600],
-      "onError": "continueErrorOutput"
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        1500,
+        2200
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "slackApi": {
+          "name": "Slack account"
+        }
+      }
     },
     {
       "parameters": {
@@ -1504,18 +1728,24 @@
       "name": "Slack 에러 Webhook 재시도",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1080, 360],
+      "position": [
+        1500,
+        1960
+      ],
       "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst payload = $('HMAC 요청 검증').first().json.payload;\nconst status = Number(response.statusCode ?? response.status ?? response.error?.httpCode ?? 0);\nconst body = response.body && typeof response.body === 'object' ? response.body : response;\nconst botTarget = payload.target !== 'error_channel';\nlet result;\nif (status >= 200 && status < 300 && (!botTarget || body.ok === true)) result = { outcome: 'sent', channelId: botTarget ? body.channel ?? null : null, messageTs: botTarget ? body.ts ?? null : null, httpStatus: status, error: null };\nelse if (status === 0 || status >= 500 || response.error) result = { outcome: 'delivery_unknown', channelId: null, messageTs: null, httpStatus: status || null, error: { code: 'SLACK_DELIVERY_UNKNOWN', message: 'Slack 전송 결과를 확인할 수 없습니다.', retryable: false } };\nelse { const code = status === 429 ? 'SLACK_RATE_LIMITED' : /auth|token/i.test(String(body.error ?? '')) ? 'SLACK_AUTHENTICATION_FAILED' : /channel/i.test(String(body.error ?? '')) ? 'SLACK_CHANNEL_UNAVAILABLE' : 'SLACK_INVALID_PAYLOAD'; result = { outcome: 'failed', channelId: null, messageTs: null, httpStatus: status || null, error: { code, message: status === 429 ? 'Slack 호출 제한으로 알림을 전송하지 못했습니다.' : 'Slack 설정 또는 요청을 확인해 주세요.', retryable: false } }; }\nreturn [{ json: result }];"
+        "jsCode": "const response = $input.first().json;\nconst payload = $('HMAC 요청 검증').first().json.payload;\nconst rawError = typeof response.error === 'string' ? response.error : String(response.error?.message ?? response.message ?? '');\nconst directSlackResponse = typeof response.ok === 'boolean';\nconst status = Number(response.slackStatusCode ?? response.statusCode ?? response.status ?? response.error?.httpCode ?? (directSlackResponse ? 200 : 0));\nconst body = response.body && typeof response.body === 'object' ? response.body : response;\nconst bodyError = String(body.error ?? '');\nconst botTarget = payload.target !== 'error_channel';\nlet result;\nif (status >= 200 && status < 300 && (!botTarget || body.ok === true)) result = { outcome: 'sent', channelId: botTarget ? body.channel ?? null : null, messageTs: botTarget ? (body.ts ?? body.message_timestamp ?? null) : null, httpStatus: status, error: null };\nelse if (status === 0 || status >= 500 || response.error) result = { outcome: 'delivery_unknown', channelId: null, messageTs: null, httpStatus: status || null, error: { code: /ratelimited|rate[_ -]?limited|429/i.test(`${bodyError} ${rawError}`) ? 'SLACK_RATE_LIMITED' : 'SLACK_DELIVERY_UNKNOWN', message: 'Slack 재시도 결과를 확인할 수 없습니다.', retryable: false } };\nelse { const code = status === 429 ? 'SLACK_RATE_LIMITED' : /auth|token/i.test(bodyError) ? 'SLACK_AUTHENTICATION_FAILED' : /channel/i.test(bodyError) ? 'SLACK_CHANNEL_UNAVAILABLE' : 'SLACK_INVALID_PAYLOAD'; result = { outcome: 'failed', channelId: null, messageTs: null, httpStatus: status || null, error: { code, message: status === 429 ? 'Slack 호출 제한으로 알림을 전송하지 못했습니다.' : 'Slack 설정 또는 요청을 확인해 주세요.', retryable: false } }; }\nreturn [{ json: result }];"
       },
       "id": "14000000-0000-4000-8000-000000000020",
       "name": "Slack 재시도 결과 분류",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1320, 480]
+      "position": [
+        1800,
+        2080
+      ]
     },
     {
       "parameters": {
@@ -1546,7 +1776,10 @@
       "name": "문서 추출 요청 여부",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [-600, 100]
+      "position": [
+        -850,
+        1100
+      ]
     },
     {
       "parameters": {
@@ -1566,7 +1799,10 @@
       "name": "문서 PDF 다운로드",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-360, 20],
+      "position": [
+        -550,
+        1100
+      ],
       "onError": "continueErrorOutput"
     },
     {
@@ -1578,7 +1814,10 @@
       "name": "PDF 텍스트 추출",
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
-      "position": [-120, 20],
+      "position": [
+        -250,
+        1100
+      ],
       "onError": "continueErrorOutput"
     },
     {
@@ -1589,7 +1828,10 @@
       "name": "문서 추출 결과 구성",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [120, 20]
+      "position": [
+        50,
+        1100
+      ]
     },
     {
       "parameters": {
@@ -1599,7 +1841,122 @@
       "name": "문서 추출 실패 구성",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [120, 220]
+      "position": [
+        50,
+        1370
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ① 요청 수신 · 서명 검증\nWorker 요청을 받고 HMAC 서명을 확인합니다.",
+        "height": 650,
+        "width": 1250,
+        "color": 5
+      },
+      "id": "cfa8ef07-4354-4958-9620-7d7b692b098c",
+      "name": "GROUP 01 · 요청 수신 · 서명 검증",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2320,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ② 공고 수집 · 초기 callback\nWanted 원문을 수집하고 Worker에 접수 결과를 전달합니다.",
+        "height": 560,
+        "width": 1800,
+        "color": 4
+      },
+      "id": "ff41873c-9d65-4ff4-979d-655b42c9e3e2",
+      "name": "GROUP 02 · 공고 수집 · 초기 callback",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1050,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ③ AI 원문 보완\n원문이 부족할 때 OpenAI로 보완한 뒤 결과를 구성합니다.",
+        "height": 700,
+        "width": 1450,
+        "color": 6
+      },
+      "id": "3dc14a20-0113-4b8a-8bee-f4f861fec9d2",
+      "name": "GROUP 03 · AI 원문 보완",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1000,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ④ 문서 추출\n이력서·포트폴리오 PDF를 내려받아 텍스트로 변환합니다.",
+        "height": 650,
+        "width": 1350,
+        "color": 3
+      },
+      "id": "0e99b17f-0052-435e-b63e-a6edb3573ab9",
+      "name": "GROUP 04 · 문서 추출",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1000,
+        1000
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ⑤ 분석 첫 시도 · callback\n공고 사실과 프로필을 분석하고 결과 callback을 보냅니다.\n\nOpenAI 노드는 서로 겹치지 않도록 충분히 띄웠습니다.",
+        "height": 600,
+        "width": 5000,
+        "color": 2
+      },
+      "id": "5cd82973-bcec-422b-8760-e498705ed8d3",
+      "name": "GROUP 05 · 분석 첫 시도 · callback",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        760,
+        -420
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ⑥ 재시도 · 실패 처리\n분석 및 callback 실패를 분류하고 자동 재시도합니다.",
+        "height": 1550,
+        "width": 5300,
+        "color": 1
+      },
+      "id": "4fc25a30-7e6d-4331-9d7a-ca75100dc5e1",
+      "name": "GROUP 06 · 재시도 · 실패 처리",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2200,
+        250
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ⑦ Slack 알림 · 재시도\n일반 알림은 Slack API(chat.postMessage), 에러 알림은 Incoming Webhook을 사용합니다.",
+        "height": 700,
+        "width": 4300,
+        "color": 7
+      },
+      "id": "33db03b3-d842-41bd-81b0-036cc74ed201",
+      "name": "GROUP 07 · Slack 알림 · 재시도",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1050,
+        1900
+      ]
     }
   ],
   "pinData": {},

@@ -35,7 +35,7 @@
 | 웹 애플리케이션 | 기존 `apps/blog`의 Next.js                       | 공개 블로그와 관리자 화면의 디자인·코드 재사용                 |
 | 웹 배포         | 기존 Vercel 유지                                 | 현재 배포 흐름을 보존하고 Cloudflare Pages 중복 도입 방지      |
 | API Gateway     | `apps/worker`의 Cloudflare Worker                | 관리자 인증, 검증, 멱등성, Rate Limit, n8n 은닉                |
-| 자동화          | `apps/n8n`의 Docker Compose 기반 n8n             | 로컬 무료 개발 후 운영 호스팅은 사용량을 보고 결정             |
+| 자동화          | `apps/n8n`의 Docker Compose 기반 n8n             | 로컬 개발 후 AWS Lightsail 운영 배포 준비                     |
 | 데이터베이스    | Supabase PostgreSQL + Storage                    | Auth, 데이터, 비공개 문서 버전을 한 서비스에서 시작            |
 | 인증            | Supabase Auth, 관리자 1명                        | 브라우저에 비밀번호를 포함하지 않고 확장 가능한 세션 사용      |
 | AI              | OpenAI Responses API + `gpt-5.6-luna` | 공고·문서 프로필은 medium, 최종 적합도·질문은 high, 재현 가능한 snapshot 고정 |
@@ -601,13 +601,15 @@
 - [ ] Slack에 `#채용공고`, `#시스템-에러` 채널과 최소 권한 Bot·Incoming Webhook 연결
 - [ ] Vercel에 Next.js 환경변수와 관리자 redirect URL 설정
 - [ ] Cloudflare Worker 개발/운영 환경 분리 및 secret 등록
-- [ ] n8n 운영 위치는 로컬 사용량·안정성 측정 후 결정
+- [ ] n8n 운영용 Lightsail 인스턴스와 정적 IP 준비
 - [ ] 운영 n8n 선택 시 Docker, HTTPS, 방화벽, backup, update 정책 적용
 - [ ] Supabase 운영 환경 Auth redirect URL, Auth 설정과 Storage 동작 최종 확인
 - [ ] 환경별 Origin, callback URL, Webhook URL과 Secret 조합 검증
 - [ ] 배포 전 Secret rotation과 최소 권한 확인
 
 종료 기준: 모든 운영 서비스가 연결되고 실제 테스트를 시작할 수 있는 배포 상태가 된다.
+
+운영 배포 전담 작업에서 AWS Lightsail과 `n8n.story-dict.com`을 대상으로 한 Compose, Caddy, 백업 스크립트, 수동 GitHub Actions 배포 절차를 준비했다. 실제 인스턴스·DNS·Credential 연결과 복구 훈련은 외부 값 및 비용 확인 후 진행하므로 위 체크박스는 아직 완료로 표시하지 않는다. 세부 절차는 `apps/n8n/PRODUCTION.md`를 따른다.
 
 ### 17단계 — 외부 연동 통합 테스트
 

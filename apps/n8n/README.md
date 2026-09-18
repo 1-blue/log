@@ -2,6 +2,8 @@
 
 취업 준비 자동화를 위한 n8n 2.38.7과 전용 PostgreSQL 18.6을 Docker Compose로 실행한다. 두 이미지는 태그와 multi-platform manifest digest를 함께 고정한다. n8n은 `127.0.0.1:5678`에서만 접근할 수 있고 PostgreSQL 포트는 호스트에 공개하지 않는다.
 
+AWS Lightsail 운영 배포는 별도 [PRODUCTION.md](./PRODUCTION.md)와 `compose.prod.yml`을 따른다.
+
 ## 사전 준비
 
 - Docker Desktop 또는 Docker Engine과 Compose v2를 실행한다.

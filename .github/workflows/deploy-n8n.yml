@@ -1,0 +1,59 @@
+name: Deploy n8n to Lightsail
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: n8n-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: n8n-production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate workflow export
+        run: node apps/n8n/scripts/validate-workflow.mjs
+      - name: Prepare SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.N8N_DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.N8N_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+      - name: Copy deployment files
+        env:
+          DEPLOY_HOST: ${{ vars.N8N_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.N8N_DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?Set N8N_DEPLOY_HOST}"
+          : "${DEPLOY_USER:?Set N8N_DEPLOY_USER}"
+          ssh -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" 'mkdir -p /opt/career-ops-n8n/scripts /opt/career-ops-n8n/workflows'
+          rsync -av -e 'ssh -o StrictHostKeyChecking=yes' \
+            apps/n8n/compose.prod.yml apps/n8n/Caddyfile \
+            "$DEPLOY_USER@$DEPLOY_HOST:/opt/career-ops-n8n/"
+          rsync -av -e 'ssh -o StrictHostKeyChecking=yes' \
+            apps/n8n/scripts/backup-production.sh apps/n8n/scripts/deploy-production.sh \
+            "$DEPLOY_USER@$DEPLOY_HOST:/opt/career-ops-n8n/scripts/"
+          rsync -av -e 'ssh -o StrictHostKeyChecking=yes' \
+            apps/n8n/workflows/*.json \
+            "$DEPLOY_USER@$DEPLOY_HOST:/opt/career-ops-n8n/workflows/"
+      - name: Deploy and verify
+        env:
+          DEPLOY_HOST: ${{ vars.N8N_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.N8N_DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            'bash /opt/career-ops-n8n/scripts/deploy-production.sh'
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 30 https://n8n.story-dict.com/)"
+          test "$status" = 401

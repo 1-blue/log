@@ -1,0 +1,15 @@
+n8n.story-dict.com {
+	encode zstd gzip
+
+	@career_webhook path /webhook/career-analysis
+	handle @career_webhook {
+		reverse_proxy n8n:5678
+	}
+
+	handle {
+		basic_auth {
+			owner {$CADDY_BASIC_AUTH_HASH}
+		}
+		reverse_proxy n8n:5678
+	}
+}
