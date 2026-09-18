@@ -806,15 +806,9 @@ export default function AnalysisWorkspaceClient({
 
       <Tabs value={activeTab} onValueChange={changeTab}>
         <TabsList aria-label="분석 작업 영역">
-            <TabsTrigger value="summary">
-            분석 요약
-          </TabsTrigger>
-            <TabsTrigger value="requirements">
-            요구사항 분석
-          </TabsTrigger>
-            <TabsTrigger value="interview">
-            면접 준비
-          </TabsTrigger>
+          <TabsTrigger value="summary">분석 요약</TabsTrigger>
+          <TabsTrigger value="requirements">요구사항 분석</TabsTrigger>
+          <TabsTrigger value="interview">면접 준비</TabsTrigger>
         </TabsList>
 
         <TabsContent value="summary">
@@ -927,6 +921,52 @@ export default function AnalysisWorkspaceClient({
                 </dd>
               </div>
             </dl>
+            {workspace.resultMetadata?.usageSummary ? (
+              <section
+                aria-label="AI 분석 사용량"
+                className="bg-muted/30 grid gap-3 rounded-md p-4"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h3 className="text-sm font-semibold">AI 분석 사용량</h3>
+                  <span className="text-muted-foreground text-xs">
+                    실제 비용은 OpenAI Usage·Billing에서 확인하세요.
+                  </span>
+                </div>
+                <dl className="grid gap-3 text-sm sm:grid-cols-4">
+                  <div>
+                    <dt className="text-muted-foreground text-xs">입력</dt>
+                    <dd className="mt-1 font-semibold">
+                      {workspace.resultMetadata.usageSummary.inputTokens.toLocaleString()}{" "}
+                      tokens
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground text-xs">출력</dt>
+                    <dd className="mt-1 font-semibold">
+                      {workspace.resultMetadata.usageSummary.outputTokens.toLocaleString()}{" "}
+                      tokens
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground text-xs">합계</dt>
+                    <dd className="mt-1 font-semibold">
+                      {workspace.resultMetadata.usageSummary.totalTokens.toLocaleString()}{" "}
+                      tokens
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground text-xs">처리 시간</dt>
+                    <dd className="mt-1 font-semibold">
+                      {(
+                        workspace.resultMetadata.usageSummary.totalLatencyMs /
+                        1000
+                      ).toFixed(1)}
+                      초
+                    </dd>
+                  </div>
+                </dl>
+              </section>
+            ) : null}
             <details>
               <summary className="cursor-pointer text-sm font-medium">
                 모델·프롬프트 실행 정보

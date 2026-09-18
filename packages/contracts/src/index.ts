@@ -1605,6 +1605,38 @@ export const AnalysisStepSchema = z.strictObject({
   latencyMs: z.number().int().nonnegative(),
   attemptCount: z.number().int().min(1).max(ANALYSIS_STEP_MAX_ATTEMPTS),
 });
+export type AnalysisStep = z.infer<typeof AnalysisStepSchema>;
+
+export const AnalysisUsageSummarySchema = z.strictObject({
+  inputTokens: z.number().int().nonnegative(),
+  outputTokens: z.number().int().nonnegative(),
+  totalTokens: z.number().int().nonnegative(),
+  totalLatencyMs: z.number().int().nonnegative(),
+  stepCount: z.number().int().nonnegative().max(10),
+});
+export type AnalysisUsageSummary = z.infer<typeof AnalysisUsageSummarySchema>;
+
+export function summarizeAnalysisExecutions(
+  executions: readonly AnalysisStep[],
+): AnalysisUsageSummary {
+  return executions.reduce(
+    (summary, execution) => ({
+      inputTokens: summary.inputTokens + execution.inputTokens,
+      outputTokens: summary.outputTokens + execution.outputTokens,
+      totalTokens:
+        summary.totalTokens + execution.inputTokens + execution.outputTokens,
+      totalLatencyMs: summary.totalLatencyMs + execution.latencyMs,
+      stepCount: summary.stepCount + 1,
+    }),
+    {
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      totalLatencyMs: 0,
+      stepCount: 0,
+    },
+  );
+}
 
 export const AnalysisResultCallbackSchema = z.strictObject({
   schemaVersion: z.literal(CONTRACT_VERSION),
@@ -1946,6 +1978,7 @@ export const AnalysisWorkspaceSchema = z.strictObject({
       schemaVersion: z.string().min(1).max(30),
       createdAt: Rfc3339TimestampSchema,
       executions: z.array(AnalysisStepSchema).max(10),
+      usageSummary: AnalysisUsageSummarySchema,
     })
     .nullable(),
   sources: AnalysisWorkspaceSourceSchema,

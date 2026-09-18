@@ -574,6 +574,13 @@ const base: AnalysisWorkspace = {
       },
     ],
     schemaVersion: "1.0.0",
+    usageSummary: {
+      inputTokens: 11_090,
+      outputTokens: 2_600,
+      stepCount: 2,
+      totalLatencyMs: 7_420,
+      totalTokens: 13_690,
+    },
   },
   review: {
     overallNote:

@@ -4,6 +4,7 @@ import {
   type AnalysisRequirementReview,
   type AnalysisResult,
   AnalysisResultSchema,
+  summarizeAnalysisExecutions,
   type AnalysisReview,
   AnalysisStepSchema,
   type AnalysisWorkspace,
@@ -430,13 +431,14 @@ class SupabaseInterviewWorkspaceService implements InterviewWorkspaceService {
       const parsed = AnalysisResultSchema.safeParse(resultRow.result);
       if (!parsed.success)
         throw new InterviewWorkspaceServiceError("unavailable");
+      const executions = executionQuery.data
+        .filter((execution) => execution.analysis_job_id === job.id)
+        .map(mapExecution);
       return {
         analysisJobId: job.id,
         completedAt: job.finished_at,
         createdAt: job.created_at,
-        executions: executionQuery.data
-          .filter((execution) => execution.analysis_job_id === job.id)
-          .map(mapExecution),
+        executions,
         fitScore: parsed.data.fitScore,
         gapCount: parsed.data.comparison.gaps.length,
         matchCounts: countMatches(parsed.data.comparison.matches),
@@ -621,6 +623,7 @@ class SupabaseInterviewWorkspaceService implements InterviewWorkspaceService {
     if (parsedResult && !parsedResult.success) {
       throw new InterviewWorkspaceServiceError("unavailable");
     }
+    const executions = (executionQuery.data ?? []).map(mapExecution);
     const workspaceJob = mapAnalysisJob(job, resultRow);
     if (workspaceJob.result) {
       workspaceJob.result = enrichResultEvidence(workspaceJob.result, job);
@@ -687,8 +690,9 @@ class SupabaseInterviewWorkspaceService implements InterviewWorkspaceService {
       resultMetadata: resultRow
         ? {
             createdAt: resultRow.created_at,
-            executions: (executionQuery.data ?? []).map(mapExecution),
+            executions,
             schemaVersion: resultRow.schema_version,
+            usageSummary: summarizeAnalysisExecutions(executions),
           }
         : null,
       review: mapReview(reviewQuery.data, requirements),
