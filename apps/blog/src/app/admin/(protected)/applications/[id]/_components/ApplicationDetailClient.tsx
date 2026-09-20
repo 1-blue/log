@@ -181,8 +181,9 @@ export default function ApplicationDetailClient({
   const [documents, setDocuments] = useState<DocumentVersion[]>([]);
   const [collections, setCollections] = useState<JobPostingCollectionRun[]>([]);
   const [analysisJobs, setAnalysisJobs] = useState<AnalysisJobResponse[]>([]);
-  const [analysisDiagnostics, setAnalysisDiagnostics] =
-    useState<AnalysisDiagnosticsResponse["data"] | null>(null);
+  const [analysisDiagnostics, setAnalysisDiagnostics] = useState<
+    AnalysisDiagnosticsResponse["data"] | null
+  >(null);
   const [manualContent, setManualContent] = useState("");
   const [status, setStatus] = useState<ApplicationStatus>("interested");
   const [loading, setLoading] = useState(true);
@@ -587,6 +588,26 @@ export default function ApplicationDetailClient({
         </p>
       ) : null}
 
+      {application.jobPosting.metadataStatus === "pending" ? (
+        <div
+          className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200"
+          role="status"
+        >
+          <p className="font-medium">공고 정보를 확인하는 중입니다.</p>
+          <p className="mt-1">
+            자동 수집이 끝나면 회사명과 공고명이 제안됩니다. 현재 임시 정보로는
+            분석과 Slack 알림을 시작하지 않는 것이 안전합니다.
+          </p>
+          <button
+            className="mt-3 underline underline-offset-4"
+            onClick={() => changeTab("posting")}
+            type="button"
+          >
+            채용공고 수집 상태 확인
+          </button>
+        </div>
+      ) : null}
+
       <div className="border-border bg-card flex flex-wrap gap-2 rounded-lg border p-4">
         {!archived ? (
           <>
@@ -760,7 +781,7 @@ export default function ApplicationDetailClient({
                         <AccordionItem key={key} value={key}>
                           <AccordionTrigger>{label}</AccordionTrigger>
                           <AccordionContent>
-                            <p className="text-muted-foreground max-w-prose whitespace-pre-wrap break-words text-sm leading-6">
+                            <p className="text-muted-foreground max-w-prose text-sm leading-6 break-words whitespace-pre-wrap">
                               {content}
                             </p>
                           </AccordionContent>
@@ -773,7 +794,7 @@ export default function ApplicationDetailClient({
                   <summary className="cursor-pointer text-sm font-medium">
                     정규화된 전체 원문 보기
                   </summary>
-                  <pre className="border-border bg-background mt-3 max-h-96 overflow-auto whitespace-pre-wrap rounded-md border p-4 text-xs leading-6">
+                  <pre className="border-border bg-background mt-3 max-h-96 overflow-auto rounded-md border p-4 text-xs leading-6 whitespace-pre-wrap">
                     {latestSnapshot.normalizedContent}
                   </pre>
                 </details>
@@ -970,17 +991,25 @@ export default function ApplicationDetailClient({
                           ? "입력 문서와 공고 원문을 확인해 주세요."
                           : analysisDiagnostics.nextAction === "recover_stale"
                             ? "멈춘 작업인지 확인한 뒤 복구할 수 있습니다."
-                            : analysisDiagnostics.nextAction === "start_new_analysis"
+                            : analysisDiagnostics.nextAction ===
+                                "start_new_analysis"
                               ? "재시도 횟수를 모두 사용했습니다. 새 분석을 시작해 주세요."
                               : "추가 조치가 필요하지 않습니다."}
                     </p>
                     <ol className="text-muted-foreground mt-3 grid gap-2 text-xs">
                       {analysisDiagnostics.events.slice(0, 8).map((event) => (
-                        <li className="border-border border-b pb-2 last:border-0" key={event.eventId}>
+                        <li
+                          className="border-border border-b pb-2 last:border-0"
+                          key={event.eventId}
+                        >
                           <span className="font-medium">{event.eventType}</span>
-                          {event.stage ? ` · ${ANALYSIS_STAGE_LABELS[event.stage]}` : ""}
+                          {event.stage
+                            ? ` · ${ANALYSIS_STAGE_LABELS[event.stage]}`
+                            : ""}
                           {event.errorCode ? ` · ${event.errorCode}` : ""}
-                          <span className="ml-2">{formatApplicationDate(event.occurredAt)}</span>
+                          <span className="ml-2">
+                            {formatApplicationDate(event.occurredAt)}
+                          </span>
                         </li>
                       ))}
                     </ol>

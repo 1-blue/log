@@ -210,6 +210,11 @@ export default function ApplicationsClient() {
                 </div>
               </div>
               <div className="flex items-center gap-2 md:justify-end">
+                {item.jobPosting.metadataStatus === "pending" ? (
+                  <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs text-amber-200">
+                    공고 확인 필요
+                  </span>
+                ) : null}
                 {item.archivedAt ? (
                   <span className="bg-muted rounded-full px-2.5 py-1 text-xs">
                     보관됨

@@ -592,6 +592,7 @@ const base: AnalysisWorkspace = {
         originalLength: 12_600,
         storedLength: 12_600,
         storedTruncated: false,
+        confirmedEvidenceCount: 0,
       },
       jobPostingTextMaxLength: 60_000,
       policyVersion: "analysis-input-v1",
@@ -601,6 +602,7 @@ const base: AnalysisWorkspace = {
         originalLength: 92_000,
         storedLength: 80_000,
         storedTruncated: true,
+        confirmedEvidenceCount: 2,
       },
       resume: {
         dispatchLength: 32_000,
@@ -608,6 +610,7 @@ const base: AnalysisWorkspace = {
         originalLength: 35_800,
         storedLength: 35_800,
         storedTruncated: false,
+        confirmedEvidenceCount: 1,
       },
     },
   },
@@ -672,6 +675,7 @@ const previous: AnalysisWorkspace["history"][number] = {
       originalLength: 10_400,
       storedLength: 10_400,
       storedTruncated: false,
+      confirmedEvidenceCount: 0,
     },
     jobPostingTextMaxLength: 60_000,
     policyVersion: "analysis-input-v1",
@@ -681,6 +685,7 @@ const previous: AnalysisWorkspace["history"][number] = {
       originalLength: 24_000,
       storedLength: 24_000,
       storedTruncated: false,
+      confirmedEvidenceCount: 0,
     },
     resume: {
       dispatchLength: 28_000,
@@ -688,6 +693,7 @@ const previous: AnalysisWorkspace["history"][number] = {
       originalLength: 28_000,
       storedLength: 28_000,
       storedTruncated: false,
+      confirmedEvidenceCount: 0,
     },
   },
 };

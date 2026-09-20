@@ -75,7 +75,7 @@ export default function NewApplicationClient() {
       }
       const response = await createApplication({
         appliedOn: String(data.get("appliedOn") ?? "") || null,
-        companyName: String(data.get("companyName") ?? "").trim(),
+        companyName: String(data.get("companyName") ?? "").trim() || null,
         interviewAt: toUtcTimestamp(String(data.get("interviewAt") ?? "")),
         note: String(data.get("note") ?? "").trim() || null,
         portfolioVersionId:
@@ -88,7 +88,7 @@ export default function NewApplicationClient() {
             : null,
         source: "wanted",
         status,
-        title: String(data.get("title") ?? "").trim(),
+        title: String(data.get("title") ?? "").trim() || null,
         url: String(data.get("url") ?? "").trim(),
       });
       try {
@@ -133,7 +133,8 @@ export default function NewApplicationClient() {
       <div>
         <h2 className="text-2xl font-bold">채용공고 등록</h2>
         <p className="text-muted-foreground mt-2 text-sm">
-          Wanted 공고와 이번 지원에서 사용할 문서 버전을 기록합니다.
+          Wanted URL을 먼저 등록합니다. 공고 수집이 끝나면 회사명과 공고명을
+          확인·수정할 수 있습니다.
         </p>
       </div>
 
@@ -169,17 +170,22 @@ export default function NewApplicationClient() {
           />
         </div>
         <div className="grid gap-2 text-sm font-medium">
-          <Label htmlFor="application-company">회사명</Label>
+          <Label htmlFor="application-company">회사명 (선택)</Label>
           <Input
             id="application-company"
             maxLength={200}
             name="companyName"
-            required
+            placeholder="수집 후 자동 확인"
           />
         </div>
         <div className="grid gap-2 text-sm font-medium">
-          <Label htmlFor="application-title">공고 제목</Label>
-          <Input id="application-title" maxLength={300} name="title" required />
+          <Label htmlFor="application-title">공고 제목 (선택)</Label>
+          <Input
+            id="application-title"
+            maxLength={300}
+            name="title"
+            placeholder="수집 후 자동 확인"
+          />
         </div>
         <div className="grid gap-2 text-sm font-medium">
           <Label htmlFor="application-status">지원 상태</Label>

@@ -95,6 +95,15 @@ function mapDocument(row: DocumentRow): ApplicationDocumentSelection {
   };
 }
 
+function getJobPostingMetadataStatus(
+  posting: JobPostingRow,
+): "pending" | "confirmed" {
+  return posting.company_name === "확인 중" ||
+    posting.title === `Wanted 공고 ${posting.external_id}`
+    ? "pending"
+    : "confirmed";
+}
+
 function mapApplication(
   application: ApplicationRow,
   posting: JobPostingRow,
@@ -118,6 +127,7 @@ function mapApplication(
       createdAt: posting.created_at,
       externalId: posting.external_id,
       id: posting.id,
+      metadataStatus: getJobPostingMetadataStatus(posting),
       source: posting.source,
       title: posting.title,
       updatedAt: posting.updated_at,
@@ -268,7 +278,7 @@ class SupabaseApplicationService implements ApplicationService {
       {
         p_applied_on: input.appliedOn,
         p_canonical_url: canonicalUrl,
-        p_company_name: input.companyName,
+        p_company_name: input.companyName ?? "확인 중",
         p_external_id: externalId,
         p_interview_at: input.interviewAt,
         p_note: input.note,
@@ -277,7 +287,7 @@ class SupabaseApplicationService implements ApplicationService {
         p_resume_version_id: input.resumeVersionId,
         p_source: input.source,
         p_status: input.status,
-        p_title: input.title,
+        p_title: input.title ?? `Wanted 공고 ${externalId}`,
       } as never,
     );
     if (error) throw mapDatabaseError(error);
@@ -484,6 +494,7 @@ class SupabaseApplicationService implements ApplicationService {
       createdAt: data.created_at,
       externalId: data.external_id,
       id: data.id,
+      metadataStatus: getJobPostingMetadataStatus(data),
       source: data.source,
       title: data.title,
       updatedAt: data.updated_at,

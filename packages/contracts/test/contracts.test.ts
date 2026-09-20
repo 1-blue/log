@@ -370,6 +370,7 @@ describe("career operations contracts", () => {
           createdAt: "2026-09-12T00:00:00.000Z",
           externalId: "384409",
           id: "00000000-0000-4000-8000-000000000002",
+          metadataStatus: "confirmed",
           source: "wanted",
           title: "AX Engineer - Infra",
           updatedAt: "2026-09-12T00:00:00.000Z",
@@ -649,6 +650,20 @@ describe("career operations contracts", () => {
   });
 
   it("rejects unsupported job URLs and unknown fields", () => {
+    expect(
+      CreateApplicationRequestSchema.safeParse({
+        source: "wanted",
+        url: validWantedUrl,
+        companyName: null,
+        title: null,
+        status: "interested",
+        appliedOn: null,
+        interviewAt: null,
+        note: null,
+        resumeVersionId: null,
+        portfolioVersionId: null,
+      }).success,
+    ).toBe(true);
     expect(
       CreateJobPostingRequestSchema.safeParse({
         source: "wanted",

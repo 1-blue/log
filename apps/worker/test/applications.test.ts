@@ -71,6 +71,7 @@ const posting: ApplicationJobPosting = {
   createdAt: now,
   externalId: "384409",
   id: POSTING_ID,
+  metadataStatus: "confirmed",
   source: "wanted",
   title: "AX Engineer - Infra",
   updatedAt: now,

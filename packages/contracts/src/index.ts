@@ -1041,8 +1041,8 @@ export const CreateApplicationRequestSchema = z
   .strictObject({
     source: JobPostingSourceSchema,
     url: WantedJobPostingUrlSchema,
-    companyName: ApplicationCompanyNameSchema,
-    title: ApplicationTitleSchema,
+    companyName: ApplicationCompanyNameSchema.nullable().optional(),
+    title: ApplicationTitleSchema.nullable().optional(),
     ...ApplicationStateShape,
   })
   .superRefine(validateApplicationDocuments);
@@ -1099,6 +1099,7 @@ export type ApplicationDocumentSelection = z.infer<
 
 export const ApplicationJobPostingSchema = z.strictObject({
   id: UuidSchema,
+  metadataStatus: z.enum(["pending", "confirmed"]),
   source: JobPostingSourceSchema,
   externalId: z.string().regex(/^\d+$/),
   url: WantedJobPostingUrlSchema,
@@ -1282,7 +1283,9 @@ export type SaveDocumentEvidenceReviewRequest = z.infer<
 >;
 
 export const DocumentEvidenceReviewListResponseSchema = z.strictObject({
-  data: z.strictObject({ items: z.array(DocumentEvidenceReviewSchema).max(100) }),
+  data: z.strictObject({
+    items: z.array(DocumentEvidenceReviewSchema).max(100),
+  }),
   meta: z.strictObject({ requestId: UuidSchema }),
 });
 export type DocumentEvidenceReviewListResponse = z.infer<
