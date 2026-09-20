@@ -26,6 +26,7 @@ import {
   PrepareDocumentUploadRequestSchema,
   PublicDocumentDispositionSchema,
   ReorderInterviewChecklistRequestSchema,
+  SaveDocumentEvidenceReviewRequestSchema,
   SaveInterviewAnswerRequestSchema,
   SetDocumentPublicationRequestSchema,
   SlackNotificationResultCallbackSchema,
@@ -1075,6 +1076,20 @@ export function createApp(dependencies?: AppDependencies) {
     }
   });
 
+  app.get("/v1/analysis-jobs/:id/diagnostics", requireAdmin, async (c) => {
+    const analysisJobId = parseResourceId(c, "분석 작업");
+    if (analysisJobId instanceof Response) return analysisJobId;
+    try {
+      const data = await getAnalysisJobService(c.env).diagnostics(
+        c.get("adminUserId"),
+        analysisJobId,
+      );
+      return jsonData(c, data);
+    } catch (error) {
+      return analysisServiceErrorResponse(c, error);
+    }
+  });
+
   app.post("/v1/analysis-jobs/:id/recover-stale", requireAdmin, async (c) => {
     const analysisJobId = parseResourceId(c, "분석 작업");
     if (analysisJobId instanceof Response) return analysisJobId;
@@ -1837,6 +1852,39 @@ export function createApp(dependencies?: AppDependencies) {
       const data = await getDocumentService(c.env).get(
         c.get("adminUserId"),
         documentVersionId,
+      );
+      return jsonData(c, data);
+    } catch (error) {
+      return documentServiceErrorResponse(c, error);
+    }
+  });
+
+  app.get("/v1/document-versions/:id/evidence-reviews", requireAdmin, async (c) => {
+    const documentVersionId = parseDocumentVersionId(c);
+    if (documentVersionId instanceof Response) return documentVersionId;
+
+    try {
+      const items = await getDocumentService(c.env).listEvidenceReviews(
+        c.get("adminUserId"),
+        documentVersionId,
+      );
+      return jsonData(c, { items });
+    } catch (error) {
+      return documentServiceErrorResponse(c, error);
+    }
+  });
+
+  app.put("/v1/document-versions/:id/evidence-reviews", requireAdmin, async (c) => {
+    const documentVersionId = parseDocumentVersionId(c);
+    if (documentVersionId instanceof Response) return documentVersionId;
+    const input = await parseJsonBody(c, SaveDocumentEvidenceReviewRequestSchema);
+    if (input instanceof Response) return input;
+
+    try {
+      const data = await getDocumentService(c.env).saveEvidenceReview(
+        c.get("adminUserId"),
+        documentVersionId,
+        input,
       );
       return jsonData(c, data);
     } catch (error) {

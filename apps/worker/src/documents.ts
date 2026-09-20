@@ -5,11 +5,13 @@ import {
   DOCUMENT_RESUMABLE_THRESHOLD,
   DocumentAnalysisProfileSchema,
   type DocumentExtractionCallback,
+  type DocumentEvidenceReview,
   type DocumentType,
   type DocumentUploadMetadata,
   type DocumentVersion,
   type N8nDocumentExtractionDispatchPayload,
   type PublicDocumentDisposition,
+  type SaveDocumentEvidenceReviewRequest,
   type UpdateDocumentVersionRequest,
 } from "@workspace/contracts";
 import type { Database } from "@workspace/contracts/database";
@@ -27,6 +29,8 @@ const ORPHAN_MAX_AGE_MS = UPLOAD_TOKEN_TTL_MS;
 const EXTRACTION_STALE_AFTER_MS = 15 * 60 * 1_000;
 
 type DocumentRow = Database["public"]["Tables"]["document_versions"]["Row"];
+type EvidenceReviewRow =
+  Database["public"]["Tables"]["document_evidence_reviews"]["Row"];
 
 export type DocumentListFilters = {
   archived: "exclude" | "include" | "only";
@@ -88,6 +92,10 @@ export interface DocumentService {
     disposition: PublicDocumentDisposition,
   ): Promise<PublicDocumentAccess>;
   get(ownerId: string, documentVersionId: string): Promise<DocumentVersion>;
+  listEvidenceReviews(
+    ownerId: string,
+    documentVersionId: string,
+  ): Promise<DocumentEvidenceReview[]>;
   list(
     ownerId: string,
     filters: DocumentListFilters,
@@ -121,6 +129,11 @@ export interface DocumentService {
     documentVersionId: string,
     input: UpdateDocumentVersionRequest,
   ): Promise<DocumentVersion>;
+  saveEvidenceReview(
+    ownerId: string,
+    documentVersionId: string,
+    input: SaveDocumentEvidenceReviewRequest,
+  ): Promise<DocumentEvidenceReview>;
 }
 
 export function getStoragePath(
@@ -187,6 +200,23 @@ function toDocumentVersion(
     label: row.label,
     mimeType: "application/pdf",
     originalFilename: row.original_filename,
+    updatedAt: row.updated_at,
+  };
+}
+
+function toEvidenceReview(row: EvidenceReviewRow): DocumentEvidenceReview {
+  return {
+    createdAt: row.created_at,
+    documentVersionId: row.document_version_id,
+    evidenceKey: row.evidence_key,
+    excerpt: row.excerpt,
+    id: row.id,
+    note: row.note,
+    observation: row.observation,
+    page: row.page,
+    profileId: row.profile_id,
+    section: row.section,
+    status: row.status,
     updatedAt: row.updated_at,
   };
 }
@@ -756,6 +786,60 @@ class SupabaseDocumentService implements DocumentService {
       this.getPublishedVersionIds(ownerId),
     ]);
     return toDocumentVersion(row, publishedVersionIds);
+  }
+
+  async listEvidenceReviews(ownerId: string, documentVersionId: string) {
+    await this.getRow(ownerId, documentVersionId);
+    const { data, error } = await this.supabase
+      .from("document_evidence_reviews")
+      .select("*")
+      .eq("owner_id", ownerId)
+      .eq("document_version_id", documentVersionId)
+      .order("updated_at", { ascending: false });
+    if (error) throw new DocumentServiceError("unavailable");
+    return data.map(toEvidenceReview);
+  }
+
+  async saveEvidenceReview(
+    ownerId: string,
+    documentVersionId: string,
+    input: SaveDocumentEvidenceReviewRequest,
+  ) {
+    const document = await this.getRow(ownerId, documentVersionId);
+    const { data: profile, error: profileError } = await this.supabase
+      .from("document_analysis_profiles")
+      .select("id")
+      .eq("id", input.profileId)
+      .eq("owner_id", ownerId)
+      .eq("document_version_id", documentVersionId)
+      .maybeSingle();
+    if (profileError) throw new DocumentServiceError("unavailable");
+    if (!profile) throw new DocumentServiceError("validation", {
+      reason: "evidence_profile_mismatch",
+    });
+
+    const { data, error } = await this.supabase
+      .from("document_evidence_reviews")
+      .upsert(
+        {
+          document_type: document.document_type,
+          document_version_id: documentVersionId,
+          evidence_key: input.evidenceKey,
+          excerpt: input.excerpt,
+          note: input.note,
+          observation: input.observation,
+          owner_id: ownerId,
+          page: input.page,
+          profile_id: input.profileId,
+          section: input.section,
+          status: input.status,
+        },
+        { onConflict: "owner_id,profile_id,evidence_key" },
+      )
+      .select("*")
+      .single();
+    if (error || !data) throw new DocumentServiceError("unavailable");
+    return toEvidenceReview(data);
   }
 
   async update(

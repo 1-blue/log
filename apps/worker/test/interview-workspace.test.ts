@@ -112,6 +112,7 @@ const workspace: AnalysisWorkspace = {
   },
   checklist: [checklist],
   comparison: null,
+  evidenceCoverage: null,
   history: [],
   interviewNotes: [note],
   job: {

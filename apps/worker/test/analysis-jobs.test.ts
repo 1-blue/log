@@ -1,5 +1,6 @@
 import type { AnalysisJobResponse, AnalysisResult } from "@workspace/contracts";
 import {
+  AnalysisDiagnosticsResponseSchema,
   AnalysisJobListResponseSchema,
   AnalysisJobStatusResponseSchema,
   CreateAnalysisJobResponseSchema,
@@ -115,6 +116,7 @@ const row: Parameters<typeof validateAnalysisSemantics>[1] = {
   final_event_id: null,
   finished_at: null,
   id: ANALYSIS_JOB_ID,
+  input_audit: null,
   job_posting_content_hash: "a".repeat(64),
   job_posting_id: POSTING_ID,
   job_posting_snapshot_id: SNAPSHOT_ID,
@@ -329,6 +331,12 @@ describe("analysis job API", () => {
         }),
       ),
       create: vi.fn(async () => response),
+      diagnostics: vi.fn(async () => ({
+        job: response,
+        events: [],
+        executions: [],
+        nextAction: "none" as const,
+      })),
       event: vi.fn(
         async (): Promise<AnalysisJobResponse> => ({
           ...response,
@@ -424,6 +432,18 @@ describe("analysis job API", () => {
     ).toBe(true);
     expect(
       AnalysisJobStatusResponseSchema.safeParse(await fetched.json()).success,
+    ).toBe(true);
+  });
+
+  it("returns safe execution diagnostics for a failed analysis", async () => {
+    const diagnostics = await request(
+      `/v1/analysis-jobs/${ANALYSIS_JOB_ID}/diagnostics`,
+    );
+
+    expect(diagnostics.status).toBe(200);
+    expect(
+      AnalysisDiagnosticsResponseSchema.safeParse(await diagnostics.json())
+        .success,
     ).toBe(true);
   });
 

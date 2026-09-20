@@ -2,6 +2,7 @@ import {
   ANALYSIS_DISPATCH_DOCUMENT_TEXT_MAX_LENGTH,
   ANALYSIS_DISPATCH_JOB_POSTING_TEXT_MAX_LENGTH,
   ANALYSIS_INPUT_POLICY_VERSION,
+  AnalysisInputAuditSchema,
   type AnalysisHistoryItem,
   type AnalysisInputAudit,
   type AnalysisMatchCounts,
@@ -127,6 +128,9 @@ function mapInputAudit(
   resume: DocumentRow,
   portfolio: DocumentRow,
 ): AnalysisInputAudit {
+  const recorded = AnalysisInputAuditSchema.safeParse(job.input_audit);
+  if (recorded.success) return recorded.data;
+
   const jobPostingStoredLength = normalizedLength(job.job_posting_text);
   const jobPostingOriginalLength = normalizedLength(
     snapshot.normalized_content,
@@ -361,6 +365,21 @@ function reviewedScore(
       status: overrides.get(match.requirementId) ?? match.status,
     })),
   );
+}
+
+function evidenceCoverage(result: AnalysisResult | null): number | null {
+  if (!result) return null;
+  const requirements = result.job.requirements;
+  if (requirements.length === 0) return null;
+  const matches = new Map(
+    result.comparison.matches.map((match) => [match.requirementId, match]),
+  );
+  const verified = requirements.filter((requirement) =>
+    (matches.get(requirement.id)?.profileEvidence ?? []).some(
+      (evidence) => evidence.source === "resume" || evidence.source === "portfolio",
+    ),
+  ).length;
+  return Math.round((verified / requirements.length) * 100);
 }
 
 class SupabaseInterviewWorkspaceService implements InterviewWorkspaceService {
@@ -764,6 +783,7 @@ class SupabaseInterviewWorkspaceService implements InterviewWorkspaceService {
         : null,
       review: mapReview(reviewQuery.data, requirements),
       reviewedFitScore: reviewedScore(resultRow, requirements),
+      evidenceCoverage: evidenceCoverage(parsedResult?.data ?? null),
       sources: this.mapSources(job, snapshot, resume, portfolio),
     };
   }

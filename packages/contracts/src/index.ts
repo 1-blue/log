@@ -1240,6 +1240,63 @@ export type DocumentAnalysisProfile = z.infer<
   typeof DocumentAnalysisProfileSchema
 >;
 
+export const DocumentEvidenceReviewStatusSchema = z.enum([
+  "pending",
+  "confirmed",
+  "rejected",
+]);
+export type DocumentEvidenceReviewStatus = z.infer<
+  typeof DocumentEvidenceReviewStatusSchema
+>;
+
+export const DocumentEvidenceReviewSchema = z.strictObject({
+  id: UuidSchema,
+  documentVersionId: UuidSchema,
+  profileId: UuidSchema,
+  evidenceKey: z.string().min(1).max(200),
+  page: z.int().positive().nullable(),
+  section: z.string().max(200).nullable(),
+  excerpt: z.string().min(1).max(500),
+  observation: z.string().min(1).max(2_000),
+  status: DocumentEvidenceReviewStatusSchema,
+  note: z.string().max(1_000).nullable(),
+  createdAt: Rfc3339TimestampSchema,
+  updatedAt: Rfc3339TimestampSchema,
+});
+export type DocumentEvidenceReview = z.infer<
+  typeof DocumentEvidenceReviewSchema
+>;
+
+export const SaveDocumentEvidenceReviewRequestSchema = z.strictObject({
+  profileId: UuidSchema,
+  evidenceKey: z.string().min(1).max(200),
+  page: z.int().positive().nullable(),
+  section: z.string().max(200).nullable(),
+  excerpt: z.string().min(1).max(500),
+  observation: z.string().min(1).max(2_000),
+  status: DocumentEvidenceReviewStatusSchema,
+  note: z.string().max(1_000).nullable(),
+});
+export type SaveDocumentEvidenceReviewRequest = z.infer<
+  typeof SaveDocumentEvidenceReviewRequestSchema
+>;
+
+export const DocumentEvidenceReviewListResponseSchema = z.strictObject({
+  data: z.strictObject({ items: z.array(DocumentEvidenceReviewSchema).max(100) }),
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type DocumentEvidenceReviewListResponse = z.infer<
+  typeof DocumentEvidenceReviewListResponseSchema
+>;
+
+export const DocumentEvidenceReviewResponseSchema = z.strictObject({
+  data: DocumentEvidenceReviewSchema,
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type DocumentEvidenceReviewResponse = z.infer<
+  typeof DocumentEvidenceReviewResponseSchema
+>;
+
 export const JobPostingAnalysisProfileSchema = z.strictObject({
   summary: z.string().min(1).max(5_000),
   sections: JobPostingBodySectionsSchema,
@@ -1606,6 +1663,49 @@ export const AnalysisStepSchema = z.strictObject({
   attemptCount: z.number().int().min(1).max(ANALYSIS_STEP_MAX_ATTEMPTS),
 });
 export type AnalysisStep = z.infer<typeof AnalysisStepSchema>;
+
+export const AnalysisDiagnosticEventSchema = z.strictObject({
+  eventId: UuidSchema,
+  eventType: z.string().min(1).max(50),
+  status: AnalysisJobStatusSchema,
+  stage: AnalysisJobStageSchema.nullable(),
+  step: AnalysisStepNameSchema.nullable(),
+  message: z.string().max(1_000).nullable(),
+  errorCode: AnalysisErrorCodeSchema.nullable(),
+  retryable: z.boolean(),
+  occurredAt: Rfc3339TimestampSchema,
+});
+export type AnalysisDiagnosticEvent = z.infer<
+  typeof AnalysisDiagnosticEventSchema
+>;
+
+export const AnalysisDiagnosticActionSchema = z.enum([
+  "wait",
+  "retry",
+  "recover_stale",
+  "start_new_analysis",
+  "check_input",
+  "none",
+]);
+export type AnalysisDiagnosticAction = z.infer<
+  typeof AnalysisDiagnosticActionSchema
+>;
+
+export const AnalysisDiagnosticsSchema = z.strictObject({
+  job: AnalysisJobResponseSchema,
+  events: z.array(AnalysisDiagnosticEventSchema).max(100),
+  executions: z.array(AnalysisStepSchema).max(10),
+  nextAction: AnalysisDiagnosticActionSchema,
+});
+export type AnalysisDiagnostics = z.infer<typeof AnalysisDiagnosticsSchema>;
+
+export const AnalysisDiagnosticsResponseSchema = z.strictObject({
+  data: AnalysisDiagnosticsSchema,
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type AnalysisDiagnosticsResponse = z.infer<
+  typeof AnalysisDiagnosticsResponseSchema
+>;
 
 export const AnalysisUsageSummarySchema = z.strictObject({
   inputTokens: z.number().int().nonnegative(),
@@ -2012,6 +2112,7 @@ export const AnalysisWorkspaceSchema = z.strictObject({
   sources: AnalysisWorkspaceSourceSchema,
   review: AnalysisReviewSchema,
   reviewedFitScore: z.int().min(0).max(100).nullable(),
+  evidenceCoverage: z.int().min(0).max(100).nullable(),
   questions: z.array(InterviewQuestionSchema).max(30),
   checklist: z.array(InterviewChecklistItemSchema).max(100),
   interviewNotes: z.array(InterviewNoteSchema).max(100),

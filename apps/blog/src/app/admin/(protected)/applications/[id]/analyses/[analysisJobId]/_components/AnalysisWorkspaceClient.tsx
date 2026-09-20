@@ -871,7 +871,7 @@ export default function AnalysisWorkspaceClient({
             className="border-border bg-card grid gap-5 rounded-lg border p-5"
             id="summary"
           >
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <div className="bg-muted/40 rounded-md p-4">
                 <p className="text-muted-foreground text-xs">AI 적합도</p>
                 <strong className="text-primary mt-1 block text-3xl">
@@ -883,6 +883,17 @@ export default function AnalysisWorkspaceClient({
                 <strong className="mt-1 block text-3xl">
                   {liveReviewedScore ?? result.fitScore}점
                 </strong>
+              </div>
+              <div className="bg-muted/40 rounded-md p-4">
+                <p className="text-muted-foreground text-xs">근거 확인율</p>
+                <strong className="mt-1 block text-3xl">
+                  {workspace.evidenceCoverage === null
+                    ? "-"
+                    : `${workspace.evidenceCoverage}%`}
+                </strong>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  개인 자료에서 확인된 요구사항 비율
+                </p>
               </div>
               <div className="bg-muted/40 rounded-md p-4">
                 <p className="text-muted-foreground text-xs">면접 답변</p>
@@ -903,6 +914,9 @@ export default function AnalysisWorkspaceClient({
               </div>
             </div>
             <p className="break-words leading-7">{result.comparison.summary}</p>
+            <p className="text-muted-foreground text-xs">
+              적합도는 채용 합격 확률이 아니라 공고 요구사항과 현재 자료의 일치 정도입니다. unknown은 경험이 없다는 뜻이 아니라 현재 자료에서 근거를 확인하지 못했다는 뜻입니다.
+            </p>
             <section className="border-border rounded-md border p-4">
               <h3 className="font-semibold">지원 전략 초안</h3>
               <p className="text-muted-foreground mt-2 whitespace-pre-wrap break-words text-sm leading-6">

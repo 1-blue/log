@@ -7,6 +7,11 @@ export type Json =
   | Json[];
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5";
+  };
   public: {
     Tables: {
       analysis_job_events: {
@@ -86,6 +91,7 @@ export type Database = {
           final_event_id: string | null;
           finished_at: string | null;
           id: string;
+          input_audit: Json | null;
           job_posting_content_hash: string;
           job_posting_id: string;
           job_posting_profile_id: string | null;
@@ -126,6 +132,7 @@ export type Database = {
           final_event_id?: string | null;
           finished_at?: string | null;
           id?: string;
+          input_audit?: Json | null;
           job_posting_content_hash: string;
           job_posting_id: string;
           job_posting_profile_id?: string | null;
@@ -166,6 +173,7 @@ export type Database = {
           final_event_id?: string | null;
           finished_at?: string | null;
           id?: string;
+          input_audit?: Json | null;
           job_posting_content_hash?: string;
           job_posting_id?: string;
           job_posting_profile_id?: string | null;
@@ -657,6 +665,72 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "document_versions";
             referencedColumns: ["id", "owner_id", "document_type"];
+          },
+        ];
+      };
+      document_evidence_reviews: {
+        Row: {
+          created_at: string;
+          document_type: Database["public"]["Enums"]["document_type"];
+          document_version_id: string;
+          evidence_key: string;
+          excerpt: string;
+          id: string;
+          note: string | null;
+          observation: string;
+          owner_id: string;
+          page: number | null;
+          profile_id: string;
+          section: string | null;
+          status: Database["public"]["Enums"]["document_evidence_review_status"];
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          document_type: Database["public"]["Enums"]["document_type"];
+          document_version_id: string;
+          evidence_key: string;
+          excerpt: string;
+          id?: string;
+          note?: string | null;
+          observation: string;
+          owner_id: string;
+          page?: number | null;
+          profile_id: string;
+          section?: string | null;
+          status?: Database["public"]["Enums"]["document_evidence_review_status"];
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          document_type?: Database["public"]["Enums"]["document_type"];
+          document_version_id?: string;
+          evidence_key?: string;
+          excerpt?: string;
+          id?: string;
+          note?: string | null;
+          observation?: string;
+          owner_id?: string;
+          page?: number | null;
+          profile_id?: string;
+          section?: string | null;
+          status?: Database["public"]["Enums"]["document_evidence_review_status"];
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "document_evidence_reviews_document_fk";
+            columns: ["document_version_id", "owner_id", "document_type"];
+            isOneToOne: false;
+            referencedRelation: "document_versions";
+            referencedColumns: ["id", "owner_id", "document_type"];
+          },
+          {
+            foreignKeyName: "document_evidence_reviews_profile_fk";
+            columns: ["profile_id", "owner_id"];
+            isOneToOne: false;
+            referencedRelation: "document_analysis_profiles";
+            referencedColumns: ["id", "owner_id"];
           },
         ];
       };
@@ -1366,6 +1440,7 @@ export type Database = {
           final_event_id: string | null;
           finished_at: string | null;
           id: string;
+          input_audit: Json | null;
           job_posting_content_hash: string;
           job_posting_id: string;
           job_posting_profile_id: string | null;
@@ -1419,6 +1494,7 @@ export type Database = {
           final_event_id: string | null;
           finished_at: string | null;
           id: string;
+          input_audit: Json | null;
           job_posting_content_hash: string;
           job_posting_id: string;
           job_posting_profile_id: string | null;
@@ -1533,6 +1609,7 @@ export type Database = {
           final_event_id: string | null;
           finished_at: string | null;
           id: string;
+          input_audit: Json | null;
           job_posting_content_hash: string;
           job_posting_id: string;
           job_posting_profile_id: string | null;
@@ -1830,11 +1907,26 @@ export type Database = {
         Args: { p_cutoff: string; p_limit?: number };
         Returns: string[];
       };
-      recover_stale_analysis_job: {
+      fail_stale_slack_notifications: {
+        Args: { p_cutoff: string; p_limit?: number };
+        Returns: string[];
+      };
+      record_analysis_event: {
         Args: {
           p_analysis_job_id: string;
-          p_cutoff: string;
-          p_owner_id: string;
+          p_error_code?: string;
+          p_error_message?: string;
+          p_error_retryable?: boolean;
+          p_event_id: string;
+          p_event_type: string;
+          p_message?: string;
+          p_occurred_at?: string;
+          p_retry_at?: string;
+          p_run_attempt: number;
+          p_stage?: Database["public"]["Enums"]["analysis_job_stage"];
+          p_status: Database["public"]["Enums"]["analysis_job_status"];
+          p_step?: string;
+          p_step_attempt?: number;
         };
         Returns: {
           application_id: string;
@@ -1847,6 +1939,7 @@ export type Database = {
           final_event_id: string | null;
           finished_at: string | null;
           id: string;
+          input_audit: Json | null;
           job_posting_content_hash: string;
           job_posting_id: string;
           job_posting_profile_id: string | null;
@@ -1883,26 +1976,11 @@ export type Database = {
           isSetofReturn: false;
         };
       };
-      fail_stale_slack_notifications: {
-        Args: { p_cutoff: string; p_limit?: number };
-        Returns: string[];
-      };
-      record_analysis_event: {
+      recover_stale_analysis_job: {
         Args: {
           p_analysis_job_id: string;
-          p_error_code?: string;
-          p_error_message?: string;
-          p_error_retryable?: boolean;
-          p_event_id: string;
-          p_event_type: string;
-          p_message?: string;
-          p_occurred_at?: string;
-          p_retry_at?: string;
-          p_run_attempt: number;
-          p_stage?: Database["public"]["Enums"]["analysis_job_stage"];
-          p_status: Database["public"]["Enums"]["analysis_job_status"];
-          p_step?: string;
-          p_step_attempt?: number;
+          p_cutoff: string;
+          p_owner_id: string;
         };
         Returns: {
           application_id: string;
@@ -1915,6 +1993,7 @@ export type Database = {
           final_event_id: string | null;
           finished_at: string | null;
           id: string;
+          input_audit: Json | null;
           job_posting_content_hash: string;
           job_posting_id: string;
           job_posting_profile_id: string | null;
@@ -2185,6 +2264,7 @@ export type Database = {
         | "withdrawn";
       career_analysis_profile_status: "succeeded" | "failed";
       career_analysis_source: "fixture" | "ai";
+      document_evidence_review_status: "pending" | "confirmed" | "rejected";
       document_extraction_status: "pending" | "processing" | "ready" | "failed";
       document_type: "resume" | "portfolio";
       interview_checklist_source: "gap_action" | "custom";
@@ -2400,6 +2480,7 @@ export const Constants = {
       ],
       career_analysis_profile_status: ["succeeded", "failed"],
       career_analysis_source: ["fixture", "ai"],
+      document_evidence_review_status: ["pending", "confirmed", "rejected"],
       document_extraction_status: ["pending", "processing", "ready", "failed"],
       document_type: ["resume", "portfolio"],
       interview_checklist_source: ["gap_action", "custom"],

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import {
   type AnalysisJobResponse,
+  type AnalysisDiagnosticsResponse,
   type ApplicationDetail,
   type ApplicationStatus,
   applicationStatusRequiresDocuments,
@@ -69,6 +70,7 @@ import {
   createApplicationAttempt,
   createJobPostingCollection,
   getAnalysisJob,
+  getAnalysisDiagnostics,
   getApplication,
   getJobPostingCollection,
   listAnalysisJobs,
@@ -179,6 +181,8 @@ export default function ApplicationDetailClient({
   const [documents, setDocuments] = useState<DocumentVersion[]>([]);
   const [collections, setCollections] = useState<JobPostingCollectionRun[]>([]);
   const [analysisJobs, setAnalysisJobs] = useState<AnalysisJobResponse[]>([]);
+  const [analysisDiagnostics, setAnalysisDiagnostics] =
+    useState<AnalysisDiagnosticsResponse["data"] | null>(null);
   const [manualContent, setManualContent] = useState("");
   const [status, setStatus] = useState<ApplicationStatus>("interested");
   const [loading, setLoading] = useState(true);
@@ -219,6 +223,13 @@ export default function ApplicationDetailClient({
         ]);
         setCollections(collectionsResponse.data.items);
         setAnalysisJobs(analysisResponse.data.items);
+        const latest = analysisResponse.data.items[0];
+        if (latest && ["failed", "needs_input"].includes(latest.status)) {
+          const diagnostics = await getAnalysisDiagnostics(latest.id);
+          setAnalysisDiagnostics(diagnostics.data);
+        } else {
+          setAnalysisDiagnostics(null);
+        }
       } catch (caught) {
         setError(message(caught));
       }
@@ -277,6 +288,10 @@ export default function ApplicationDetailClient({
         const response = await getAnalysisJob(activeAnalysisId);
         if (!stopped) {
           setAnalysisJobs((current) => upsertAnalysis(current, response.data));
+          if (["failed", "needs_input"].includes(response.data.status)) {
+            const diagnostics = await getAnalysisDiagnostics(activeAnalysisId);
+            if (!stopped) setAnalysisDiagnostics(diagnostics.data);
+          }
         }
       } catch (caught) {
         if (!stopped) setError(message(caught));
@@ -301,6 +316,10 @@ export default function ApplicationDetailClient({
     try {
       const response = await getAnalysisJob(analysisJobId);
       setAnalysisJobs((current) => upsertAnalysis(current, response.data));
+      if (["failed", "needs_input"].includes(response.data.status)) {
+        const diagnostics = await getAnalysisDiagnostics(analysisJobId);
+        setAnalysisDiagnostics(diagnostics.data);
+      }
       setAnalysisPollingExpired(
         ["queued", "running", "retrying"].includes(response.data.status),
       );
@@ -331,6 +350,7 @@ export default function ApplicationDetailClient({
     try {
       const response = await retryAnalysisJob(analysisJobId);
       setAnalysisJobs((current) => upsertAnalysis(current, response.data.job));
+      setAnalysisDiagnostics(null);
     } catch (caught) {
       setError(message(caught));
     } finally {
@@ -357,6 +377,7 @@ export default function ApplicationDetailClient({
     try {
       const response = await createAnalysisJob(applicationId);
       setAnalysisJobs((current) => upsertAnalysis(current, response.data.job));
+      setAnalysisDiagnostics(null);
     } catch (caught) {
       setError(message(caught));
     } finally {
@@ -936,6 +957,34 @@ export default function ApplicationDetailClient({
                   <p className="text-destructive mt-2 text-xs">
                     {latestAnalysis.lastError.message}
                   </p>
+                ) : null}
+                {analysisDiagnostics ? (
+                  <details className="border-border mt-3 rounded-md border p-3">
+                    <summary className="cursor-pointer text-xs font-medium">
+                      실행 진단과 다음 조치
+                    </summary>
+                    <p className="text-muted-foreground mt-2 text-xs">
+                      {analysisDiagnostics.nextAction === "retry"
+                        ? "같은 작업을 다시 시도할 수 있습니다."
+                        : analysisDiagnostics.nextAction === "check_input"
+                          ? "입력 문서와 공고 원문을 확인해 주세요."
+                          : analysisDiagnostics.nextAction === "recover_stale"
+                            ? "멈춘 작업인지 확인한 뒤 복구할 수 있습니다."
+                            : analysisDiagnostics.nextAction === "start_new_analysis"
+                              ? "재시도 횟수를 모두 사용했습니다. 새 분석을 시작해 주세요."
+                              : "추가 조치가 필요하지 않습니다."}
+                    </p>
+                    <ol className="text-muted-foreground mt-3 grid gap-2 text-xs">
+                      {analysisDiagnostics.events.slice(0, 8).map((event) => (
+                        <li className="border-border border-b pb-2 last:border-0" key={event.eventId}>
+                          <span className="font-medium">{event.eventType}</span>
+                          {event.stage ? ` · ${ANALYSIS_STAGE_LABELS[event.stage]}` : ""}
+                          {event.errorCode ? ` · ${event.errorCode}` : ""}
+                          <span className="ml-2">{formatApplicationDate(event.occurredAt)}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </details>
                 ) : null}
                 {analysisPollingExpired && activeAnalysisId ? (
                   <div className="border-border bg-muted/30 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">

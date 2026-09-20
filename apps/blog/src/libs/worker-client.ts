@@ -8,6 +8,8 @@ import {
   AdminSessionResponseSchema,
   type AnalysisJobListResponse,
   AnalysisJobListResponseSchema,
+  type AnalysisDiagnosticsResponse,
+  AnalysisDiagnosticsResponseSchema,
   type AnalysisJobStatusResponse,
   AnalysisJobStatusResponseSchema,
   type AnalysisReviewResponse,
@@ -33,6 +35,10 @@ import {
   type CreateJobPostingCollectionRequest,
   type DocumentDownloadUrlResponse,
   DocumentDownloadUrlResponseSchema,
+  type DocumentEvidenceReviewListResponse,
+  DocumentEvidenceReviewListResponseSchema,
+  type DocumentEvidenceReviewResponse,
+  DocumentEvidenceReviewResponseSchema,
   type DocumentType,
   type DocumentVersion,
   type DocumentVersionListResponse,
@@ -61,6 +67,7 @@ import {
   type PrepareDocumentUploadResponse,
   PrepareDocumentUploadResponseSchema,
   type SaveInterviewAnswerRequest,
+  type SaveDocumentEvidenceReviewRequest,
   type SetDocumentPublicationRequest,
   type UpdateAnalysisReviewRequest,
   type UpdateDocumentVersionRequest,
@@ -194,6 +201,26 @@ export function getWorkerAdminSession(): Promise<AdminSessionResponse> {
   return requestWorker("/v1/auth/me", AdminSessionResponseSchema);
 }
 
+export function listDocumentEvidenceReviews(
+  documentVersionId: string,
+): Promise<DocumentEvidenceReviewListResponse> {
+  return requestWorker(
+    `/v1/document-versions/${documentVersionId}/evidence-reviews`,
+    DocumentEvidenceReviewListResponseSchema,
+  );
+}
+
+export function saveDocumentEvidenceReview(
+  documentVersionId: string,
+  input: SaveDocumentEvidenceReviewRequest,
+): Promise<DocumentEvidenceReviewResponse> {
+  return requestWorker(
+    `/v1/document-versions/${documentVersionId}/evidence-reviews`,
+    DocumentEvidenceReviewResponseSchema,
+    { body: JSON.stringify(input), method: "PUT" },
+  );
+}
+
 export function createApplication(
   input: CreateApplicationRequest,
 ): Promise<ApplicationResponse> {
@@ -272,6 +299,15 @@ export function getAnalysisJob(
   return requestWorker(
     `/v1/analysis-jobs/${analysisJobId}`,
     AnalysisJobStatusResponseSchema,
+  );
+}
+
+export function getAnalysisDiagnostics(
+  analysisJobId: string,
+): Promise<AnalysisDiagnosticsResponse> {
+  return requestWorker(
+    `/v1/analysis-jobs/${analysisJobId}/diagnostics`,
+    AnalysisDiagnosticsResponseSchema,
   );
 }
 

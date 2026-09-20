@@ -2,6 +2,7 @@ import type { DocumentVersion } from "@workspace/contracts";
 import {
   AdminSessionResponseSchema,
   type DocumentExtractionCallback,
+  type DocumentEvidenceReview,
   DocumentVersionListResponseSchema,
   DocumentVersionResponseSchema,
   HealthResponseSchema,
@@ -92,6 +93,21 @@ const documentFixture: DocumentVersion = {
   updatedAt: "2026-09-11T00:00:00.000Z",
 };
 
+const evidenceReviewFixture: DocumentEvidenceReview = {
+  createdAt: "2026-09-11T00:00:00.000Z",
+  documentVersionId: documentFixture.id,
+  evidenceKey: "project-0-visual-0",
+  excerpt: "대시보드 화면",
+  id: "00000000-0000-4000-8000-000000000011",
+  note: null,
+  observation: "프로젝트 결과 화면에서 대시보드 구현을 확인했습니다.",
+  page: 3,
+  profileId: "00000000-0000-4000-8000-000000000012",
+  section: "프로젝트",
+  status: "pending",
+  updatedAt: "2026-09-11T00:00:00.000Z",
+};
+
 function createFakeDocumentService(): DocumentService {
   return {
     abortUpload: vi.fn(async () => "removed" as const),
@@ -108,6 +124,7 @@ function createFakeDocumentService(): DocumentService {
       url: "https://example.supabase.co/signed/public-document",
     })),
     get: vi.fn(async () => documentFixture),
+    listEvidenceReviews: vi.fn(async () => []),
     list: vi.fn(async () => [documentFixture]),
     prepareUpload: vi.fn(async () => ({
       documentVersionId: documentFixture.id,
@@ -124,6 +141,7 @@ function createFakeDocumentService(): DocumentService {
       ...documentFixture,
       isPublished: true,
     })),
+    saveEvidenceReview: vi.fn(async () => evidenceReviewFixture),
     update: vi.fn(async () => documentFixture),
   };
 }
@@ -457,6 +475,44 @@ describe("worker document API", () => {
     await expect(response.json()).resolves.toMatchObject({
       error: { code: "VALIDATION_ERROR" },
     });
+  });
+
+  it("lists and saves document evidence reviews through the authenticated API", async () => {
+    const service = createFakeDocumentService();
+    const listed = await requestDocumentApi(
+      `/v1/document-versions/${documentFixture.id}/evidence-reviews`,
+      {},
+      service,
+    );
+    const saved = await requestDocumentApi(
+      `/v1/document-versions/${documentFixture.id}/evidence-reviews`,
+      {
+        body: JSON.stringify({
+          evidenceKey: evidenceReviewFixture.evidenceKey,
+          excerpt: evidenceReviewFixture.excerpt,
+          note: null,
+          observation: evidenceReviewFixture.observation,
+          page: evidenceReviewFixture.page,
+          profileId: evidenceReviewFixture.profileId,
+          section: evidenceReviewFixture.section,
+          status: evidenceReviewFixture.status,
+        }),
+        method: "PUT",
+      },
+      service,
+    );
+
+    expect(listed.response.status).toBe(200);
+    expect(saved.response.status).toBe(200);
+    expect(service.listEvidenceReviews).toHaveBeenCalledWith(
+      ADMIN_USER_ID,
+      documentFixture.id,
+    );
+    expect(service.saveEvidenceReview).toHaveBeenCalledWith(
+      ADMIN_USER_ID,
+      documentFixture.id,
+      expect.objectContaining({ evidenceKey: evidenceReviewFixture.evidenceKey }),
+    );
   });
 
   it("prepares and completes a validated PDF upload", async () => {

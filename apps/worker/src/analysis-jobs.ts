@@ -4,11 +4,15 @@ import {
   ANALYSIS_INPUT_POLICY_VERSION,
   ANALYSIS_JOB_MAX_RUN_ATTEMPTS,
   type AnalysisEventCallback,
+  type AnalysisDiagnostics,
+  AnalysisDiagnosticEventSchema,
+  AnalysisErrorCodeSchema,
   AnalysisInputPolicySchema,
   type AnalysisJobResponse,
   type AnalysisResult,
   type AnalysisResultCallback,
   AnalysisResultSchema,
+  AnalysisInputAuditSchema,
   calculateAnalysisFitScore,
   CONTRACT_VERSION,
   DocumentAnalysisProfileSchema,
@@ -110,6 +114,10 @@ export interface AnalysisJobService {
   event(input: AnalysisEventCallback): Promise<AnalysisJobResponse>;
   failStale(cutoff: string, limit: number): Promise<string[]>;
   get(ownerId: string, analysisJobId: string): Promise<AnalysisJobResponse>;
+  diagnostics(
+    ownerId: string,
+    analysisJobId: string,
+  ): Promise<AnalysisDiagnostics>;
   list(ownerId: string, applicationId: string): Promise<AnalysisJobResponse[]>;
   retry(ownerId: string, analysisJobId: string): Promise<AnalysisJobResponse>;
   recoverStale(
@@ -669,7 +677,44 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
       schemaVersion: CONTRACT_VERSION,
       inputPolicy,
     };
-    return N8nDispatchPayloadSchema.parse(payload);
+    const parsedPayload = N8nDispatchPayloadSchema.parse(payload);
+    const audit = AnalysisInputAuditSchema.parse({
+      documentTextMaxLength: inputPolicy.documentTextMaxLength,
+      includesPdf: inputPolicy.includesPdf,
+      includesProfile: inputPolicy.includesProfile,
+      jobPosting: {
+        dispatchLength: jobPostingInput.inputTextLength,
+        dispatchTruncated:
+          jobPostingInput.truncated ||
+          row.job_posting_text.length >= JOB_POSTING_TEXT_MAX_LENGTH,
+        originalLength: row.job_posting_text.length,
+        storedLength: row.job_posting_text.length,
+        storedTruncated: false,
+      },
+      policyVersion: inputPolicy.version,
+      portfolio: {
+        dispatchLength: portfolioInput.inputTextLength,
+        dispatchTruncated: portfolioInput.truncated || row.portfolio_truncated,
+        originalLength: row.portfolio_original_length,
+        storedLength: row.portfolio_text.length,
+        storedTruncated: row.portfolio_truncated,
+      },
+      resume: {
+        dispatchLength: resumeInput.inputTextLength,
+        dispatchTruncated: resumeInput.truncated || row.resume_truncated,
+        originalLength: row.resume_original_length,
+        storedLength: row.resume_text.length,
+        storedTruncated: row.resume_truncated,
+      },
+      jobPostingTextMaxLength: inputPolicy.jobPostingTextMaxLength,
+    });
+    const { error: auditError } = await this.supabase
+      .from("analysis_jobs")
+      .update({ input_audit: audit as unknown as Json })
+      .eq("id", row.id)
+      .eq("owner_id", row.owner_id);
+    if (auditError) throw new AnalysisJobServiceError("unavailable");
+    return parsedPayload;
   }
 
   private async beginAttempt(row: AnalysisJobRow): Promise<AnalysisJobRow> {
@@ -736,6 +781,73 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
       await this.getRow(analysisJobId, ownerId),
     );
     return mapAnalysisJob(row, await this.getResult(row.id));
+  }
+
+  async diagnostics(ownerId: string, analysisJobId: string) {
+    const row = await this.recoverStaleRow(
+      ownerId,
+      analysisJobId,
+      await this.getRow(analysisJobId, ownerId),
+    );
+    const [eventsResult, executionsResult, result] = await Promise.all([
+      this.supabase
+        .from("analysis_job_events")
+        .select("event_id,event_type,status,stage,step,message,error_code,error_retryable,occurred_at")
+        .eq("analysis_job_id", analysisJobId)
+        .eq("owner_id", ownerId)
+        .order("occurred_at", { ascending: false })
+        .limit(100),
+      this.supabase
+        .from("analysis_step_executions")
+        .select("step,model,prompt_version,response_id,input_tokens,output_tokens,latency_ms,attempt_count")
+        .eq("analysis_job_id", analysisJobId)
+        .eq("owner_id", ownerId)
+        .order("created_at", { ascending: true }),
+      this.getResult(analysisJobId),
+    ]);
+    if (eventsResult.error || executionsResult.error) {
+      throw new AnalysisJobServiceError("unavailable");
+    }
+
+    const events = (eventsResult.data ?? []).map((event) =>
+      AnalysisDiagnosticEventSchema.parse({
+        eventId: event.event_id,
+        eventType: event.event_type,
+        status: event.status,
+        stage: event.stage,
+        step: event.step,
+        message: event.message,
+        errorCode: AnalysisErrorCodeSchema.safeParse(event.error_code).success
+          ? event.error_code
+          : null,
+        retryable: event.error_retryable,
+        occurredAt: event.occurred_at,
+      }),
+    );
+    const executions = (executionsResult.data ?? []).map((execution) => ({
+      step: execution.step as "job_facts" | "profile_comparison",
+      model: execution.model,
+      promptVersion: execution.prompt_version,
+      responseId: execution.response_id,
+      inputTokens: execution.input_tokens,
+      outputTokens: execution.output_tokens,
+      latencyMs: execution.latency_ms,
+      attemptCount: execution.attempt_count,
+    }));
+    const job = mapAnalysisJob(row, result);
+    const nextAction =
+      row.status === "failed"
+        ? row.attempt_count < ANALYSIS_JOB_MAX_RUN_ATTEMPTS
+          ? "retry"
+          : "start_new_analysis"
+        : row.status === "needs_input"
+          ? "check_input"
+          : row.status === "queued" || row.status === "running" || row.status === "retrying"
+            ? this.isStale(row)
+              ? "recover_stale"
+              : "wait"
+            : "none";
+    return { job, events, executions, nextAction } satisfies AnalysisDiagnostics;
   }
 
   async recoverStale(ownerId: string, analysisJobId: string) {

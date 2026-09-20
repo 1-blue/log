@@ -520,6 +520,7 @@ const base: AnalysisWorkspace = {
       updatedAt: NOW,
     },
   ],
+  evidenceCoverage: 75,
   comparison: null,
   history: [],
   interviewNotes: [

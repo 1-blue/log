@@ -1056,6 +1056,7 @@ describe("career operations contracts", () => {
           },
         },
         review: { overallNote: null, requirements: [], updatedAt: null },
+        evidenceCoverage: null,
         reviewedFitScore: validAnalysisResult.fitScore,
         sources: source,
       },
