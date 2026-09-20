@@ -78,10 +78,11 @@ Storage object는 삭제하지 않으며, 삭제 전 SQL 백업은 Git에서 무
 
 ## GitHub Actions 배포 게이트
 
-`.github/workflows/deploy-worker.yml`과 `deploy-n8n.yml`은 `master` push에 반응하지만,
-GitHub 환경의 `ENABLE_PRODUCTION_DEPLOY=true`일 때만 자동 배포한다. 변수가 없거나
-다르면 운영 배포 job은 실행되지 않는다. 게이트를 켜기 전에는 `workflow_dispatch`로
-명시적으로 실행할 수 있다. n8n 자동 게시에는 추가로 `N8N_WORKFLOW_ID`가 필요하다.
+`.github/workflows/deploy-production.yml`은 `master` push의 변경 경로를 확인한 뒤
+Worker와 n8n 중 필요한 대상만 배포한다. GitHub 환경의
+`ENABLE_PRODUCTION_DEPLOY=true`일 때만 자동 배포하며, 변수 또는 Secret이 없으면
+배포 단계에서 중단한다. `workflow_dispatch`에서는 `worker`, `n8n`, `all`을 선택해
+수동 배포할 수 있고, n8n 게시에는 `N8N_WORKFLOW_ID`가 필요하다.
 
 Worker 코드 rollback, n8n Workflow rollback, 원격 DB migration rollback은 서로 독립적이다.
 배포 기록에는 Git SHA, Worker 배포 버전, n8n 이미지 digest·Workflow hash와 migration

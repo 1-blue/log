@@ -5,13 +5,13 @@ umask 077
 cd "$(dirname "$0")/.."
 
 publish_workflow_id=""
+publish_workflow_file=""
 if [[ "${1:-}" == "--publish-workflow" ]]; then
   publish_workflow_id="${2:?workflow id is required with --publish-workflow}"
   if [[ "${3:-}" != "" ]]; then
     publish_workflow_file="$3"
   else
-    # This path is inside the n8n container, where ./workflows is mounted read-only.
-    publish_workflow_file="/workflows/career-analysis.json"
+    publish_workflow_file="$PWD/workflows/career-analysis.json"
   fi
 fi
 if [[ ! -f .env ]]; then

@@ -1,0 +1,157 @@
+name: Deploy Career Ops
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "apps/worker/**"
+      - "apps/n8n/**"
+      - "packages/contracts/**"
+      - "supabase/migrations/**"
+      - ".github/workflows/deploy-production.yml"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "배포 대상"
+        required: true
+        default: all
+        type: choice
+        options:
+          - worker
+          - n8n
+          - all
+
+permissions:
+  contents: read
+
+concurrency:
+  group: career-ops-production
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    outputs:
+      worker: ${{ steps.paths.outputs.worker }}
+      n8n: ${{ steps.paths.outputs.n8n }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - id: paths
+        env:
+          TARGET: ${{ inputs.target || '' }}
+        run: |
+          set -euo pipefail
+          if [[ "$TARGET" == "worker" || "$TARGET" == "all" ]]; then
+            worker=true
+          else
+            worker=false
+          fi
+          if [[ "$TARGET" == "n8n" || "$TARGET" == "all" ]]; then
+            n8n=true
+          else
+            n8n=false
+          fi
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            changed="$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA")"
+            if grep -Eq '^(apps/worker/|packages/contracts/|supabase/migrations/|\.github/workflows/deploy-production\.yml$)' <<<"$changed"; then
+              worker=true
+            fi
+            if grep -Eq '^(apps/n8n/|packages/contracts/|\.github/workflows/deploy-production\.yml$)' <<<"$changed"; then
+              n8n=true
+            fi
+          fi
+          echo "worker=$worker" >> "$GITHUB_OUTPUT"
+          echo "n8n=$n8n" >> "$GITHUB_OUTPUT"
+
+  deploy-worker:
+    needs: detect
+    if: >-
+      needs.detect.outputs.worker == 'true' &&
+      (github.event_name == 'workflow_dispatch' || vars.ENABLE_PRODUCTION_DEPLOY == 'true')
+    runs-on: ubuntu-latest
+    environment: worker-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Verify contracts and Worker
+        run: |
+          pnpm --filter @workspace/contracts check-schemas
+          pnpm --filter @workspace/contracts check-types
+          pnpm --filter worker check-types
+          pnpm --filter worker test
+          pnpm --filter worker build
+      - name: Deploy verified SHA
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          : "${CLOUDFLARE_API_TOKEN:?Set CLOUDFLARE_API_TOKEN}"
+          : "${CLOUDFLARE_ACCOUNT_ID:?Set CLOUDFLARE_ACCOUNT_ID}"
+          echo "Deploying Worker SHA $GITHUB_SHA"
+          pnpm --filter worker deploy
+
+  deploy-n8n:
+    needs: detect
+    if: >-
+      needs.detect.outputs.n8n == 'true' &&
+      (github.event_name == 'workflow_dispatch' || vars.ENABLE_PRODUCTION_DEPLOY == 'true')
+    runs-on: ubuntu-latest
+    environment: n8n-production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate workflow export
+        run: node apps/n8n/scripts/validate-workflow.mjs
+      - name: Prepare SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.N8N_DEPLOY_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.N8N_DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          : "${SSH_PRIVATE_KEY:?Set N8N_DEPLOY_SSH_KEY}"
+          : "${SSH_KNOWN_HOSTS:?Set N8N_DEPLOY_KNOWN_HOSTS}"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
+      - name: Copy deployment files
+        env:
+          DEPLOY_HOST: ${{ vars.N8N_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.N8N_DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?Set N8N_DEPLOY_HOST}"
+          : "${DEPLOY_USER:?Set N8N_DEPLOY_USER}"
+          ssh -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" 'mkdir -p /opt/career-ops-n8n/scripts /opt/career-ops-n8n/workflows'
+          rsync -av -e 'ssh -o StrictHostKeyChecking=yes' \
+            apps/n8n/compose.prod.yml apps/n8n/Caddyfile \
+            "$DEPLOY_USER@$DEPLOY_HOST:/opt/career-ops-n8n/"
+          rsync -av -e 'ssh -o StrictHostKeyChecking=yes' \
+            apps/n8n/scripts/backup-production.sh apps/n8n/scripts/deploy-production.sh apps/n8n/scripts/publish-workflow-production.sh \
+            "$DEPLOY_USER@$DEPLOY_HOST:/opt/career-ops-n8n/scripts/"
+          rsync -av -e 'ssh -o StrictHostKeyChecking=yes' \
+            apps/n8n/workflows/*.json \
+            "$DEPLOY_USER@$DEPLOY_HOST:/opt/career-ops-n8n/workflows/"
+      - name: Deploy and verify n8n
+        env:
+          DEPLOY_HOST: ${{ vars.N8N_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.N8N_DEPLOY_USER }}
+          WORKFLOW_ID: ${{ vars.N8N_WORKFLOW_ID }}
+        run: |
+          set -euo pipefail
+          : "${WORKFLOW_ID:?Set N8N_WORKFLOW_ID}"
+          ssh -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "bash /opt/career-ops-n8n/scripts/deploy-production.sh --publish-workflow '$WORKFLOW_ID' /opt/career-ops-n8n/workflows/career-analysis.json"
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 30 https://n8n.story-dict.com/healthz/readiness)"
+          test "$status" = 200
+          echo "n8n readiness verified for SHA $GITHUB_SHA"

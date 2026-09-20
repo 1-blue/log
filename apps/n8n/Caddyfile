@@ -1,4 +1,13 @@
 n8n.story-dict.com {
 	encode zstd gzip
+
+	@public path /healthz/readiness /webhook/*
+	handle @public {
+		reverse_proxy n8n:5678
+	}
+
+	basic_auth {
+		admin {$CADDY_BASIC_AUTH_HASH}
+	}
 	reverse_proxy n8n:5678
 }

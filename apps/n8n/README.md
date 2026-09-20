@@ -206,16 +206,17 @@ DB 백업만으로 Credential을 복호화할 수 없으므로 `.env`의 `N8N_EN
 - Slack Bot Token은 n8n Credential에만 저장하고 payload, 환경변수, Workflow export에는 포함하지 않는다.
 - 운영 공개 주소, HTTPS, reverse proxy, 외부 task runner와 백업 자동화는 운영 배포 단계에서 추가한다.
 
-운영 자동 배포는 `.github/workflows/deploy-n8n.yml`이 담당한다. `master` push에서는
-GitHub 환경 `n8n-production`의 `ENABLE_PRODUCTION_DEPLOY` 변수가 문자열 `true`일
-때만 실행되며, 그 전에는 수동 `workflow_dispatch`로만 실행할 수 있다.
+운영 자동 배포는 `.github/workflows/deploy-production.yml`이 담당한다. `master` push에서는
+변경 경로에 따라 Worker와 n8n 배포 대상을 판정하고, GitHub 환경의
+`ENABLE_PRODUCTION_DEPLOY` 변수가 문자열 `true`일 때만 실행한다. `workflow_dispatch`에서는
+`worker`, `n8n`, `all` 중 대상을 선택해 수동 실행할 수 있다.
 
 - 변수: `ENABLE_PRODUCTION_DEPLOY`, `N8N_DEPLOY_HOST`, `N8N_DEPLOY_USER`, `N8N_WORKFLOW_ID`
 - Secret: `N8N_DEPLOY_SSH_KEY`, `N8N_DEPLOY_KNOWN_HOSTS`
 
 배포 스크립트는 기존 n8n PostgreSQL과 data volume을 백업한 뒤 Compose를 갱신하고,
-명시적인 `--publish-workflow <id>`가 있을 때만 컨테이너에 마운트된
-`/workflows/career-analysis.json`을 import·publish한다. Credential 값은 export,
+명시적인 `--publish-workflow <id>`가 있을 때만 호스트의 Workflow 파일을
+컨테이너 경로 `/workflows/career-analysis.json`으로 import·publish한다. Credential 값은 export,
 GitHub, Workflow payload에 포함하지 않는다. 배포 이력에는 Git SHA, n8n 이미지
 digest, Workflow `versionId`/파일 hash와 적용 migration 버전을 함께 기록한다.
 코드 rollback은 n8n DB나 Supabase schema를 되돌리지 않으므로, DB 복구가 필요한
