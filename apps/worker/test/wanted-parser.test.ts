@@ -259,6 +259,32 @@ describe("Wanted JobPosting parser", () => {
     );
   });
 
+  it("decodes nested spaces and removes invisible control characters without losing plus signs", () => {
+    expect(
+      normalizeJobPostingText(
+        "고용조건\n• 계약직 1년\u200b\n가능한 1년 계약직 &#38; &#x20; C++ 경험 +",
+      ),
+    ).toBe("고용조건\n• 계약직 1년\n가능한 1년 계약직 & C++ 경험 +");
+  });
+
+  it("does not split section names found inside ordinary sentences", () => {
+    const result = parseWantedJobPosting({
+      expectedUrl: url,
+      html: html({
+        ...posting,
+        description:
+          "주요 업무\n서비스 운영과 자격 요건 검토를 담당합니다.\n자격 요건: TypeScript와 C++ 경험이 필요합니다.",
+      }),
+    });
+
+    expect(result.sections.mainResponsibilities).toContain(
+      "서비스 운영과 자격 요건 검토를 담당합니다.",
+    );
+    expect(result.sections.requirements).toBe(
+      "TypeScript와 C++ 경험이 필요합니다.",
+    );
+  });
+
   it("normalizes long Unicode content without losing section boundaries", () => {
     const description = `ＡＸ 주요 업무\n${"클라우드 자동화 경험  ".repeat(2_000)}\n\n자격 요건\nTypeScript`;
     const result = parseWantedJobPosting({

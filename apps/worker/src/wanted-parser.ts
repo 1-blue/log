@@ -48,23 +48,29 @@ function decodeEntities(value: string): string {
       ? String.fromCodePoint(codePoint)
       : entity;
 
-  return value.replace(
-    /&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi,
-    (entity, token: string) => {
-      const lower = token.toLowerCase();
-      if (lower.startsWith("#x")) {
-        return decodeCodePoint(entity, Number.parseInt(lower.slice(2), 16));
-      }
-      if (lower.startsWith("#")) {
-        return decodeCodePoint(entity, Number.parseInt(lower.slice(1), 10));
-      }
-      return (
-        { amp: "&", apos: "'", gt: ">", lt: "<", nbsp: " ", quot: '"' }[
-          lower
-        ] ?? entity
-      );
-    },
-  );
+  let decoded = value;
+  for (let pass = 0; pass < 2; pass += 1) {
+    const next = decoded.replace(
+      /&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi,
+      (entity, token: string) => {
+        const lower = token.toLowerCase();
+        if (lower.startsWith("#x")) {
+          return decodeCodePoint(entity, Number.parseInt(lower.slice(2), 16));
+        }
+        if (lower.startsWith("#")) {
+          return decodeCodePoint(entity, Number.parseInt(lower.slice(1), 10));
+        }
+        return (
+          { amp: "&", apos: "'", gt: ">", lt: "<", nbsp: " ", quot: '"' }[
+            lower
+          ] ?? entity
+        );
+      },
+    );
+    if (next === decoded) break;
+    decoded = next;
+  }
+  return decoded;
 }
 
 export function normalizeJobPostingText(value: string): string {
@@ -76,6 +82,8 @@ export function normalizeJobPostingText(value: string): string {
 
   return decodeEntities(withBreaks)
     .normalize("NFKC")
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, "")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
     .replace(/\r\n?/g, "\n")
     .split("\n")
     .map((line) => line.replace(/[\t ]+/g, " ").trim())
@@ -89,6 +97,7 @@ const WANTED_NON_POSTING_MARKERS = [
   /^(?:지원할 만한 매력적인 포지션들이 기다리고 있어요\.?|포지션 탐색)$/i,
   /^(?:©\s*저작권자|본 채용정보는|원티드랩의 동의 없이)/i,
   /^(?:관련 채용공고|추천 포지션|채용공고 더보기)$/i,
+  /^(?:원티드|wanted)\s*(?:앱|서비스)?\s*(?:다운로드|탐색)?$/i,
 ];
 
 function removeWantedNonPostingContent(value: string): string {
@@ -100,13 +109,15 @@ function removeWantedNonPostingContent(value: string): string {
 }
 
 function cleanSectionValue(key: SectionKey, value: string): string | null {
-  const cleaned = removeWantedNonPostingContent(value).trim();
+  let cleaned = removeWantedNonPostingContent(value).trim();
   if (!cleaned) return null;
-  if (
-    key === "technologies" &&
-    /^(?:풀\s*)?태그(?:\s*[|·])?$/i.test(cleaned.replace(/\n/g, " "))
-  ) {
-    return null;
+  if (key === "technologies") {
+    cleaned = cleaned
+      .split("\n")
+      .filter((line) => !/^(?:풀|툴|태그)(?:\s*[|·])?$/i.test(line))
+      .join("\n")
+      .trim();
+    if (!cleaned) return null;
   }
   return cleaned;
 }
@@ -275,6 +286,21 @@ function sectionHeading(line: string): { key: SectionKey } | null {
   );
 }
 
+function sectionLine(
+  line: string,
+): { key: SectionKey; content: string } | null {
+  const exact = sectionHeading(line);
+  if (exact) return { ...exact, content: "" };
+
+  const candidate = line.replace(/[\t ]+/g, " ").trim();
+  const separator = candidate.match(/^(.+?)\s*[:：]\s*(.+)$/);
+  if (separator?.[1] && separator[2]) {
+    const heading = sectionHeading(separator[1]);
+    if (heading) return { ...heading, content: separator[2].trim() };
+  }
+  return null;
+}
+
 export function extractJobPostingSections(
   description: string,
 ): JobPostingBodySections {
@@ -300,14 +326,12 @@ export function extractJobPostingSections(
     Object.keys(sections).map((key) => [key, []]),
   ) as unknown as Record<SectionKey, string[]>;
 
-  const sectionBoundary =
-    /(?:회사\s*소개|(?:직무|포지션)\s*소개|기대\s*모습|주요\s*업무|담당\s*업무|자격\s*요건|자격요건|우대\s*사항|우대사항|고용\s*조건|근무\s*조건|채용\s*절차|전형\s*절차|복리\s*후생|기술\s*스택|기술스택|인재상|마감일|근무\s*지역|근무지)/gi;
-  const sectionSafeText = description.replace(sectionBoundary, "\n$&\n");
-  for (const rawLine of sectionSafeText.split("\n")) {
+  for (const rawLine of description.split("\n")) {
     const line = rawLine.trim();
-    const heading = sectionHeading(line);
+    const heading = sectionLine(line);
     if (heading) {
       current = heading.key;
+      if (heading.content) content[current].push(heading.content);
       continue;
     }
     if (!line) continue;
