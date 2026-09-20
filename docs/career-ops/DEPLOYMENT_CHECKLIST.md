@@ -39,6 +39,22 @@ OpenAI API Key와 Slack Bot Token은 환경변수가 아니라 n8n Credential에
 - [ ] Secret을 로그·명령행 인자·문서에 붙여 넣지 않았는지 확인
 - [ ] OpenAI·Slack Credential의 최소 권한과 사용 한도 확인
 
+## 개발 DB 초기화와 보존 확인
+
+개발 데이터 초기화는 migration이나 `verify:offline`에 포함하지 않는다. 연결된 프로젝트를
+확인한 뒤 먼저 dry-run을 실행하고, 승인한 경우에만 명시적인 `--apply`를 사용한다.
+
+```bash
+ADMIN_USER_ID=<관리자 UUID> pnpm db:reset:career-ops:dry-run
+ADMIN_USER_ID=<관리자 UUID> pnpm db:reset:career-ops
+```
+
+이 스크립트는 지정 관리자 소유의 공고·지원·수집·분석·면접·Slack Outbox와 관련
+멱등성 기록만 트랜잭션으로 삭제한다. Auth 사용자, 문서 버전·분석 프로필·공개 설정과
+Storage object는 삭제하지 않으며, 삭제 전 SQL 백업은 Git에서 무시되는 `.local/`에
+권한 600으로 저장한다. 실행 중인 분석·수집·알림이 있으면 중단한다. `verify:offline`은
+별도 임시 Supabase 프로젝트만 사용하므로 개발 DB를 초기화하지 않는다.
+
 ## 배포 순서
 
 1. Supabase backup을 확인한 뒤 `pnpm db:push`와 `pnpm db:lint`를 실행한다.
@@ -59,6 +75,17 @@ OpenAI API Key와 Slack Bot Token은 환경변수가 아니라 n8n Credential에
 - [ ] Slack 루트·스레드·오류 알림
 - [ ] Worker, n8n과 Supabase 로그에 Secret·원문·답변 미노출
 - [ ] 비용·latency·오류율 기준선 기록
+
+## GitHub Actions 배포 게이트
+
+`.github/workflows/deploy-worker.yml`과 `deploy-n8n.yml`은 `master` push에 반응하지만,
+GitHub 환경의 `ENABLE_PRODUCTION_DEPLOY=true`일 때만 자동 배포한다. 변수가 없거나
+다르면 운영 배포 job은 실행되지 않는다. 게이트를 켜기 전에는 `workflow_dispatch`로
+명시적으로 실행할 수 있다. n8n 자동 게시에는 추가로 `N8N_WORKFLOW_ID`가 필요하다.
+
+Worker 코드 rollback, n8n Workflow rollback, 원격 DB migration rollback은 서로 독립적이다.
+배포 기록에는 Git SHA, Worker 배포 버전, n8n 이미지 digest·Workflow hash와 migration
+버전을 함께 남기고, DB는 기존 migration을 수정하지 않고 보정 migration으로 복구한다.
 
 ## Rollback 기준
 

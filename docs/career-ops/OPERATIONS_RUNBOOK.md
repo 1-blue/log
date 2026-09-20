@@ -8,6 +8,25 @@
 4. 재시도 전에 작업 상태와 멱등성 키를 확인한다.
 5. `delivery_unknown`처럼 실행 여부가 불명확한 작업은 자동 재전송하지 않는다.
 
+## 개발 데이터 초기화
+
+실제 Supabase 개발 프로젝트의 Career Ops 데이터만 비우고 관리자·문서·Storage를
+보존해야 할 때 사용한다. 운영 프로젝트에는 실행하지 않는다.
+
+```bash
+ADMIN_USER_ID=<관리자 UUID> pnpm db:reset:career-ops:dry-run
+ADMIN_USER_ID=<관리자 UUID> pnpm db:reset:career-ops
+```
+
+기본은 dry-run이며 `--apply` 때만 삭제한다. 스크립트는 활성 분석·수집·Slack 발송이
+있으면 중단하고, 삭제 전 백업을 `.local/career-ops-backups`에 제한된 권한으로 남긴다.
+보존 대상은 Auth 사용자, `document_versions`, `document_analysis_profiles`, 공개 설정,
+Storage object이며 삭제 대상은 지정 관리자 소유의 공고·지원·수집·분석·면접·Slack
+Outbox와 관련 멱등성 기록이다. `verify:offline`은 별도 임시 Supabase를 사용한다.
+
+초기화 후 관리자 로그인, 문서 목록·프로필·공개 링크, Storage signed URL과 스키마
+검증을 확인한다. 백업 파일은 복구가 필요할 때까지 외부 암호화 저장소에도 복사한다.
+
 ## 장애별 대응
 
 ### 관리자 로그인 또는 JWKS 장애

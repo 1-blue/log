@@ -539,8 +539,12 @@
 - 전체 public 테이블 RLS, 직접 쓰기 차단, service RPC 권한, 빈 `search_path`와 지원·분석·문서·수집·stale·Slack queue의 index 사용을 pgTAP으로 검증한다.
 - n8n audit 결과 필요한 Code·HTTP Request 노드만 유지하고 Community Packages, Templates, Public API, 버전 알림과 진단 telemetry를 비활성화했다.
 - 배포 체크리스트와 운영 Runbook에 환경변수 대응, 배포 순서, n8n·Supabase DB·Storage backup, rollback, Secret 노출과 장애별 복구 절차를 기록했다.
-- 계약 28개, Worker 99개, Blog 39개, DB 145개 테스트와 전체 타입 검사·lint·production build, Wrangler dry-run, DB 타입 동기화가 통과했다.
-- 원격 migration, 최신 Workflow 게시, Credential 등록과 실제 외부 호출은 계획대로 16~17단계에 남겼다.
+- 원격 Supabase에는 `20260916030000_align_analysis_stale_index.sql`, `20260917010000_recover_stale_analysis_job.sql`, `20260918010000_add_analysis_audit_and_evidence_reviews.sql`을 적용하고 schema lint를 통과했다. 지정 관리자 소유의 공고·지원·수집·분석·Slack Outbox 18/4/22/56건을 명시적 reset 스크립트로 초기화했으며, 관리자·문서 버전 2건·공개 설정 2건·분석 프로필 2건과 Storage object는 보존했다.
+- 분석 진단 API, 안전한 실행 타임라인, 입력 구성 감사 정보, 근거 확인율, 문서 이미지 근거 검토 계약/API와 RLS를 추가했다. 과거 분석 원본은 변경하지 않고 구버전 읽기 호환을 유지한다.
+- `pnpm verify:offline`은 기존 로컬 Supabase를 초기화하지 않고 임시 디렉터리·포트의 disposable Supabase에서 migration reset·lint·pgTAP·DB 타입 비교를 수행한다. 실제 DB 초기화는 `db:reset:career-ops`의 명시적 `--apply`로만 실행한다.
+- master 기반 Worker·n8n GitHub Actions 배포 workflow와 n8n Workflow import·publish 스크립트를 추가했다. `ENABLE_PRODUCTION_DEPLOY=true` 게이트와 `workflow_dispatch`를 사용하며, Credential 평문 export와 자동 원격 migration은 금지한다.
+- 계약 31개, Worker 114개, Blog 41개, DB 154개 테스트와 전체 타입 검사·lint·production build, Wrangler dry-run을 통과했다. `pnpm verify:offline`은 PostgreSQL만 사용하는 격리 Supabase에서 외부 Credential 없이 전체 검증을 성공적으로 완료했으며, 기존 로컬 Supabase는 초기화하지 않는다.
+- Slack 수신·실제 AI 호출·최신 Workflow 운영 게시·자동 배포 게이트 활성화와 실사용 품질 평가는 16~18단계로 남겼다.
 
 ### 15.1단계 — 문서 업로드 안정화 및 관리자 UI 일관성 `완료`
 
@@ -1053,7 +1057,7 @@ Vercel은 기존 Git Integration 배포를 유지하므로 별도 CLI token, org
 
 ## 14. 다음 작업
 
-다음 작업은 **16단계 — 외부 요소 연결 및 운영 배포**다. OpenAI·Slack Credential, 최신 n8n Workflow 게시, Cloudflare Worker와 Vercel 운영 환경을 배포 체크리스트 순서로 연결한다. 현재 원격 Supabase에는 15.2단계 schema migration이 적용되어 있으며, 실제 정상·장애 흐름 검증은 17단계에서 수행한다.
+다음 작업은 **16단계 — 외부 요소 연결 및 운영 배포**다. OpenAI·Slack Credential, 최신 n8n Workflow 게시, Cloudflare Worker와 Vercel 운영 환경을 배포 체크리스트 순서로 연결한다. 현재 원격 Supabase에는 15단계 후속 schema migration까지 적용되어 있으며, Career Ops 실행 데이터는 보존 범위 확인 후 초기화된 상태다. 실제 정상·장애 흐름 검증은 17단계에서 수행한다.
 
 ## 내부 개선 작업
 

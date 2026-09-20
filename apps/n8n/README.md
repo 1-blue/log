@@ -2,7 +2,7 @@
 
 취업 준비 자동화를 위한 n8n 2.38.7과 전용 PostgreSQL 18.6을 Docker Compose로 실행한다. 두 이미지는 태그와 multi-platform manifest digest를 함께 고정한다. n8n은 `127.0.0.1:5678`에서만 접근할 수 있고 PostgreSQL 포트는 호스트에 공개하지 않는다.
 
-AWS Lightsail 운영 배포는 별도 [PRODUCTION.md](./PRODUCTION.md)와 `compose.prod.yml`을 따른다.
+AWS 운영 배포는 별도 [PRODUCTION.md](./PRODUCTION.md)와 `compose.prod.yml`을 따른다.
 
 ## 사전 준비
 
@@ -205,3 +205,18 @@ DB 백업만으로 Credential을 복호화할 수 없으므로 `.env`의 `N8N_EN
 - 공고 수집 요청과 callback payload는 `packages/contracts`의 Zod 계약을 기준으로 한다.
 - Slack Bot Token은 n8n Credential에만 저장하고 payload, 환경변수, Workflow export에는 포함하지 않는다.
 - 운영 공개 주소, HTTPS, reverse proxy, 외부 task runner와 백업 자동화는 운영 배포 단계에서 추가한다.
+
+운영 자동 배포는 `.github/workflows/deploy-n8n.yml`이 담당한다. `master` push에서는
+GitHub 환경 `n8n-production`의 `ENABLE_PRODUCTION_DEPLOY` 변수가 문자열 `true`일
+때만 실행되며, 그 전에는 수동 `workflow_dispatch`로만 실행할 수 있다.
+
+- 변수: `ENABLE_PRODUCTION_DEPLOY`, `N8N_DEPLOY_HOST`, `N8N_DEPLOY_USER`, `N8N_WORKFLOW_ID`
+- Secret: `N8N_DEPLOY_SSH_KEY`, `N8N_DEPLOY_KNOWN_HOSTS`
+
+배포 스크립트는 기존 n8n PostgreSQL과 data volume을 백업한 뒤 Compose를 갱신하고,
+명시적인 `--publish-workflow <id>`가 있을 때만 컨테이너에 마운트된
+`/workflows/career-analysis.json`을 import·publish한다. Credential 값은 export,
+GitHub, Workflow payload에 포함하지 않는다. 배포 이력에는 Git SHA, n8n 이미지
+digest, Workflow `versionId`/파일 hash와 적용 migration 버전을 함께 기록한다.
+코드 rollback은 n8n DB나 Supabase schema를 되돌리지 않으므로, DB 복구가 필요한
+경우에는 해당 시점의 별도 백업과 보정 migration 절차를 사용한다.

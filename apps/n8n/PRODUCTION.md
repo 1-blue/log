@@ -13,7 +13,7 @@
 | DNS                                 | `n8n.story-dict.com` A 레코드를 정적 IPv4에 연결. AAAA 레코드가 있으면 실제 IPv6 인스턴스로 연결되는지 확인                                          |
 | 운영 연결                           | 공개 블로그 주소, Worker의 운영 호스트와 `/v1/internal` callback 주소, Worker의 `N8N_WEBHOOK_URL=https://n8n.story-dict.com/webhook/career-analysis` |
 | 서버 전용 비밀                      | n8n 암호화 키, PostgreSQL 비밀번호, 양방향 HMAC 키, Slack 에러 Webhook URL, Caddy Basic Auth 암호 해시                                               |
-| GitHub environment `n8n-production` | `N8N_DEPLOY_HOST`, `N8N_DEPLOY_USER` 변수와 `N8N_DEPLOY_SSH_KEY`, `N8N_DEPLOY_KNOWN_HOSTS` secret. `main` 브랜치만 배포하도록 제한                   |
+| GitHub environment `n8n-production` | `ENABLE_PRODUCTION_DEPLOY`, `N8N_DEPLOY_HOST`, `N8N_DEPLOY_USER`, `N8N_WORKFLOW_ID` 변수와 `N8N_DEPLOY_SSH_KEY`, `N8N_DEPLOY_KNOWN_HOSTS` secret. `master` 브랜치만 배포하도록 제한 |
 
 GitHub SSH secret에는 이 서버 전용 배포 키만 넣는다. `N8N_DEPLOY_KNOWN_HOSTS`는 접속 전에 **별도 신뢰 경로에서 확인한** 서버 호스트키를 저장한다. 배포 시 `ssh-keyscan` 결과를 그대로 신뢰하지 않는다. `.env`의 실값은 서버에만 두고 GitHub Actions로 전송하지 않는다. GitHub 환경 보호 규칙은 저장소 공개 여부와 요금제에 따라 지원 범위가 다를 수 있으므로 현재 저장소에서 적용 상태를 확인한다.
 
@@ -24,15 +24,15 @@ Lightsail 인스턴스, 정적 IP, 스냅샷은 비용에 영향을 줄 수 있�
 1. 운영자가 Lightsail에 Ubuntu 계열 인스턴스를 만들고 정적 IP와 DNS, 방화벽을 설정한다. Docker Engine과 Compose v2를 설치하고 자동 보안 업데이트를 활성화한다. `n8n-deploy` 계정을 만들고 Docker 사용 권한을 부여한다. Docker 그룹은 사실상 호스트 관리자 권한이므로 이 계정에만 배포 키를 허용한다.
 2. `n8n-deploy`가 `/opt/career-ops-n8n`을 소유하도록 만들고, 저장소의 `compose.prod.yml`, `Caddyfile`, `workflows/*.json`, `scripts/{backup,deploy}-production.sh`를 해당 위치로 복사한다. GitHub Actions 첫 실행도 이 파일 복사를 수행하지만 대상 디렉터리의 소유권은 먼저 준비해야 한다.
 3. `.env.production.example`을 참고해 서버의 `/opt/career-ops-n8n/.env`를 직접 만든다. `chmod 600`으로 제한한다. `CADDY_BASIC_AUTH_HASH`는 터미널에서 `docker run --rm -it caddy:2.10.2 caddy hash-password`로 생성한 bcrypt 해시를 **작은따옴표**로 감싸 입력한다. 원문 비밀번호와 암호화 키는 별도 안전한 비밀 저장소에 보관한다. HMAC 두 값은 Worker 설정과 각각 일치시킨다.
-4. DNS가 정적 IP를 가리키고 80/443이 열린 것을 확인한 뒤 GitHub Actions의 **Deploy n8n to Lightsail**을 수동 실행한다. Caddy는 첫 기동 시 인증서를 발급하고 자동 갱신한다. Actions는 편집 화면의 무인증 응답이 `401`인지 확인한다.
+4. DNS가 정적 IP를 가리키고 80/443이 열린 것을 확인한 뒤 GitHub Actions의 **Deploy n8n**을 수동 실행한다. Caddy는 첫 기동 시 인증서를 발급하고 자동 갱신한다. Actions는 편집 화면의 무인증 응답이 `401`인지 확인한다.
 5. `https://n8n.story-dict.com`에서 Caddy 인증을 통과해 n8n owner를 생성한다. OpenAI와 Slack Credential을 n8n UI에 등록하고 5개 OpenAI 노드와 Slack 노드에 연결한다. 기존 로컬 데이터 이전이 필요하면 아래 복구 절차를 먼저 수행하고 암호화 키가 동일한지 확인한다.
-6. 최신 Workflow를 검토 후 import·publish한다. `README.md`의 CLI 절차를 참고하되 운영에서는 항상 `docker compose --env-file .env -f compose.prod.yml`을 사용한다. 동일 Webhook 경로의 smoke Workflow는 publish하지 않는다. GitHub Actions는 Workflow JSON을 서버에 복사하지만 **자동 import나 publish는 하지 않는다**.
+6. 최신 Workflow를 검토 후 import·publish한다. `README.md`의 CLI 절차를 참고하되 운영에서는 항상 `docker compose --env-file .env -f compose.prod.yml`을 사용한다. 동일 Webhook 경로의 smoke Workflow는 publish하지 않는다. GitHub Actions는 `ENABLE_PRODUCTION_DEPLOY=true`이고 `N8N_WORKFLOW_ID`가 설정된 경우에만 지정 Workflow를 자동 import·publish한다. 그 전에는 수동 `workflow_dispatch`로만 실행한다.
 
 운영 주소를 Worker에 연결하기 전, 의도하지 않은 외부 입력으로 비용이 발생하지 않도록 Webhook 서명 실패가 `401`을 반환하는지 확인한다. 공개 DNS 주소의 `/healthz/readiness`는 Basic Auth로 보호된다. 컨테이너 상태는 서버에서 `docker compose --env-file .env -f compose.prod.yml ps`로 확인한다.
 
 ## 배포와 롤백
 
-배포 버튼을 누르면 Workflow export 정적 검증, 파일 복사, 기존 DB와 n8n 데이터 백업, 이미지 pull, Compose 재생성, 컨테이너 healthcheck, 외부 HTTPS 인증 검사 순서로 실행된다. 배포 전 기존 데이터 volume이 있지만 서비스가 중지돼 있으면 자동 배포는 중단된다. 원인을 확인하고 별도 백업을 만든 뒤 복구한다. n8n이나 PostgreSQL 이미지 버전을 올릴 때에는 릴리스 노트와 DB migration 호환성을 확인하고 백업을 외부 저장소에도 복사한다.
+배포 버튼을 누르면 Workflow export 정적 검증, 파일 복사, 기존 DB와 n8n 데이터 백업, 이미지 pull, Compose 재생성, 컨테이너 healthcheck, 지정 Workflow import·publish, 외부 HTTPS 인증 검사 순서로 실행된다. 배포 전 기존 데이터 volume이 있지만 서비스가 중지돼 있으면 자동 배포는 중단된다. 원인을 확인하고 별도 백업을 만든 뒤 복구한다. n8n이나 PostgreSQL 이미지 버전을 올릴 때에는 릴리스 노트와 DB migration 호환성을 확인하고 백업을 외부 저장소에도 복사한다.
 
 문제가 생기면 이전 Git commit의 `compose.prod.yml`, `Caddyfile`, Workflow JSON을 다시 배포한다. n8n이 DB schema를 변경했다면 이전 이미지만으로 되돌리지 말고 해당 배포 직전의 DB dump와 n8n 데이터 아카이브를 아래 절차로 복구한다. 복구 전 현재 데이터를 별도 보존하고 Worker의 n8n dispatch를 잠시 중단한다.
 
