@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import {
   cpSync,
   existsSync,
@@ -7,6 +8,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import prettier from "prettier";
@@ -42,6 +44,25 @@ function commandAvailable(command, args = ["--version"]) {
   const result = spawnSync(command, args, { cwd: root, stdio: "ignore" });
   if (result.status !== 0)
     throw new Error(`${command} 명령을 사용할 수 없습니다.`);
+}
+
+async function findAvailablePorts(count) {
+  const ports = [];
+  for (let index = 0; index < count; index += 1) {
+    const server = createServer();
+    await new Promise((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", resolve);
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") {
+      server.close();
+      throw new Error("격리 검증 포트를 확인하지 못했습니다.");
+    }
+    ports.push(address.port);
+    await new Promise((resolve) => server.close(resolve));
+  }
+  return ports;
 }
 
 function normalizeDatabaseTypes(source) {
@@ -95,7 +116,7 @@ commandAvailable("docker", ["info"]);
 run("pnpm", ["exec", "supabase", "--version"], { label: "Supabase CLI 확인" });
 
 let isolatedSupabaseDir = null;
-let startedSupabase = false;
+let supabaseStartAttempted = false;
 try {
   run("node", ["scripts/check-repository-security.mjs"]);
   run("docker", [
@@ -130,18 +151,22 @@ try {
   );
   const isolatedConfigPath = join(isolatedSupabaseProjectDir, "config.toml");
   let isolatedConfig = readFileSync(isolatedConfigPath, "utf8");
+  const [apiPort, dbPort, shadowPort, studioPort, smtpPort] =
+    await findAvailablePorts(5);
+  const isolatedProjectId = `career-ops-verify-${randomUUID().slice(0, 8)}`;
   isolatedConfig = isolatedConfig
-    .replace(/^project_id\s*=.*$/m, 'project_id = "career-ops-verify"')
-    .replace(/^port\s*=\s*55321$/m, "port = 56321")
-    .replace(/^port\s*=\s*55322$/m, "port = 56322")
-    .replace(/^shadow_port\s*=\s*55320$/m, "shadow_port = 56320")
-    .replace(/^port\s*=\s*55323$/m, "port = 56323")
-    .replace(/^port\s*=\s*55324$/m, "port = 56324");
+    .replace(/^project_id\s*=.*$/m, `project_id = "${isolatedProjectId}"`)
+    .replace(/^port\s*=\s*55321$/m, `port = ${apiPort}`)
+    .replace(/^port\s*=\s*55322$/m, `port = ${dbPort}`)
+    .replace(/^shadow_port\s*=\s*55320$/m, `shadow_port = ${shadowPort}`)
+    .replace(/^port\s*=\s*55323$/m, `port = ${studioPort}`)
+    .replace(/^port\s*=\s*55324$/m, `port = ${smtpPort}`);
   writeFileSync(isolatedConfigPath, isolatedConfig);
 
   // The offline checks exercise SQL migrations and pgTAP only. Starting the
   // API, Studio, PostgREST, and other services would download unrelated
   // images and can collide with a developer's existing Supabase project.
+  supabaseStartAttempted = true;
   run("pnpm", [
     "exec",
     "supabase",
@@ -151,7 +176,6 @@ try {
     "--workdir",
     isolatedSupabaseDir,
   ]);
-  startedSupabase = true;
 
   run("pnpm", [
     "exec",
@@ -224,10 +248,15 @@ try {
   run("git", ["diff", "--check"]);
   console.log("\n외부 Credential 없는 전체 검증을 통과했습니다.");
 } finally {
-  if (startedSupabase && isolatedSupabaseDir) {
-    run("pnpm", ["exec", "supabase", "stop", "--workdir", isolatedSupabaseDir], {
-      label: "검증 스크립트가 시작한 Supabase 종료",
-    });
+  if (supabaseStartAttempted && isolatedSupabaseDir) {
+    const cleanup = spawnSync(
+      "pnpm",
+      ["exec", "supabase", "stop", "--workdir", isolatedSupabaseDir],
+      { cwd: root, stdio: "inherit" },
+    );
+    if (cleanup.status === 0) {
+      console.log("\n[verify:offline] 검증 스크립트가 시작한 Supabase 종료");
+    }
   }
   if (isolatedSupabaseDir && existsSync(isolatedSupabaseDir)) {
     rmSync(isolatedSupabaseDir, { recursive: true, force: true });
