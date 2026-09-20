@@ -965,6 +965,20 @@ export default function ApplicationDetailClient({
                         : "아직 없음"}
                     </dd>
                   </div>
+                  <div>
+                    <dt className="inline font-medium">Request ID </dt>
+                    <dd className="font-mono text-[11px] break-all">
+                      {latestAnalysis.requestId}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="inline font-medium">결과 저장 </dt>
+                    <dd className="inline">
+                      {latestAnalysis.result
+                        ? "검증된 결과 저장 완료"
+                        : "아직 저장되지 않음"}
+                    </dd>
+                  </div>
                   {latestAnalysis.retryAt ? (
                     <div>
                       <dt className="inline font-medium">다음 단계 재시도 </dt>
@@ -1007,6 +1021,7 @@ export default function ApplicationDetailClient({
                             ? ` · ${ANALYSIS_STAGE_LABELS[event.stage]}`
                             : ""}
                           {event.errorCode ? ` · ${event.errorCode}` : ""}
+                          {event.message ? ` · ${event.message}` : ""}
                           <span className="ml-2">
                             {formatApplicationDate(event.occurredAt)}
                           </span>
