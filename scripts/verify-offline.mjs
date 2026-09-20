@@ -1,5 +1,14 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import prettier from "prettier";
 
 const root = new URL("../", import.meta.url).pathname;
@@ -36,6 +45,13 @@ function commandAvailable(command, args = ["--version"]) {
 }
 
 function normalizeDatabaseTypes(source) {
+  // Supabase CLI adds this client-generation metadata only when the local
+  // PostgREST version exposes it. It is not part of the database schema and
+  // can differ between the linked project and the disposable verifier.
+  source = source.replace(
+    /\n  \/\/ Allows to automatically instantiate createClient with right options\n  \/\/ instead of createClient<Database, \{ PostgrestVersion: 'XX' \}>\(URL, KEY\)\n  __InternalSupabase: \{\n    PostgrestVersion: "[^"]+";\n  \};\n/,
+    "\n",
+  );
   const marker = "Functions: {";
   const markerIndex = source.indexOf(marker);
   if (markerIndex < 0) return source;
@@ -78,6 +94,7 @@ commandAvailable("pnpm");
 commandAvailable("docker", ["info"]);
 run("pnpm", ["exec", "supabase", "--version"], { label: "Supabase CLI 확인" });
 
+let isolatedSupabaseDir = null;
 let startedSupabase = false;
 try {
   run("node", ["scripts/check-repository-security.mjs"]);
@@ -96,22 +113,79 @@ try {
   run("pnpm", ["--filter", "worker", "check-generated-types"]);
   run("pnpm", ["build"], { env: safeBuildEnvironment });
 
-  const status = spawnSync(
-    "pnpm",
-    ["exec", "supabase", "status", "-o", "json"],
+  // Never reset the developer's existing Supabase instance. A disposable
+  // project id also prevents Docker volumes from sharing application data.
+  isolatedSupabaseDir = mkdtempSync(join(tmpdir(), "career-ops-supabase-"));
+  const isolatedSupabaseProjectDir = join(isolatedSupabaseDir, "supabase");
+  cpSync(join(root, "supabase"), isolatedSupabaseProjectDir, {
+    recursive: true,
+    filter: (source) => !source.includes(`${join("supabase", ".temp")}`),
+  });
+  cpSync(
+    join(root, "supabase", "tests"),
+    join(isolatedSupabaseProjectDir, "tests"),
     {
-      cwd: root,
-      stdio: "ignore",
+      recursive: true,
     },
   );
-  if (status.status !== 0) {
-    run("pnpm", ["exec", "supabase", "start"]);
-    startedSupabase = true;
-  }
+  const isolatedConfigPath = join(isolatedSupabaseProjectDir, "config.toml");
+  let isolatedConfig = readFileSync(isolatedConfigPath, "utf8");
+  isolatedConfig = isolatedConfig
+    .replace(/^project_id\s*=.*$/m, 'project_id = "career-ops-verify"')
+    .replace(/^port\s*=\s*55321$/m, "port = 56321")
+    .replace(/^port\s*=\s*55322$/m, "port = 56322")
+    .replace(/^shadow_port\s*=\s*55320$/m, "shadow_port = 56320")
+    .replace(/^port\s*=\s*55323$/m, "port = 56323")
+    .replace(/^port\s*=\s*55324$/m, "port = 56324");
+  writeFileSync(isolatedConfigPath, isolatedConfig);
 
-  run("pnpm", ["exec", "supabase", "db", "reset", "--local"]);
-  run("pnpm", ["db:lint:local"]);
-  run("pnpm", ["db:test:local"]);
+  // The offline checks exercise SQL migrations and pgTAP only. Starting the
+  // API, Studio, PostgREST, and other services would download unrelated
+  // images and can collide with a developer's existing Supabase project.
+  run("pnpm", [
+    "exec",
+    "supabase",
+    "start",
+    "--exclude",
+    "gotrue,realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor",
+    "--workdir",
+    isolatedSupabaseDir,
+  ]);
+  startedSupabase = true;
+
+  run("pnpm", [
+    "exec",
+    "supabase",
+    "db",
+    "reset",
+    "--local",
+    "--workdir",
+    isolatedSupabaseDir,
+  ]);
+  run("pnpm", [
+    "exec",
+    "supabase",
+    "db",
+    "lint",
+    "--local",
+    "--schema",
+    "public",
+    "--level",
+    "warning",
+    "--fail-on",
+    "error",
+    "--workdir",
+    isolatedSupabaseDir,
+  ]);
+  run("pnpm", [
+    "exec",
+    "supabase",
+    "test",
+    "db",
+    join(isolatedSupabaseProjectDir, "tests", "database"),
+    "--workdir",
+    isolatedSupabaseDir,
+  ]);
 
   const generatedTypes = normalizeDatabaseTypes(
     await prettier.format(
@@ -126,6 +200,8 @@ try {
           "--local",
           "--schema",
           "public",
+          "--workdir",
+          isolatedSupabaseDir,
         ],
         { capture: true, label: "로컬 DB 타입 동기화 확인" },
       ),
@@ -148,9 +224,12 @@ try {
   run("git", ["diff", "--check"]);
   console.log("\n외부 Credential 없는 전체 검증을 통과했습니다.");
 } finally {
-  if (startedSupabase) {
-    run("pnpm", ["exec", "supabase", "stop"], {
+  if (startedSupabase && isolatedSupabaseDir) {
+    run("pnpm", ["exec", "supabase", "stop", "--workdir", isolatedSupabaseDir], {
       label: "검증 스크립트가 시작한 Supabase 종료",
     });
+  }
+  if (isolatedSupabaseDir && existsSync(isolatedSupabaseDir)) {
+    rmSync(isolatedSupabaseDir, { recursive: true, force: true });
   }
 }
