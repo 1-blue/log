@@ -543,8 +543,32 @@
 - 분석 진단 API, 안전한 실행 타임라인, 입력 구성 감사 정보, 근거 확인율, 문서 이미지 근거 검토 계약/API와 RLS를 추가했다. 과거 분석 원본은 변경하지 않고 구버전 읽기 호환을 유지한다.
 - `pnpm verify:offline`은 기존 로컬 Supabase를 초기화하지 않고 임시 디렉터리·포트의 disposable Supabase에서 migration reset·lint·pgTAP·DB 타입 비교를 수행한다. 실제 DB 초기화는 `db:reset:career-ops`의 명시적 `--apply`로만 실행한다.
 - master 기반 Worker·n8n GitHub Actions 배포 workflow와 n8n Workflow import·publish 스크립트를 추가했다. `ENABLE_PRODUCTION_DEPLOY=true` 게이트와 `workflow_dispatch`를 사용하며, Credential 평문 export와 자동 원격 migration은 금지한다.
-- 계약 31개, Worker 114개, Blog 41개, DB 154개 테스트와 전체 타입 검사·lint·production build, Wrangler dry-run을 통과했다. `pnpm verify:offline`은 PostgreSQL만 사용하는 격리 Supabase에서 외부 Credential 없이 전체 검증을 성공적으로 완료했으며, 기존 로컬 Supabase는 초기화하지 않는다.
+- 계약 31개, Worker 116개, Blog 41개, DB 154개 테스트와 전체 타입 검사·lint·production build, Wrangler dry-run을 통과했다. `pnpm verify:offline`은 PostgreSQL만 사용하는 격리 Supabase에서 외부 Credential 없이 전체 검증을 성공적으로 완료했으며, 기존 로컬 Supabase는 초기화하지 않는다.
 - Slack 수신·실제 AI 호출·최신 Workflow 운영 게시·자동 배포 게이트 활성화와 실사용 품질 평가는 16~18단계로 남겼다.
+
+### 15단계 구현 단위 및 최종 검증 기록 `2026-09-20`
+
+15단계 후속 개선은 기존 변경 보존 커밋 3개와 기능 단위 커밋 7개로 분리했다. 각 커밋은 독립적으로 검증한 뒤 생성했으며, 현재 `master`에는 push하지 않았다.
+
+| 단위 | 결과 |
+| --- | --- |
+| 기존 변경 보존 3개 | 검증 환경·분석 근거·배포 초안 보존 |
+| ① 격리 검증과 실데이터 안전성 | 실행별 임시 Supabase·포트, 명시적 reset 안전장치 |
+| ② 공고 본문 정규화 | Wanted 본문 누락·HTML entity·제어문자 회귀 방지 |
+| ③ 문서 근거 추적 | 텍스트·이미지 근거와 분석 입력 버전 연결 |
+| ④ 다음 행동 중심 UX | URL 중심 등록, 메타데이터 확인 전 분석·Slack 보류 |
+| ⑤ 실행 진단·로그 | 안전한 타임라인·오류 코드·Request ID와 로그 정책 |
+| ⑥ 배포 자동화 | `master` 검증 후 대상별 Worker·n8n 자동/수동 배포 초안 |
+| ⑦ 통합 검증·기록 | 전체 오프라인 검증 결과와 외부 확인 경계 문서화 |
+
+최종 실행 결과:
+
+- `pnpm verify:offline` 성공: 환경변수·Secret 검사, Compose 정적 검증, 타입 검사, lint, 계약·Blog·Worker 테스트, production build, Wrangler 생성 타입, n8n Workflow 검증, 격리 Supabase migration reset·schema lint·pgTAP 154개, DB 타입 비교, `git diff --check`.
+- 세부 테스트: contracts 31개, Blog 41개, Worker 116개, DB pgTAP 154개 통과.
+- lint/build에는 기존 import 정렬 및 parser 정규식 관련 warning만 있고 error는 없다. Next.js의 edge runtime·`next lint` deprecation warning도 남아 있다.
+- 검증 스크립트가 생성한 Supabase만 종료했으며 기존 로컬 Supabase·실제 `.env`는 변경하지 않았다.
+
+아직 완료로 표시하지 않은 항목은 실제 OpenAI 호출과 비용 확인, Slack 채널 수신, 운영 n8n Workflow 게시, GitHub Secret·Environment 등록 후 자동/수동 배포, 실제 backup 복구와 실사용 품질 평가다. 화면 검수용 fixture와 임시 AI 결과는 실제 AI 연동 뒤 실제 결과로 교체해야 한다.
 
 ### 15.1단계 — 문서 업로드 안정화 및 관리자 UI 일관성 `완료`
 
