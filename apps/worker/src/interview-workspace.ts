@@ -157,6 +157,7 @@ function mapInputAudit(
       originalLength: jobPostingOriginalLength,
       storedLength: jobPostingStoredLength,
       storedTruncated: jobPostingStoredLength < jobPostingOriginalLength,
+      confirmedEvidenceCount: 0,
     },
     policyVersion: ANALYSIS_INPUT_POLICY_VERSION,
     portfolio: {
@@ -165,6 +166,7 @@ function mapInputAudit(
       originalLength: job.portfolio_original_length,
       storedLength: normalizedLength(job.portfolio_text),
       storedTruncated: job.portfolio_truncated,
+      confirmedEvidenceCount: 0,
     },
     jobPostingTextMaxLength: ANALYSIS_DISPATCH_JOB_POSTING_TEXT_MAX_LENGTH,
     resume: {
@@ -173,6 +175,7 @@ function mapInputAudit(
       originalLength: job.resume_original_length,
       storedLength: normalizedLength(job.resume_text),
       storedTruncated: job.resume_truncated,
+      confirmedEvidenceCount: 0,
     },
   };
 }

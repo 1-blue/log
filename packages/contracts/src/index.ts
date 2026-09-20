@@ -1384,6 +1384,7 @@ export const AnalysisInputDocumentSchema = z.strictObject({
   sourceTextLength: z.int().positive(),
   inputTextLength: z.int().positive(),
   inputTextTruncated: z.boolean(),
+  confirmedEvidence: z.array(DocumentEvidenceReviewSchema).max(100),
   file: z
     .strictObject({
       url: z.string().url().max(2_000),
@@ -1722,6 +1723,7 @@ export const AnalysisInputAuditItemSchema = z.strictObject({
   dispatchLength: z.number().int().positive(),
   storedTruncated: z.boolean(),
   dispatchTruncated: z.boolean(),
+  confirmedEvidenceCount: z.number().int().nonnegative().default(0),
 });
 export type AnalysisInputAuditItem = z.infer<
   typeof AnalysisInputAuditItemSchema

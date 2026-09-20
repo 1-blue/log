@@ -519,6 +519,7 @@ describe("n8n dispatch client", () => {
         profileId: null,
         profileSource: null,
         profile: null,
+        confirmedEvidence: [],
         file: null,
       },
       resume: {
@@ -533,6 +534,7 @@ describe("n8n dispatch client", () => {
         profileId: null,
         profileSource: null,
         profile: null,
+        confirmedEvidence: [],
         file: null,
       },
     },

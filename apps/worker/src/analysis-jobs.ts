@@ -16,6 +16,8 @@ import {
   calculateAnalysisFitScore,
   CONTRACT_VERSION,
   DocumentAnalysisProfileSchema,
+  DocumentEvidenceReviewSchema,
+  type DocumentEvidenceReview,
   type Evidence,
   JobPostingAnalysisProfileSchema,
   JobPostingFactsSchema,
@@ -41,6 +43,8 @@ type PostingRow = Database["public"]["Tables"]["job_postings"]["Row"];
 type SnapshotRow = Database["public"]["Tables"]["job_posting_snapshots"]["Row"];
 type DocumentProfileRow =
   Database["public"]["Tables"]["document_analysis_profiles"]["Row"];
+type DocumentEvidenceReviewRow =
+  Database["public"]["Tables"]["document_evidence_reviews"]["Row"];
 type JobPostingProfileRow =
   Database["public"]["Tables"]["job_posting_analysis_profiles"]["Row"];
 
@@ -241,6 +245,25 @@ function evidenceMatchesSource(
     evidence.sourceVersionId === source.id &&
     source.text.includes(evidence.excerpt.trim())
   );
+}
+
+function mapConfirmedEvidence(
+  row: DocumentEvidenceReviewRow,
+): DocumentEvidenceReview {
+  return DocumentEvidenceReviewSchema.parse({
+    createdAt: row.created_at,
+    documentVersionId: row.document_version_id,
+    evidenceKey: row.evidence_key,
+    excerpt: row.excerpt,
+    id: row.id,
+    note: row.note,
+    observation: row.observation,
+    page: row.page,
+    profileId: row.profile_id,
+    section: row.section,
+    status: row.status,
+    updatedAt: row.updated_at,
+  });
 }
 
 /**
@@ -515,6 +538,8 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
       portfolioProfileResult,
       postingProfileResult,
       documentsResult,
+      resumeEvidenceResult,
+      portfolioEvidenceResult,
     ] = await Promise.all([
       row.resume_profile_id
         ? this.supabase
@@ -545,12 +570,28 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
         .select("id, original_filename, mime_type, file_size, storage_path")
         .eq("owner_id", row.owner_id)
         .in("id", [row.resume_version_id, row.portfolio_version_id]),
+      this.supabase
+        .from("document_evidence_reviews")
+        .select("*")
+        .eq("owner_id", row.owner_id)
+        .eq("document_version_id", row.resume_version_id)
+        .eq("status", "confirmed")
+        .order("updated_at", { ascending: false }),
+      this.supabase
+        .from("document_evidence_reviews")
+        .select("*")
+        .eq("owner_id", row.owner_id)
+        .eq("document_version_id", row.portfolio_version_id)
+        .eq("status", "confirmed")
+        .order("updated_at", { ascending: false }),
     ]);
     if (
       resumeProfileResult.error ||
       portfolioProfileResult.error ||
       postingProfileResult.error ||
-      documentsResult.error
+      documentsResult.error ||
+      resumeEvidenceResult.error ||
+      portfolioEvidenceResult.error
     ) {
       throw new AnalysisJobServiceError("unavailable");
     }
@@ -574,6 +615,12 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
           )
         : null;
     const documents = documentsResult.data ?? [];
+    const resumeConfirmedEvidence = (resumeEvidenceResult.data ?? []).map(
+      mapConfirmedEvidence,
+    );
+    const portfolioConfirmedEvidence = (
+      portfolioEvidenceResult.data ?? []
+    ).map(mapConfirmedEvidence);
     const signedFile = async (versionId: string) => {
       const document = documents.find((item) => item.id === versionId);
       if (!document) return null;
@@ -656,6 +703,7 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
           profileId: row.portfolio_profile_id,
           profileSource: portfolioProfileResult.data?.source ?? null,
           profile: portfolioProfile?.success ? portfolioProfile.data : null,
+          confirmedEvidence: portfolioConfirmedEvidence,
           file: portfolioFile,
         },
         resume: {
@@ -669,6 +717,7 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
           profileId: row.resume_profile_id,
           profileSource: resumeProfileResult.data?.source ?? null,
           profile: resumeProfile?.success ? resumeProfile.data : null,
+          confirmedEvidence: resumeConfirmedEvidence,
           file: resumeFile,
         },
       },
@@ -698,6 +747,7 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
         originalLength: row.portfolio_original_length,
         storedLength: row.portfolio_text.length,
         storedTruncated: row.portfolio_truncated,
+        confirmedEvidenceCount: portfolioConfirmedEvidence.length,
       },
       resume: {
         dispatchLength: resumeInput.inputTextLength,
@@ -705,6 +755,7 @@ class SupabaseAnalysisJobService implements AnalysisJobService {
         originalLength: row.resume_original_length,
         storedLength: row.resume_text.length,
         storedTruncated: row.resume_truncated,
+        confirmedEvidenceCount: resumeConfirmedEvidence.length,
       },
       jobPostingTextMaxLength: inputPolicy.jobPostingTextMaxLength,
     });
