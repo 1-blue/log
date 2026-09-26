@@ -1,14 +1,25 @@
 import type { ImageProps } from "next/image";
-import type { MDXComponents } from "mdx/types";
 
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@workspace/ui/components/Table";
 import { cn } from "@workspace/ui/lib/utils";
 
-import Pre from "#/components/mdx/Pre";
+import type { MDXComponents } from "mdx/types";
+
+import Anchor from "#/components/mdx/Anchor";
 import Blockquote from "#/components/mdx/Blockquote";
 import Heading from "#/components/mdx/Heading";
 import Image from "#/components/mdx/Image";
 import LinkPreviewCard from "#/components/mdx/LinkPreviewCard";
-import Anchor from "#/components/mdx/Anchor";
+import Pre from "#/components/mdx/Pre";
 
 /** 모든 `.mdx`에 적용 ( `next.js`에서 약속된 이름 ) */
 export function useMDXComponents(components: MDXComponents): MDXComponents {
@@ -123,6 +134,20 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
         )}
       />
     ),
+
+    /** Markdown 표 */
+    table: ({ className, ...props }) => (
+      <div className="my-6 min-w-0">
+        <Table {...props} className={cn("min-w-[32rem]", className)} />
+      </div>
+    ),
+    thead: TableHeader,
+    tbody: TableBody,
+    tfoot: TableFooter,
+    tr: TableRow,
+    th: TableHead,
+    td: TableCell,
+    caption: TableCaption,
 
     /** 링크 미리보기 카드 */
     LinkPreviewCard,
