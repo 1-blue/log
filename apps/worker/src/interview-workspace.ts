@@ -1,41 +1,27 @@
 import {
-  type AnalysisHistoryItem,
-  AnalysisResultSchema,
   type CreateInterviewChecklistItemRequest,
   type CreateInterviewNoteRequest,
-  type InterviewQuestion,
   type PatchInterviewChecklistItemRequest,
   type PatchInterviewNoteRequest,
   type SaveInterviewAnswerRequest,
-  summarizeAnalysisExecutions,
   type UpdateAnalysisReviewRequest,
 } from "@workspace/contracts";
 import type { Database, Json } from "@workspace/contracts/database";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-import { mapAnalysisJob } from "./analysis-jobs.js";
 import {
-  countMatches,
-  enrichResultEvidence,
-  evidenceCoverage,
   mapAnswer,
   mapChecklist,
-  mapExecution,
-  mapInputAudit,
   mapNote,
   mapReview,
   reviewedScore,
 } from "./interview-workspace-mappers.js";
+import { getInterviewWorkspace } from "./interview-workspace-reader.js";
 import {
-  type AnalysisJobRow,
-  type AnswerRow,
   type ChecklistUpdate,
-  type DocumentRow,
   type InterviewWorkspaceService,
   InterviewWorkspaceServiceError,
-  type QuestionRow,
-  type SnapshotRow,
 } from "./interview-workspace-types.js";
 
 export type { InterviewWorkspaceService } from "./interview-workspace-types.js";
@@ -102,359 +88,17 @@ class SupabaseInterviewWorkspaceService implements InterviewWorkspaceService {
     return data;
   }
 
-  private async history(
-    ownerId: string,
-    applicationId: string,
-  ): Promise<AnalysisHistoryItem[]> {
-    const { data: jobs, error } = await this.supabase
-      .from("analysis_jobs")
-      .select("*")
-      .eq("owner_id", ownerId)
-      .eq("application_id", applicationId)
-      .eq("status", "succeeded")
-      .order("created_at", { ascending: false })
-      .limit(20);
-    if (error) throw new InterviewWorkspaceServiceError("unavailable");
-    if (jobs.length === 0) return [];
-
-    const jobIds = jobs.map((job) => job.id);
-    const snapshotIds = jobs.map((job) => job.job_posting_snapshot_id);
-    const documentIds = jobs.flatMap((job) => [
-      job.resume_version_id,
-      job.portfolio_version_id,
-    ]);
-    const [resultQuery, snapshotQuery, documentQuery, executionQuery] =
-      await Promise.all([
-        this.supabase
-          .from("analysis_results")
-          .select("*")
-          .eq("owner_id", ownerId)
-          .in("analysis_job_id", jobIds),
-        this.supabase
-          .from("job_posting_snapshots")
-          .select("*")
-          .eq("owner_id", ownerId)
-          .in("id", snapshotIds),
-        this.supabase
-          .from("document_versions")
-          .select("*")
-          .eq("owner_id", ownerId)
-          .in("id", documentIds),
-        this.supabase
-          .from("analysis_step_executions")
-          .select("*")
-          .eq("owner_id", ownerId)
-          .in("analysis_job_id", jobIds)
-          .order("created_at", { ascending: true }),
-      ]);
-    if (
-      resultQuery.error ||
-      snapshotQuery.error ||
-      documentQuery.error ||
-      executionQuery.error
-    ) {
-      throw new InterviewWorkspaceServiceError("unavailable");
-    }
-
-    const results = new Map(
-      resultQuery.data.map((result) => [result.analysis_job_id, result]),
-    );
-    const snapshots = new Map(
-      snapshotQuery.data.map((snapshot) => [snapshot.id, snapshot]),
-    );
-    const documents = new Map(
-      documentQuery.data.map((document) => [document.id, document]),
-    );
-
-    return jobs.map((job) => {
-      const resultRow = results.get(job.id);
-      const snapshot = snapshots.get(job.job_posting_snapshot_id);
-      const resume = documents.get(job.resume_version_id);
-      const portfolio = documents.get(job.portfolio_version_id);
-      if (
-        !resultRow ||
-        !snapshot ||
-        !resume ||
-        !portfolio ||
-        !job.finished_at
-      ) {
-        throw new InterviewWorkspaceServiceError("unavailable");
-      }
-      const parsed = AnalysisResultSchema.safeParse(resultRow.result);
-      if (!parsed.success)
-        throw new InterviewWorkspaceServiceError("unavailable");
-      const executions = executionQuery.data
-        .filter((execution) => execution.analysis_job_id === job.id)
-        .map(mapExecution);
-      return {
-        analysisJobId: job.id,
-        completedAt: job.finished_at,
-        createdAt: job.created_at,
-        executions,
-        fitScore: parsed.data.fitScore,
-        gapCount: parsed.data.comparison.gaps.length,
-        matchCounts: countMatches(parsed.data.comparison.matches),
-        questionCount: parsed.data.comparison.interviewQuestions.length,
-        sources: this.mapSources(job, snapshot, resume, portfolio),
-        usageSummary: summarizeAnalysisExecutions(executions),
-        inputAudit: mapInputAudit(job, snapshot, resume, portfolio),
-      };
-    });
-  }
-
-  private mapSources(
-    job: AnalysisJobRow,
-    snapshot: SnapshotRow,
-    resume: DocumentRow,
-    portfolio: DocumentRow,
-  ) {
-    return {
-      jobPostingSnapshot: {
-        contentHash: job.job_posting_content_hash,
-        fetchedAt: snapshot.fetched_at,
-        id: snapshot.id,
-        source: snapshot.source,
-      },
-      portfolio: {
-        archivedAt: portfolio.archived_at,
-        contentHash: job.portfolio_content_hash,
-        id: portfolio.id,
-        label: portfolio.label,
-      },
-      resume: {
-        archivedAt: resume.archived_at,
-        contentHash: job.resume_content_hash,
-        id: resume.id,
-        label: resume.label,
-      },
-    };
-  }
-
   async getWorkspace(
     ownerId: string,
     analysisJobId: string,
     compareTo?: string,
   ) {
-    const job = await this.getJob(ownerId, analysisJobId);
-    const [
-      resultQuery,
-      applicationQuery,
-      postingQuery,
-      snapshotQuery,
-      documentQuery,
-      executionQuery,
-      reviewQuery,
-      requirementReviewQuery,
-      questionQuery,
-      checklistQuery,
-      noteQuery,
-    ] = await Promise.all([
-      this.supabase
-        .from("analysis_results")
-        .select("*")
-        .eq("analysis_job_id", job.id)
-        .eq("owner_id", ownerId)
-        .maybeSingle(),
-      this.supabase
-        .from("applications")
-        .select("*")
-        .eq("id", job.application_id)
-        .eq("owner_id", ownerId)
-        .maybeSingle(),
-      this.supabase
-        .from("job_postings")
-        .select("*")
-        .eq("id", job.job_posting_id)
-        .eq("owner_id", ownerId)
-        .maybeSingle(),
-      this.supabase
-        .from("job_posting_snapshots")
-        .select("*")
-        .eq("id", job.job_posting_snapshot_id)
-        .eq("owner_id", ownerId)
-        .maybeSingle(),
-      this.supabase
-        .from("document_versions")
-        .select("*")
-        .eq("owner_id", ownerId)
-        .in("id", [job.resume_version_id, job.portfolio_version_id]),
-      this.supabase
-        .from("analysis_step_executions")
-        .select("*")
-        .eq("analysis_job_id", job.id)
-        .eq("owner_id", ownerId)
-        .order("created_at", { ascending: true }),
-      this.supabase
-        .from("analysis_reviews")
-        .select("*")
-        .eq("analysis_job_id", job.id)
-        .eq("owner_id", ownerId)
-        .maybeSingle(),
-      this.supabase
-        .from("analysis_requirement_reviews")
-        .select("*")
-        .eq("analysis_job_id", job.id)
-        .eq("owner_id", ownerId)
-        .order("created_at", { ascending: true }),
-      this.supabase
-        .from("interview_questions")
-        .select("*")
-        .eq("analysis_job_id", job.id)
-        .eq("owner_id", ownerId)
-        .order("source_index", { ascending: true }),
-      this.supabase
-        .from("interview_checklist_items")
-        .select("*")
-        .eq("analysis_job_id", job.id)
-        .eq("owner_id", ownerId)
-        .is("archived_at", null)
-        .order("position", { ascending: true })
-        .order("id", { ascending: true }),
-      this.supabase
-        .from("interview_notes")
-        .select("*")
-        .eq("application_id", job.application_id)
-        .eq("owner_id", ownerId)
-        .is("archived_at", null)
-        .order("interviewed_at", { ascending: false })
-        .order("id", { ascending: false }),
-    ]);
-
-    const queries = [
-      resultQuery,
-      applicationQuery,
-      postingQuery,
-      snapshotQuery,
-      documentQuery,
-      executionQuery,
-      reviewQuery,
-      requirementReviewQuery,
-      questionQuery,
-      checklistQuery,
-      noteQuery,
-    ];
-    if (queries.some((query) => query.error)) {
-      throw new InterviewWorkspaceServiceError("unavailable");
-    }
-    const application = applicationQuery.data;
-    const posting = postingQuery.data;
-    const snapshot = snapshotQuery.data;
-    const resume = documentQuery.data?.find(
-      (document) => document.id === job.resume_version_id,
+    return getInterviewWorkspace(
+      this.supabase,
+      ownerId,
+      analysisJobId,
+      compareTo,
     );
-    const portfolio = documentQuery.data?.find(
-      (document) => document.id === job.portfolio_version_id,
-    );
-    if (!application || !posting || !snapshot || !resume || !portfolio) {
-      throw new InterviewWorkspaceServiceError("unavailable");
-    }
-
-    const questionIds = (questionQuery.data ?? []).map(
-      (question) => question.id,
-    );
-    const answerQuery =
-      questionIds.length === 0
-        ? { data: [] as AnswerRow[], error: null }
-        : await this.supabase
-            .from("interview_answers")
-            .select("*")
-            .eq("owner_id", ownerId)
-            .in("question_id", questionIds)
-            .order("revision", { ascending: false });
-    if (answerQuery.error)
-      throw new InterviewWorkspaceServiceError("unavailable");
-    const answersByQuestion = new Map<string, AnswerRow[]>();
-    for (const answer of answerQuery.data) {
-      const current = answersByQuestion.get(answer.question_id) ?? [];
-      current.push(answer);
-      answersByQuestion.set(answer.question_id, current);
-    }
-
-    const resultRow = resultQuery.data;
-    const parsedResult = resultRow
-      ? AnalysisResultSchema.safeParse(resultRow.result)
-      : null;
-    if (parsedResult && !parsedResult.success) {
-      throw new InterviewWorkspaceServiceError("unavailable");
-    }
-    const executions = (executionQuery.data ?? []).map(mapExecution);
-    const workspaceJob = mapAnalysisJob(job, resultRow);
-    if (workspaceJob.result) {
-      workspaceJob.result = enrichResultEvidence(workspaceJob.result, job);
-    }
-    const resultQuestionsByIndex = new Map(
-      (parsedResult?.data.comparison.interviewQuestions ?? []).map(
-        (item, index) => [index, item] as const,
-      ),
-    );
-    const history = await this.history(ownerId, job.application_id);
-    let comparison: AnalysisHistoryItem | null = null;
-    if (compareTo) {
-      if (compareTo === job.id) {
-        throw new InterviewWorkspaceServiceError("validation", {
-          reason: "comparison_self",
-        });
-      }
-      comparison =
-        history.find((item) => item.analysisJobId === compareTo) ?? null;
-      if (!comparison) {
-        throw new InterviewWorkspaceServiceError("not_found", {
-          reason: "comparison_not_found",
-        });
-      }
-    }
-
-    const requirements = requirementReviewQuery.data ?? [];
-    return {
-      application: {
-        attemptNumber: application.attempt_number,
-        companyName: posting.company_name,
-        id: application.id,
-        interviewAt: application.interview_at,
-        status: application.status,
-        title: posting.title,
-      },
-      checklist: (checklistQuery.data ?? []).map(mapChecklist),
-      comparison,
-      history,
-      interviewNotes: (noteQuery.data ?? []).map(mapNote),
-      job: workspaceJob,
-      questions: (questionQuery.data ?? []).map(
-        (question: QuestionRow): InterviewQuestion => {
-          const answers = answersByQuestion.get(question.id) ?? [];
-          const guidance = resultQuestionsByIndex.get(question.source_index);
-          return {
-            analysisJobId: question.analysis_job_id,
-            answerRevisionCount: answers.length,
-            answerEvidence: guidance?.answerEvidence ?? [],
-            answerOutline: guidance?.answerOutline ?? null,
-            category: question.category,
-            createdAt: question.created_at,
-            currentAnswer: answers[0] ? mapAnswer(answers[0]) : null,
-            id: question.id,
-            intent: question.intent,
-            priority: question.priority,
-            question: question.question,
-            requirementIds: question.requirement_ids,
-            sourceIndex: question.source_index,
-            modelAnswer: guidance?.modelAnswer ?? null,
-          };
-        },
-      ),
-      resultMetadata: resultRow
-        ? {
-            createdAt: resultRow.created_at,
-            executions,
-            schemaVersion: resultRow.schema_version,
-            usageSummary: summarizeAnalysisExecutions(executions),
-            inputAudit: mapInputAudit(job, snapshot, resume, portfolio),
-          }
-        : null,
-      review: mapReview(reviewQuery.data, requirements),
-      reviewedFitScore: reviewedScore(resultRow, requirements),
-      evidenceCoverage: evidenceCoverage(parsedResult?.data ?? null),
-      sources: this.mapSources(job, snapshot, resume, portfolio),
-    };
   }
 
   async saveReview(
