@@ -7,7 +7,6 @@ import {
   type JobPostingCollectionCallback,
   type JobPostingCollectionErrorCode,
   type JobPostingCollectionRun,
-  type JobPostingSnapshot,
   type JobPostingSourceMetadata,
   type N8nJobPostingCollectionDispatchPayload,
   type N8nJobPostingExtractionDispatchPayload,
@@ -18,6 +17,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import * as z from "zod";
 
 import { sha256Hex } from "./idempotency.js";
+import {
+  mapJobPostingCollectionRun,
+  type SnapshotRow,
+  terminalForHttpStatus,
+} from "./job-posting-collection-mappers.js";
 import { logInfo } from "./logger.js";
 import { dispatchToN8n, N8nDispatchError } from "./n8n.js";
 import {
@@ -31,9 +35,6 @@ import {
   parseWantedJobPosting,
 } from "./wanted-parser.js";
 
-type CollectionRow =
-  Database["public"]["Tables"]["job_posting_collection_runs"]["Row"];
-type SnapshotRow = Database["public"]["Tables"]["job_posting_snapshots"]["Row"];
 type PostingRow = Database["public"]["Tables"]["job_postings"]["Row"];
 
 type Dispatch = (
@@ -81,92 +82,6 @@ function createSupabaseAdminClient(env: CloudflareBindings) {
       persistSession: false,
     },
   });
-}
-
-function mapSnapshot(row: SnapshotRow): JobPostingSnapshot {
-  const sections: JobPostingBodySections = {
-    companyIntroduction: null,
-    positionIntroduction: null,
-    expectations: null,
-    mainResponsibilities: null,
-    requirements: null,
-    preferred: null,
-    employmentConditions: null,
-    process: null,
-    benefits: null,
-    technologies: null,
-    traits: null,
-    deadline: null,
-    location: null,
-    other: null,
-    ...((row.sections ?? {}) as Partial<JobPostingBodySections>),
-  };
-  return {
-    contentHash: row.content_hash,
-    createdAt: row.created_at,
-    fetchedAt: row.fetched_at,
-    id: row.id,
-    jobPostingId: row.job_posting_id,
-    normalizedContent: row.normalized_content,
-    parserVersion: row.parser_version,
-    rawContent: row.raw_content,
-    source: row.source,
-    sourceMetadata: row.source_metadata as JobPostingSourceMetadata,
-    sections,
-  };
-}
-
-function mapRun(
-  row: CollectionRow,
-  snapshot: SnapshotRow | null,
-): JobPostingCollectionRun {
-  return {
-    createdAt: row.created_at,
-    errorCode: row.error_code,
-    finishedAt: row.finished_at,
-    httpStatus: row.http_status,
-    id: row.id,
-    jobPostingId: row.job_posting_id,
-    mode: row.mode,
-    requestId: row.request_id,
-    retryable: row.retryable,
-    snapshot: snapshot ? mapSnapshot(snapshot) : null,
-    startedAt: row.started_at,
-    status: row.status,
-    updatedAt: row.updated_at,
-  };
-}
-
-function terminalForHttpStatus(status: number): {
-  code: JobPostingCollectionErrorCode;
-  retryable: boolean;
-  status: "failed" | "needs_input";
-} | null {
-  if (status >= 200 && status < 300) return null;
-  if (status >= 300 && status < 400) {
-    return {
-      code: "REDIRECT_NOT_ALLOWED",
-      retryable: false,
-      status: "needs_input",
-    };
-  }
-  if (status === 401 || status === 403) {
-    return { code: "ACCESS_BLOCKED", retryable: false, status: "needs_input" };
-  }
-  if (status === 404 || status === 410) {
-    return { code: "JOB_EXPIRED", retryable: false, status: "needs_input" };
-  }
-  if (status === 429) {
-    return { code: "RATE_LIMITED", retryable: true, status: "failed" };
-  }
-  if (status >= 500) {
-    return { code: "UPSTREAM_ERROR", retryable: true, status: "failed" };
-  }
-  return {
-    code: "INVALID_JOB_POSTING",
-    retryable: false,
-    status: "needs_input",
-  };
 }
 
 class SupabaseJobPostingCollectionService
@@ -267,7 +182,10 @@ class SupabaseJobPostingCollectionService
       stage: "persist",
       status: input.status === "succeeded" ? 200 : undefined,
     });
-    return mapRun(data, await this.getSnapshot(data.snapshot_id));
+    return mapJobPostingCollectionRun(
+      data,
+      await this.getSnapshot(data.snapshot_id),
+    );
   }
 
   async create(
@@ -354,7 +272,10 @@ class SupabaseJobPostingCollectionService
       .maybeSingle();
     if (error) throw new JobPostingCollectionServiceError("unavailable");
     if (!data) throw new JobPostingCollectionServiceError("not_found");
-    return mapRun(data, await this.getSnapshot(data.snapshot_id));
+    return mapJobPostingCollectionRun(
+      data,
+      await this.getSnapshot(data.snapshot_id),
+    );
   }
 
   async list(
@@ -373,7 +294,9 @@ class SupabaseJobPostingCollectionService
     const snapshots = await Promise.all(
       data.map((row) => this.getSnapshot(row.snapshot_id)),
     );
-    return data.map((row, index) => mapRun(row, snapshots[index] ?? null));
+    return data.map((row, index) =>
+      mapJobPostingCollectionRun(row, snapshots[index] ?? null),
+    );
   }
 
   async complete(
