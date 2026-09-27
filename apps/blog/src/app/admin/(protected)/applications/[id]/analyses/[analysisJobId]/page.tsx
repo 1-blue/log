@@ -1,4 +1,4 @@
-import AnalysisWorkspaceClient from "#/app/admin/(protected)/applications/[id]/analyses/[analysisJobId]/_components/AnalysisWorkspaceClient";
+import AnalysisWorkspaceClient from "#/app/admin/(protected)/applications/[id]/analyses/[analysisJobId]/_components/AnalysisWorkspace/AnalysisWorkspaceClient";
 
 export default async function AnalysisWorkspacePage({
   params,

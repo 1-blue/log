@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 
 import { Button } from "@workspace/ui/components/Button";
 
-import AnalysisWorkspaceClient from "#/app/admin/(protected)/applications/[id]/analyses/[analysisJobId]/_components/AnalysisWorkspaceClient";
+import AnalysisWorkspaceClient from "#/app/admin/(protected)/applications/[id]/analyses/[analysisJobId]/_components/AnalysisWorkspace/AnalysisWorkspaceClient";
 import {
   ANALYSIS_PREVIEW_SCENARIOS,
   type AnalysisPreviewScenario,

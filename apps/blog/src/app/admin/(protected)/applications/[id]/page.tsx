@@ -1,4 +1,4 @@
-import ApplicationDetailClient from "#/app/admin/(protected)/applications/[id]/_components/ApplicationDetailClient";
+import ApplicationDetailClient from "#/app/admin/(protected)/applications/[id]/_components/ApplicationDetail/ApplicationDetailClient";
 
 export default async function ApplicationDetailPage({
   params,
