@@ -1,6 +1,6 @@
 # Lightsail 운영 배포
 
-이 문서는 `n8n.nintory.com`의 단일 인스턴스 운영 절차다. 저장소의 `compose.yml`은 로컬 전용이며 운영에서는 `compose.prod.yml`만 사용한다. 이 구성은 Caddy가 HTTPS를 종료하고 n8n과 PostgreSQL은 Docker 네트워크에만 연결한다. 편집 화면은 Caddy Basic Auth와 n8n owner 로그인을 모두 요구한다. `/webhook/*`과 `/healthz/readiness`만 Basic Auth 없이 열리고, Workflow Webhook은 별도로 HMAC 검증을 통과해야 처리된다. 이 경로 자체는 인터넷에서 접근 가능하다.
+이 문서는 `n8n.nintory.com`의 단일 인스턴스 운영 절차다. 저장소의 `compose.yml`은 로컬 전용이며 운영에서는 `compose.prod.yml`만 사용한다. 이 구성은 Caddy가 HTTPS를 종료하고 n8n과 PostgreSQL은 Docker 네트워크에만 연결한다. 편집 화면은 n8n owner 로그인으로 보호한다. Workflow Webhook은 별도로 HMAC 검증을 통과해야 처리되며, `/webhook/*`과 `/healthz/readiness` 경로 자체는 인터넷에서 접근 가능하다.
 
 ## 외부 준비 사항
 
@@ -12,7 +12,7 @@
 | Lightsail 방화벽                    | TCP 80/443 공개, TCP 22는 운영자 접속 범위로 제한, 5678/5432 미공개. IPv6 사용 시 IPv6 규칙도 확인                                                |
 | DNS                                 | `n8n.nintory.com` A 레코드를 정적 IPv4에 연결. AAAA 레코드가 있으면 실제 IPv6 인스턴스로 연결되는지 확인                                          |
 | 운영 연결                           | 공개 블로그 주소, Worker의 운영 호스트와 `/v1/internal` callback 주소, Worker의 `N8N_WEBHOOK_URL=https://n8n.nintory.com/webhook/career-analysis` |
-| 서버 전용 비밀                      | n8n 암호화 키, PostgreSQL 비밀번호, 양방향 HMAC 키, Slack 에러 Webhook URL, Caddy Basic Auth 암호 해시                                            |
+| 서버 전용 비밀                      | n8n 암호화 키, PostgreSQL 비밀번호, 양방향 HMAC 키, Slack 에러 Webhook URL                                                                        |
 | GitHub environment `n8n-production` | `N8N_PUBLIC_URL`, `N8N_DEPLOY_HOST`, `N8N_DEPLOY_USER`, `N8N_WORKFLOW_ID` 변수와 `N8N_DEPLOY_SSH_KEY`, `N8N_DEPLOY_KNOWN_HOSTS` secret            |
 | GitHub Actions                      | `workflow_dispatch`에서 배포할 브랜치와 `n8n` 대상을 명시적으로 선택. push 자동 배포는 사용하지 않음                                              |
 
@@ -24,12 +24,12 @@ Lightsail 인스턴스, 정적 IP, 스냅샷은 비용에 영향을 줄 수 있�
 
 1. 운영자가 Lightsail에 Ubuntu 계열 인스턴스를 만들고 정적 IP와 DNS, 방화벽을 설정한다. Docker Engine과 Compose v2를 설치하고 자동 보안 업데이트를 활성화한다. `n8n-deploy` 계정을 만들고 Docker 사용 권한을 부여한다. Docker 그룹은 사실상 호스트 관리자 권한이므로 이 계정에만 배포 키를 허용한다.
 2. `n8n-deploy`가 `/opt/career-ops-n8n`을 소유하도록 만들고, 저장소의 `compose.prod.yml`, `Caddyfile`, `workflows/*.json`, `scripts/{backup,deploy}-production.sh`를 해당 위치로 복사한다. GitHub Actions 첫 실행도 이 파일 복사를 수행하지만 대상 디렉터리의 소유권은 먼저 준비해야 한다.
-3. `.env.production.example`을 참고해 서버의 `/opt/career-ops-n8n/.env`를 직접 만든다. `N8N_DOMAIN=n8n.nintory.com`, trailing slash가 없는 `N8N_PUBLIC_URL=https://n8n.nintory.com`, Blog와 Worker의 운영 주소를 입력하고 `chmod 600`으로 제한한다. `CADDY_BASIC_AUTH_HASH`는 터미널에서 `docker run --rm -it caddy:2.10.2 caddy hash-password`로 생성한 bcrypt 해시를 **작은따옴표**로 감싸 입력한다. 원문 비밀번호와 암호화 키는 별도 안전한 비밀 저장소에 보관한다. HMAC 두 값은 Worker 설정과 각각 일치시킨다.
+3. `.env.production.example`을 참고해 서버의 `/opt/career-ops-n8n/.env`를 직접 만든다. `N8N_DOMAIN=n8n.nintory.com`, trailing slash가 없는 `N8N_PUBLIC_URL=https://n8n.nintory.com`, Blog와 Worker의 운영 주소를 입력하고 `chmod 600`으로 제한한다. 암호화 키와 비밀번호는 별도 안전한 비밀 저장소에 보관한다. HMAC 두 값은 Worker 설정과 각각 일치시킨다.
 4. DNS가 정적 IP를 가리키고 80/443이 열린 것을 확인한 뒤 GitHub Actions의 **Deploy Career Ops**를 `n8n` 대상으로 수동 실행한다. Caddy는 첫 기동 시 인증서를 발급하고 자동 갱신한다. Actions는 `/healthz/readiness`가 `200`인지 확인한다.
-5. `https://n8n.nintory.com`에서 Caddy 인증을 통과해 n8n owner를 생성한다. OpenAI와 Slack Credential을 n8n UI에 등록하고 5개 OpenAI 노드와 Slack 노드에 연결한다. 기존 로컬 데이터 이전이 필요하면 아래 복구 절차를 먼저 수행하고 암호화 키가 동일한지 확인한다.
+5. `https://n8n.nintory.com`에서 n8n owner로 로그인한다. 최초 설치라면 owner를 생성하고, OpenAI와 Slack Credential을 n8n UI에 등록해 5개 OpenAI 노드와 Slack 노드에 연결한다. 기존 로컬 데이터 이전이 필요하면 아래 복구 절차를 먼저 수행하고 암호화 키가 동일한지 확인한다.
 6. 최신 Workflow를 검토 후 import·publish한다. `README.md`의 CLI 절차를 참고하되 운영에서는 항상 `docker compose --env-file .env -f compose.prod.yml`을 사용한다. 동일 Webhook 경로의 smoke Workflow는 publish하지 않는다. GitHub Actions의 `workflow_dispatch`에서 배포할 브랜치와 `n8n` 대상을 선택하며, `N8N_PUBLIC_URL`과 `N8N_WORKFLOW_ID`가 없으면 배포를 시작하지 않는다.
 
-운영 주소를 Worker에 연결하기 전, 의도하지 않은 외부 입력으로 비용이 발생하지 않도록 Webhook 서명 실패가 `401`을 반환하는지 확인한다. 공개 DNS 주소의 `/healthz/readiness`는 readiness 확인을 위해 공개하며, 편집 화면은 Basic Auth와 n8n owner 인증으로 보호한다. 컨테이너 상태는 서버에서 `docker compose --env-file .env -f compose.prod.yml ps`로 확인한다.
+운영 주소를 Worker에 연결하기 전, 의도하지 않은 외부 입력으로 비용이 발생하지 않도록 Webhook 서명 실패가 `401`을 반환하는지 확인한다. 공개 DNS 주소의 `/healthz/readiness`는 readiness 확인을 위해 공개하며, 편집 화면은 n8n owner 인증으로 보호한다. 컨테이너 상태는 서버에서 `docker compose --env-file .env -f compose.prod.yml ps`로 확인한다.
 
 ## 배포와 롤백
 

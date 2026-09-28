@@ -108,7 +108,6 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      CADDY_BASIC_AUTH_HASH: ${CADDY_BASIC_AUTH_HASH:?CADDY_BASIC_AUTH_HASH is required}
       N8N_DOMAIN: ${N8N_DOMAIN:?N8N_DOMAIN is required}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
