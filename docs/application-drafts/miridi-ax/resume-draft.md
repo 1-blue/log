@@ -7,7 +7,7 @@
 
 TypeScript 개발자 · 웹 서비스 개발과 자동화 경험
 
-[GitHub](https://github.com/1-blue) · [기술 블로그](https://blog.story-dict.com)
+[GitHub](https://github.com/1-blue) · [기술 블로그](https://blog.nintory.com)
 
 ### 자기소개
 

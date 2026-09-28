@@ -4,19 +4,19 @@
 
 ## 환경변수 대응표
 
-| 역할            | Blog / Vercel                          | Worker / Cloudflare                     | n8n                                       |
-| --------------- | -------------------------------------- | --------------------------------------- | ----------------------------------------- |
-| 서비스 주소     | `NEXT_PUBLIC_CLIENT_URL`               | `APP_BASE_URL`                          | `APP_BASE_URL`                            |
-| Supabase 주소   | `NEXT_PUBLIC_SUPABASE_URL`             | `SUPABASE_URL`                          | -                                         |
-| 브라우저 인증   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | -                                       | -                                         |
-| 서버 DB 권한    | -                                      | `SUPABASE_SECRET_KEY`                   | -                                         |
-| 단일 관리자     | `ADMIN_USER_ID`                        | `ADMIN_USER_ID`                         | -                                         |
-| Worker 주소     | `NEXT_PUBLIC_WORKER_API_URL`           | -                                       | `WORKER_CALLBACK_URL`                     |
-| Worker → n8n    | -                                      | `N8N_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET` | `WORKER_TO_N8N_SECRET`                    |
-| n8n → Worker    | -                                      | `N8N_CALLBACK_SECRET`                   | `WORKER_CALLBACK_SECRET`                  |
-| Slack 오류 채널 | -                                      | `SLACK_ERROR_WEBHOOK_URL`               | `SLACK_ERROR_WEBHOOK_URL`                 |
-| Slack 공고 채널 | -                                      | -                                       | `SLACK_JOB_CHANNEL_ID`                    |
-| n8n 영속성      | -                                      | -                                       | `N8N_ENCRYPTION_KEY`, `POSTGRES_PASSWORD` |
+| 역할            | Blog / Vercel                          | Worker / Cloudflare                     | n8n                                            |
+| --------------- | -------------------------------------- | --------------------------------------- | ---------------------------------------------- |
+| 서비스 주소     | `NEXT_PUBLIC_CLIENT_URL`               | `APP_BASE_URL`                          | `N8N_DOMAIN`, `N8N_PUBLIC_URL`, `APP_BASE_URL` |
+| Supabase 주소   | `NEXT_PUBLIC_SUPABASE_URL`             | `SUPABASE_URL`                          | -                                              |
+| 브라우저 인증   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | -                                       | -                                              |
+| 서버 DB 권한    | -                                      | `SUPABASE_SECRET_KEY`                   | -                                              |
+| 단일 관리자     | `ADMIN_USER_ID`                        | `ADMIN_USER_ID`                         | -                                              |
+| Worker 주소     | `NEXT_PUBLIC_WORKER_API_URL`           | -                                       | `WORKER_CALLBACK_URL`                          |
+| Worker → n8n    | -                                      | `N8N_WEBHOOK_URL`, `N8N_WEBHOOK_SECRET` | `WORKER_TO_N8N_SECRET`                         |
+| n8n → Worker    | -                                      | `N8N_CALLBACK_SECRET`                   | `WORKER_CALLBACK_SECRET`                       |
+| Slack 오류 채널 | -                                      | `SLACK_ERROR_WEBHOOK_URL`               | `SLACK_ERROR_WEBHOOK_URL`                      |
+| Slack 공고 채널 | -                                      | -                                       | `SLACK_JOB_CHANNEL_ID`                         |
+| n8n 영속성      | -                                      | -                                       | `N8N_ENCRYPTION_KEY`, `POSTGRES_PASSWORD`      |
 
 다음 값은 반드시 같아야 한다.
 
@@ -25,6 +25,7 @@
 - Worker `N8N_CALLBACK_SECRET`과 n8n `WORKER_CALLBACK_SECRET`
 - Blog URL, Worker `APP_BASE_URL`, n8n `APP_BASE_URL`의 운영 Origin
 - Blog `NEXT_PUBLIC_WORKER_API_URL`과 실제 Worker 운영 URL
+- n8n `N8N_PUBLIC_URL`은 HTTPS를 사용하고 trailing slash 없이 입력
 
 OpenAI API Key와 Slack Bot Token은 환경변수가 아니라 n8n Credential에 저장한다. `.env.ci.example`의 값은 자동 배포를 도입할 때만 사용하며 15단계에서는 등록하지 않는다.
 
@@ -79,10 +80,10 @@ Storage object는 삭제하지 않으며, 삭제 전 SQL 백업은 Git에서 무
 ## GitHub Actions 배포 게이트
 
 `.github/workflows/deploy-production.yml`은 `master` push의 변경 경로를 확인한 뒤
-Worker와 n8n 중 필요한 대상만 배포한다. GitHub 환경의
+Worker와 n8n 중 필요한 대상만 배포한다. Repository Variable의
 `ENABLE_PRODUCTION_DEPLOY=true`일 때만 자동 배포하며, 변수 또는 Secret이 없으면
 배포 단계에서 중단한다. `workflow_dispatch`에서는 `worker`, `n8n`, `all`을 선택해
-수동 배포할 수 있고, n8n 게시에는 `N8N_WORKFLOW_ID`가 필요하다.
+수동 배포할 수 있고, n8n 게시에는 `N8N_PUBLIC_URL`과 `N8N_WORKFLOW_ID`가 필요하다.
 
 Worker 코드 rollback, n8n Workflow rollback, 원격 DB migration rollback은 서로 독립적이다.
 배포 기록에는 Git SHA, Worker 배포 버전, n8n 이미지 digest·Workflow hash와 migration

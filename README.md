@@ -54,7 +54,7 @@
 
 - GCP 무료 티어 VM에 Docker로 n8n 설치
 - nginx 리버스 프록시 + HTTPS 도메인 연결
-- 상세 가이드: [n8n 셀프 호스팅하기](https://blog.story-dict.com/posts/tools/n8n/n8n-셀프-호스팅하기)
+- 상세 가이드: [n8n 셀프 호스팅하기](https://blog.nintory.com/posts/tools/n8n/n8n-셀프-호스팅하기)
 
 2. **블로그 포스팅 자동화 워크플로우**
 
@@ -64,7 +64,7 @@
 
 ### 2️⃣ 관련 블로그
 
-> [n8n 셀프 호스팅하기 (with GCP, Docker, nginx, SSL)](https://blog.story-dict.com/posts/tools/n8n/n8n-셀프-호스팅하기)
+> [n8n 셀프 호스팅하기 (with GCP, Docker, nginx, SSL)](https://blog.nintory.com/posts/tools/n8n/n8n-셀프-호스팅하기)
 
 ## 📁 프로젝트 구조
 
@@ -98,10 +98,10 @@ pnpm build
 
 ### 1️⃣ 블로그
 
-> [박상은 블로그](https://blog.story-dict.com) (배포 URL 기준)
+> [박상은 블로그](https://blog.nintory.com) (배포 URL 기준)
 
 ### 2️⃣ 관련 포스트
 
-- [n8n 셀프 호스팅하기](https://blog.story-dict.com/posts/tools/n8n/n8n-셀프-호스팅하기)
-- [Next.js MDX 블로그 구축](https://blog.story-dict.com/posts/projects/blog/next-js-mdx)
-- [Story Dict 프로젝트 시리즈](https://blog.story-dict.com/series?series=story-dict)
+- [n8n 셀프 호스팅하기](https://blog.nintory.com/posts/tools/n8n/n8n-셀프-호스팅하기)
+- [Next.js MDX 블로그 구축](https://blog.nintory.com/posts/projects/blog/next-js-mdx)
+- [Story Dict 프로젝트 시리즈](https://blog.nintory.com/series?series=story-dict)
