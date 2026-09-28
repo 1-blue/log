@@ -46,13 +46,21 @@ if docker volume inspect blog-career-ops-n8n_postgres_data > /dev/null 2>&1; the
 fi
 
 "${compose[@]}" pull
+"${compose[@]}" run --rm --no-deps caddy caddy validate \
+  --config /etc/caddy/Caddyfile \
+  --adapter caddyfile
 "${compose[@]}" up -d --wait --wait-timeout 180
-"${compose[@]}" exec -T caddy caddy validate \
-  --config /etc/caddy/Caddyfile \
-  --adapter caddyfile
-"${compose[@]}" exec -T caddy caddy reload \
-  --config /etc/caddy/Caddyfile \
-  --adapter caddyfile
+"${compose[@]}" up -d --force-recreate --wait --wait-timeout 180 caddy
+
+host_caddyfile_hash="$(sha256sum Caddyfile | awk '{print $1}')"
+container_caddyfile_hash="$(
+  "${compose[@]}" exec -T caddy sha256sum /etc/caddy/Caddyfile | awk '{print $1}'
+)"
+if [[ "$host_caddyfile_hash" != "$container_caddyfile_hash" ]]; then
+  echo 'Caddyfile bind mount does not match the deployed host file' >&2
+  exit 1
+fi
+echo "Caddyfile bind mount verified: $host_caddyfile_hash"
 "${compose[@]}" ps
 
 if [[ -n "$publish_workflow_id" ]]; then
