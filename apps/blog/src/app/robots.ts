@@ -1,6 +1,8 @@
 import { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
+  const origin = new URL(process.env.NEXT_PUBLIC_CLIENT_URL).origin;
+
   return {
     rules: [
       {
@@ -9,7 +11,7 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/admin", "/admin/"],
       },
     ],
-    sitemap: "https://blog.story-dict.com/sitemap.xml",
-    host: "https://blog.story-dict.com",
+    sitemap: `${origin}/sitemap.xml`,
+    host: origin,
   };
 }

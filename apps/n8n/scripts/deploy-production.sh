@@ -23,6 +23,17 @@ if [[ "$(stat -c %a .env)" != 600 ]]; then
   exit 1
 fi
 
+n8n_public_url="$(sed -n 's/^N8N_PUBLIC_URL=//p' .env | tail -n 1)"
+n8n_public_url="${n8n_public_url%$'\r'}"
+case "$n8n_public_url" in
+  https://*) ;;
+  *) echo 'N8N_PUBLIC_URL must use HTTPS' >&2; exit 1 ;;
+esac
+if [[ "$n8n_public_url" == */ ]]; then
+  echo 'N8N_PUBLIC_URL must not have a trailing slash' >&2
+  exit 1
+fi
+
 compose=(docker compose --env-file .env -f compose.prod.yml)
 "${compose[@]}" config --quiet
 

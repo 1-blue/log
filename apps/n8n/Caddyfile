@@ -1,4 +1,4 @@
-n8n.story-dict.com {
+{$N8N_DOMAIN} {
 	encode zstd gzip
 
 	@public path /healthz/readiness /webhook/*

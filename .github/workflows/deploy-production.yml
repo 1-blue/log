@@ -112,6 +112,26 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate workflow export
         run: node apps/n8n/scripts/validate-workflow.mjs
+      - name: Validate deployment configuration
+        env:
+          DEPLOY_HOST: ${{ vars.N8N_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.N8N_DEPLOY_USER }}
+          N8N_PUBLIC_URL: ${{ vars.N8N_PUBLIC_URL }}
+          WORKFLOW_ID: ${{ vars.N8N_WORKFLOW_ID }}
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?Set N8N_DEPLOY_HOST}"
+          : "${DEPLOY_USER:?Set N8N_DEPLOY_USER}"
+          : "${N8N_PUBLIC_URL:?Set N8N_PUBLIC_URL}"
+          : "${WORKFLOW_ID:?Set N8N_WORKFLOW_ID}"
+          case "$N8N_PUBLIC_URL" in
+            https://*) ;;
+            *) echo 'N8N_PUBLIC_URL must use HTTPS' >&2; exit 1 ;;
+          esac
+          if [[ "$N8N_PUBLIC_URL" == */ ]]; then
+            echo 'N8N_PUBLIC_URL must not have a trailing slash' >&2
+            exit 1
+          fi
       - name: Prepare SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.N8N_DEPLOY_SSH_KEY }}
@@ -146,12 +166,13 @@ jobs:
         env:
           DEPLOY_HOST: ${{ vars.N8N_DEPLOY_HOST }}
           DEPLOY_USER: ${{ vars.N8N_DEPLOY_USER }}
+          N8N_PUBLIC_URL: ${{ vars.N8N_PUBLIC_URL }}
           WORKFLOW_ID: ${{ vars.N8N_WORKFLOW_ID }}
         run: |
           set -euo pipefail
           : "${WORKFLOW_ID:?Set N8N_WORKFLOW_ID}"
           ssh -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
             "bash /opt/career-ops-n8n/scripts/deploy-production.sh --publish-workflow '$WORKFLOW_ID' /opt/career-ops-n8n/workflows/career-analysis.json"
-          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 30 https://n8n.story-dict.com/healthz/readiness)"
+          status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 30 "$N8N_PUBLIC_URL/healthz/readiness")"
           test "$status" = 200
           echo "n8n readiness verified for SHA $GITHUB_SHA"
