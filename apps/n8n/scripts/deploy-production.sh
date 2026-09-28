@@ -47,6 +47,12 @@ fi
 
 "${compose[@]}" pull
 "${compose[@]}" up -d --wait --wait-timeout 180
+"${compose[@]}" exec -T caddy caddy validate \
+  --config /etc/caddy/Caddyfile \
+  --adapter caddyfile
+"${compose[@]}" exec -T caddy caddy reload \
+  --config /etc/caddy/Caddyfile \
+  --adapter caddyfile
 "${compose[@]}" ps
 
 if [[ -n "$publish_workflow_id" ]]; then

@@ -123,5 +123,9 @@ jobs:
           ssh -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
             "bash /opt/career-ops-n8n/scripts/deploy-production.sh --publish-workflow '$WORKFLOW_ID' /opt/career-ops-n8n/workflows/career-analysis.json"
           status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --max-time 30 "$N8N_PUBLIC_URL/healthz/readiness")"
-          test "$status" = 200
+          echo "n8n external readiness status: $status"
+          if [[ "$status" != "200" ]]; then
+            echo "Expected n8n readiness status 200, received $status" >&2
+            exit 1
+          fi
           echo "n8n readiness verified for SHA $GITHUB_SHA"
