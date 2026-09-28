@@ -51,7 +51,7 @@ jobs:
           : "${CLOUDFLARE_API_TOKEN:?Set CLOUDFLARE_API_TOKEN}"
           : "${CLOUDFLARE_ACCOUNT_ID:?Set CLOUDFLARE_ACCOUNT_ID}"
           echo "Deploying Worker SHA $GITHUB_SHA"
-          pnpm --filter worker deploy
+          pnpm --filter worker run deploy
 
   deploy-n8n:
     if: inputs.target == 'n8n' || inputs.target == 'all'

@@ -14,5 +14,10 @@ test "$workflow_name" = "career-analysis.json"
   --input="$workflow_container_file"
 "${compose[@]}" exec -T "$service" n8n publish:workflow --id="$workflow_id"
 "${compose[@]}" restart "$service"
+if ! "${compose[@]}" up -d --wait --wait-timeout 180 "$service"; then
+  echo 'n8n did not become healthy after restart' >&2
+  "${compose[@]}" ps "$service" >&2 || true
+  exit 1
+fi
 "${compose[@]}" exec -T "$service" wget --spider --quiet http://127.0.0.1:5678/healthz/readiness
 "${compose[@]}" ps --status running "$service" | grep -q "$service"
