@@ -27,7 +27,7 @@
 - Blog `NEXT_PUBLIC_WORKER_API_URL`과 실제 Worker 운영 URL
 - n8n `N8N_PUBLIC_URL`은 HTTPS를 사용하고 trailing slash 없이 입력
 
-OpenAI API Key와 Slack Bot Token은 환경변수가 아니라 n8n Credential에 저장한다. `.env.ci.example`의 값은 자동 배포를 도입할 때만 사용하며 15단계에서는 등록하지 않는다.
+OpenAI API Key와 Slack Bot Token은 환경변수가 아니라 n8n Credential에 저장한다. `.env.ci.example`의 값은 GitHub Actions 배포를 검증할 때만 사용하며 운영 Credential로 등록하지 않는다.
 
 ## 배포 전
 
@@ -77,13 +77,13 @@ Storage object는 삭제하지 않으며, 삭제 전 SQL 백업은 Git에서 무
 - [ ] Worker, n8n과 Supabase 로그에 Secret·원문·답변 미노출
 - [ ] 비용·latency·오류율 기준선 기록
 
-## GitHub Actions 배포 게이트
+## GitHub Actions 수동 배포
 
-`.github/workflows/deploy-production.yml`은 `master` push의 변경 경로를 확인한 뒤
-Worker와 n8n 중 필요한 대상만 배포한다. Repository Variable의
-`ENABLE_PRODUCTION_DEPLOY=true`일 때만 자동 배포하며, 변수 또는 Secret이 없으면
-배포 단계에서 중단한다. `workflow_dispatch`에서는 `worker`, `n8n`, `all`을 선택해
-수동 배포할 수 있고, n8n 게시에는 `N8N_PUBLIC_URL`과 `N8N_WORKFLOW_ID`가 필요하다.
+`.github/workflows/deploy-production.yml`은 push로 실행하지 않는다. Actions 화면의
+`workflow_dispatch`에서 배포할 브랜치와 `worker`, `n8n`, `all` 중 대상을 명시적으로
+선택한다. 선택한 브랜치의 Git SHA를 검증하고 배포하며, 필요한 Environment 변수나
+Secret이 없으면 외부 변경 전에 중단한다. n8n 게시에는 `N8N_PUBLIC_URL`과
+`N8N_WORKFLOW_ID`가 필요하다.
 
 Worker 코드 rollback, n8n Workflow rollback, 원격 DB migration rollback은 서로 독립적이다.
 배포 기록에는 Git SHA, Worker 배포 버전, n8n 이미지 digest·Workflow hash와 migration

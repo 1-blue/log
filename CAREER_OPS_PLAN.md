@@ -542,9 +542,9 @@
 - 원격 Supabase에는 `20260916030000_align_analysis_stale_index.sql`, `20260917010000_recover_stale_analysis_job.sql`, `20260918010000_add_analysis_audit_and_evidence_reviews.sql`을 적용하고 schema lint를 통과했다. 지정 관리자 소유의 공고·지원·수집·분석·Slack Outbox 18/4/22/56건을 명시적 reset 스크립트로 초기화했으며, 관리자·문서 버전 2건·공개 설정 2건·분석 프로필 2건과 Storage object는 보존했다.
 - 분석 진단 API, 안전한 실행 타임라인, 입력 구성 감사 정보, 근거 확인율, 문서 이미지 근거 검토 계약/API와 RLS를 추가했다. 과거 분석 원본은 변경하지 않고 구버전 읽기 호환을 유지한다.
 - `pnpm verify:offline`은 기존 로컬 Supabase를 초기화하지 않고 임시 디렉터리·포트의 disposable Supabase에서 migration reset·lint·pgTAP·DB 타입 비교를 수행한다. 실제 DB 초기화는 `db:reset:career-ops`의 명시적 `--apply`로만 실행한다.
-- master 기반 Worker·n8n GitHub Actions 배포 workflow와 n8n Workflow import·publish 스크립트를 추가했다. `ENABLE_PRODUCTION_DEPLOY=true` 게이트와 `workflow_dispatch`를 사용하며, Credential 평문 export와 자동 원격 migration은 금지한다.
+- 브랜치와 대상을 명시적으로 선택하는 `workflow_dispatch` 전용 Worker·n8n GitHub Actions 배포 workflow와 n8n Workflow import·publish 스크립트를 추가했다. push 자동 배포, Credential 평문 export와 자동 원격 migration은 사용하지 않는다.
 - 계약 31개, Worker 116개, Blog 41개, DB 154개 테스트와 전체 타입 검사·lint·production build, Wrangler dry-run을 통과했다. `pnpm verify:offline`은 PostgreSQL만 사용하는 격리 Supabase에서 외부 Credential 없이 전체 검증을 성공적으로 완료했으며, 기존 로컬 Supabase는 초기화하지 않는다.
-- Slack 수신·실제 AI 호출·최신 Workflow 운영 게시·자동 배포 게이트 활성화와 실사용 품질 평가는 16~18단계로 남겼다.
+- Slack 수신·실제 AI 호출·선택한 브랜치의 최신 Workflow 수동 게시와 실사용 품질 평가는 16~18단계로 남겼다.
 
 ### 15단계 구현 단위 및 최종 검증 기록 `2026-09-20`
 

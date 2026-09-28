@@ -1,14 +1,6 @@
 name: Deploy Career Ops
 
 on:
-  push:
-    branches: [master]
-    paths:
-      - "apps/worker/**"
-      - "apps/n8n/**"
-      - "packages/contracts/**"
-      - "supabase/migrations/**"
-      - ".github/workflows/deploy-production.yml"
   workflow_dispatch:
     inputs:
       target:
@@ -29,48 +21,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  detect:
-    if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    outputs:
-      worker: ${{ steps.paths.outputs.worker }}
-      n8n: ${{ steps.paths.outputs.n8n }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-      - id: paths
-        env:
-          TARGET: ${{ inputs.target || '' }}
-        run: |
-          set -euo pipefail
-          if [[ "$TARGET" == "worker" || "$TARGET" == "all" ]]; then
-            worker=true
-          else
-            worker=false
-          fi
-          if [[ "$TARGET" == "n8n" || "$TARGET" == "all" ]]; then
-            n8n=true
-          else
-            n8n=false
-          fi
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            changed="$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA")"
-            if grep -Eq '^(apps/worker/|packages/contracts/|supabase/migrations/|\.github/workflows/deploy-production\.yml$)' <<<"$changed"; then
-              worker=true
-            fi
-            if grep -Eq '^(apps/n8n/|packages/contracts/|\.github/workflows/deploy-production\.yml$)' <<<"$changed"; then
-              n8n=true
-            fi
-          fi
-          echo "worker=$worker" >> "$GITHUB_OUTPUT"
-          echo "n8n=$n8n" >> "$GITHUB_OUTPUT"
-
   deploy-worker:
-    needs: detect
-    if: >-
-      needs.detect.outputs.worker == 'true' &&
-      (github.event_name == 'workflow_dispatch' || vars.ENABLE_PRODUCTION_DEPLOY == 'true')
+    if: inputs.target == 'worker' || inputs.target == 'all'
     runs-on: ubuntu-latest
     environment: worker-production
     steps:
@@ -102,10 +54,7 @@ jobs:
           pnpm --filter worker deploy
 
   deploy-n8n:
-    needs: detect
-    if: >-
-      needs.detect.outputs.n8n == 'true' &&
-      (github.event_name == 'workflow_dispatch' || vars.ENABLE_PRODUCTION_DEPLOY == 'true')
+    if: inputs.target == 'n8n' || inputs.target == 'all'
     runs-on: ubuntu-latest
     environment: n8n-production
     steps:
