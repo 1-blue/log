@@ -6,8 +6,10 @@
 		reverse_proxy n8n:5678
 	}
 
-	basic_auth {
-		admin {$CADDY_BASIC_AUTH_HASH}
+	handle {
+		basic_auth {
+			admin {$CADDY_BASIC_AUTH_HASH}
+		}
+		reverse_proxy n8n:5678
 	}
-	reverse_proxy n8n:5678
 }
