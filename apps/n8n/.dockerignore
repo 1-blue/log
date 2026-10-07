@@ -1,0 +1,12 @@
+*
+!Dockerfile.ocr
+!ocr-runtime/
+ocr-runtime/*
+!ocr-runtime/package.json
+!ocr-runtime/pnpm-lock.yaml
+!custom-nodes/
+custom-nodes/*
+!custom-nodes/CareerPdfPages.node.js
+!scripts/
+scripts/*
+!scripts/document-ocr.mjs

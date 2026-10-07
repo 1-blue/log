@@ -7,11 +7,13 @@ import { errorResponse, getRequestId } from "./app-response.js";
 import { registerAnalysisRoutes } from "./app-routes-analysis.js";
 import { registerApplicationsRoutes } from "./app-routes-applications.js";
 import { registerCollectionsRoutes } from "./app-routes-collections.js";
+import { registerDeletionRoutes } from "./app-routes-deletions.js";
 import { registerDocumentsRoutes } from "./app-routes-documents.js";
 import { registerInternalRoutes } from "./app-routes-internal.js";
 import { registerInterviewRoutes } from "./app-routes-interview.js";
 import type { AppDependencies, WorkerAppEnv } from "./app-types.js";
 import { createApplicationService } from "./applications.js";
+import { createDeletionService } from "./deletions.js";
 import { createDocumentService } from "./documents.js";
 import { createIdempotencyService } from "./idempotency.js";
 import { createInterviewWorkspaceService } from "./interview-workspace.js";
@@ -25,7 +27,10 @@ const SERVICE_NAME = "blog-career-ops-api" as const;
 const ResourceIdSchema = z.uuid();
 
 export function createApp(dependencies?: AppDependencies) {
-  const resolvedDependencies = dependencies ?? {};
+  const resolvedDependencies = dependencies ?? {
+    isMaintenance: (env: CloudflareBindings) =>
+      createDeletionService(env).isMaintenance(env.ADMIN_USER_ID),
+  };
   const app = new Hono<WorkerAppEnv>();
   const requireAdmin = createRequireAdmin(resolvedDependencies);
   const getApplicationService = (env: CloudflareBindings) =>
@@ -172,6 +177,17 @@ export function createApp(dependencies?: AppDependencies) {
     c.set("requestId", verified.requestId);
     c.set("signedEventId", verified.eventId);
     c.header("X-Request-Id", verified.requestId);
+    if (
+      resolvedDependencies.isMaintenance &&
+      (await resolvedDependencies.isMaintenance(c.env))
+    ) {
+      return errorResponse(
+        c,
+        409,
+        "CONFLICT",
+        "데이터 초기화 중입니다. 잠시 후 다시 시도해 주세요.",
+      );
+    }
     await next();
   });
 
@@ -244,6 +260,10 @@ export function createApp(dependencies?: AppDependencies) {
   registerCollectionsRoutes(routeDependencies);
   registerInternalRoutes(routeDependencies);
   registerDocumentsRoutes(routeDependencies);
+  registerDeletionRoutes(
+    routeDependencies,
+    resolvedDependencies.deletionServiceFactory ?? createDeletionService,
+  );
 
   app.notFound((c) =>
     errorResponse(c, 404, "NOT_FOUND", "요청한 경로를 찾을 수 없습니다."),

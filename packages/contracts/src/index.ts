@@ -174,6 +174,7 @@ export {
   MatchStatusSchema,
   PrioritySchema,
 } from "./common";
+export * from "./deletions";
 export type {
   AbortDocumentUploadRequest,
   AbortDocumentUploadResponse,

@@ -1,0 +1,9 @@
+{
+  "name": "career-ops-pdf-runtime",
+  "private": true,
+  "version": "1.0.0",
+  "packageManager": "pnpm@10.4.1",
+  "dependencies": {
+    "pdf-parse": "2.4.5"
+  }
+}

@@ -10,8 +10,16 @@ test -f "$workflow_file"
 workflow_name="$(basename "$workflow_file")"
 workflow_container_file="/workflows/$workflow_name"
 test "$workflow_name" = "career-analysis.json"
+existing_file="/tmp/career-analysis-before-publication.json"
+prepared_file="/tmp/career-analysis-publication.json"
+helper_file="/tmp/prepare-workflow-publication.mjs"
+"${compose[@]}" exec -T "$service" n8n export:workflow \
+  --id="$workflow_id" --output="$existing_file"
+"${compose[@]}" cp scripts/prepare-workflow-publication.mjs "$service:$helper_file"
+"${compose[@]}" exec -T "$service" node "$helper_file" \
+  "$workflow_container_file" "$existing_file" "$prepared_file" "$workflow_id"
 "${compose[@]}" exec -T "$service" n8n import:workflow \
-  --input="$workflow_container_file"
+  --input="$prepared_file"
 "${compose[@]}" exec -T "$service" n8n publish:workflow --id="$workflow_id"
 "${compose[@]}" restart "$service"
 if ! "${compose[@]}" up -d --wait --wait-timeout 180 "$service"; then

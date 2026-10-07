@@ -100,6 +100,7 @@ export interface DocumentService {
     ownerId: string,
     documentVersionId: string,
     errorCode: string,
+    eventId: string,
   ): Promise<void>;
   abortUpload(
     ownerId: string,

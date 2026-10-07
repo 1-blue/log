@@ -4,6 +4,7 @@ import type { Hono } from "hono";
 import type { AnalysisJobService } from "./analysis-jobs.js";
 import type { ApplicationService } from "./applications.js";
 import type { JwtVerificationKey } from "./auth.js";
+import type { DeletionService } from "./deletions.js";
 import type { DocumentService } from "./documents.js";
 import type { IdempotencyService } from "./idempotency.js";
 import type { InterviewWorkspaceService } from "./interview-workspace.js";
@@ -20,6 +21,8 @@ export type WorkerAppEnv = {
 };
 
 export type AppDependencies = {
+  deletionServiceFactory?: (env: CloudflareBindings) => DeletionService;
+  isMaintenance?: (env: CloudflareBindings) => Promise<boolean>;
   analysisJobServiceFactory?: (env: CloudflareBindings) => AnalysisJobService;
   applicationServiceFactory?: (env: CloudflareBindings) => ApplicationService;
   documentServiceFactory?: (env: CloudflareBindings) => DocumentService;

@@ -14,6 +14,7 @@ import {
   LoaderCircleIcon,
 } from "lucide-react";
 
+import { extractionFailureMessage } from "#/libs/document-extraction";
 import {
   extractDocumentVersion,
   publishDocumentVersion,
@@ -21,6 +22,7 @@ import {
   updateDocumentVersion,
 } from "#/libs/worker-client";
 
+import { DeleteResourceDialog } from "../../../_components/DeleteResourceDialog";
 import { useDocumentDetail } from "./useDocumentDetail";
 
 export default function DocumentDetailClient({
@@ -28,6 +30,8 @@ export default function DocumentDetailClient({
 }: Readonly<{ documentVersionId: string }>) {
   const {
     document,
+    extractedTextDraft,
+    setExtractedTextDraft,
     error,
     handleMetadata,
     loading,
@@ -206,6 +210,24 @@ export default function DocumentDetailClient({
             업로드한 PDF에서 텍스트를 자동 추출해 분석에 사용합니다. 추출이
             어려운 PDF는 아래에서 직접 보정할 수 있습니다.
           </p>
+          {document.extractionSource === "ocr" && (
+            <p className="mt-2 text-sm text-amber-600">
+              OCR로 추출했습니다. 누락이나 오인식이 없는지 원본 PDF와 비교해
+              주세요.
+            </p>
+          )}
+          {document.extractionStatus === "processing" && (
+            <p className="mt-2 text-sm" role="status">
+              PDF 추출 중입니다. 텍스트가 없으면 30페이지 이하 문서에 자동 OCR을
+              시도합니다.
+            </p>
+          )}
+          {document.extractionStatus === "failed" && (
+            <p className="text-destructive mt-2 text-sm" role="alert">
+              {extractionFailureMessage(document.extractionError)} 아래에서 직접
+              텍스트를 저장하거나 재추출할 수 있습니다.
+            </p>
+          )}
         </div>
         <div className="grid gap-2 text-sm font-medium">
           <Label htmlFor="document-detail-label">버전 이름</Label>
@@ -221,7 +243,8 @@ export default function DocumentDetailClient({
           <Label htmlFor="document-detail-text">추출 텍스트</Label>
           <Textarea
             className="min-h-80 resize-y leading-6"
-            defaultValue={document.extractedText ?? ""}
+            value={extractedTextDraft}
+            onChange={(event) => setExtractedTextDraft(event.target.value)}
             maxLength={500_000}
             name="extractedText"
             placeholder="자동 추출 결과를 확인하거나 필요한 경우 직접 보정하세요."
@@ -258,6 +281,13 @@ export default function DocumentDetailClient({
           </div>
         </div>
       </form>
+      {document.archivedAt && (
+        <DeleteResourceDialog
+          targetType="document"
+          targetId={document.id}
+          disabled={disabled}
+        />
+      )}
     </section>
   );
 }

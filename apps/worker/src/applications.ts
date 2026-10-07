@@ -207,7 +207,7 @@ class SupabaseApplicationService implements ApplicationService {
       .maybeSingle();
     if (duplicateError) throw new ApplicationServiceError("unavailable");
     if (duplicate) {
-      const { data: latest } = await this.supabase
+      const { data: latest, error: latestError } = await this.supabase
         .from("applications")
         .select("id")
         .eq("owner_id", ownerId)
@@ -215,6 +215,8 @@ class SupabaseApplicationService implements ApplicationService {
         .order("attempt_number", { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (latestError) throw new ApplicationServiceError("unavailable");
+      if (!latest) return this.createAttempt(ownerId, duplicate.id, input);
       throw new ApplicationServiceError("conflict", {
         jobPostingId: duplicate.id,
         ...(latest ? { latestApplicationId: latest.id } : {}),

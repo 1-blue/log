@@ -8,6 +8,7 @@ import {
 import {
   DOCUMENT_EXTRACTED_TEXT_MAX_LENGTH,
   DOCUMENT_MAX_FILE_SIZE,
+  DocumentExtractionErrorCodeSchema,
   DocumentExtractionStatusSchema,
   DocumentTypeSchema,
   Rfc3339TimestampSchema,
@@ -122,6 +123,8 @@ export const DocumentVersionSchema = z.strictObject({
   contentHash: DocumentContentHashSchema,
   extractedText: z.string().max(DOCUMENT_EXTRACTED_TEXT_MAX_LENGTH).nullable(),
   extractionStatus: DocumentExtractionStatusSchema,
+  extractionError: DocumentExtractionErrorCodeSchema.nullable().optional(),
+  extractionSource: z.enum(["pdf", "ocr", "manual"]).nullable().optional(),
   isDefault: z.boolean(),
   isPublished: z.boolean(),
   archivedAt: Rfc3339TimestampSchema.nullable(),

@@ -393,7 +393,7 @@ describe("n8n request signing", () => {
   });
 
   it("protects the internal namespace before routing callbacks", async () => {
-    const testApp = createApp();
+    const testApp = createApp({ isMaintenance: async () => false });
     const unsigned = await testApp.request(
       "http://localhost:8787/v1/internal/test",
       {
@@ -415,6 +415,16 @@ describe("n8n request signing", () => {
     expect(accepted.status).toBe(404);
     expect(accepted.headers.get("X-Request-Id")).toBe(REQUEST_ID);
     expect(wrongMethod.status).toBe(405);
+  });
+
+  it("does not route verified callbacks while reset maintenance is active", async () => {
+    const testApp = createApp({ isMaintenance: async () => true });
+    const response = await testApp.request(
+      await signedRequest(),
+      undefined,
+      baseEnv,
+    );
+    expect(response.status).toBe(409);
   });
 
   it("rejects non-JSON and declared oversized callback bodies before verification", async () => {

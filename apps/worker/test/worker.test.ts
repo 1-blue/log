@@ -1,8 +1,9 @@
 import type { DocumentVersion } from "@workspace/contracts";
 import {
   AdminSessionResponseSchema,
-  type DocumentExtractionCallback,
+  DeletionOperationResponseSchema,
   type DocumentEvidenceReview,
+  type DocumentExtractionCallback,
   DocumentVersionListResponseSchema,
   DocumentVersionResponseSchema,
   HealthResponseSchema,
@@ -13,6 +14,10 @@ import { generateKeyPair, SignJWT } from "jose";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { app, createApp } from "../src/app.js";
+import {
+  type DeletionService,
+  DeletionServiceError,
+} from "../src/deletions.js";
 import {
   type DocumentService,
   DocumentServiceError,
@@ -75,6 +80,153 @@ async function createAccessToken({
     .setExpirationTime(expiresAt)
     .sign(privateKey);
 }
+
+describe("archived resource deletion API", () => {
+  const id = "00000000-0000-4000-8000-000000000080";
+  const result = {
+    id,
+    targetType: "document" as const,
+    targetId: id,
+    status: "pending" as const,
+    error: null,
+    createdAt: "2026-10-06T00:00:00.000Z",
+    completedAt: null,
+  };
+  const createService = (): DeletionService => ({
+    preview: vi.fn(async () => ({
+      targetType: "document" as const,
+      targetId: id,
+      fingerprint: "a".repeat(64),
+      allowed: true,
+      blockers: [],
+      applications: [],
+      counts: { document_versions: 1 },
+      preserves: ["다른 문서"],
+    })),
+    delete: vi.fn(async () => result),
+    get: vi.fn(async () => result),
+    cleanup: vi.fn(async () => undefined),
+    isMaintenance: vi.fn(async () => false),
+  });
+  const request = async (
+    path: string,
+    init: RequestInit = {},
+    service = createService(),
+    maintenance = false,
+    authenticated = true,
+  ) => {
+    const testApp = createApp({
+      deletionServiceFactory: () => service,
+      jwtVerificationKey: publicKey,
+      isMaintenance: async () => maintenance,
+      idempotencyServiceFactory: () => createFakeIdempotencyService(),
+    });
+    const headers = new Headers(init.headers);
+    headers.set("Origin", "http://localhost:3000");
+    if (authenticated)
+      headers.set("Authorization", `Bearer ${await createAccessToken()}`);
+    if (init.body) headers.set("Content-Type", "application/json");
+    if (init.method === "DELETE")
+      headers.set("Idempotency-Key", crypto.randomUUID());
+    return {
+      response: await testApp.request(
+        `http://localhost:8787${path}`,
+        { ...init, headers },
+        mockEnv,
+      ),
+      service,
+    };
+  };
+  it("requires admin authorization before reading deletion impact", async () => {
+    const { response, service } = await request(
+      `/v1/document-versions/${id}/deletion-preview`,
+      {},
+      createService(),
+      false,
+      false,
+    );
+    expect(response.status).toBe(401);
+    expect(service.preview).not.toHaveBeenCalled();
+  });
+  it("returns impact and owner-scoped operation status", async () => {
+    const { response, service } = await request(
+      `/v1/document-versions/${id}/deletion-preview`,
+    );
+    expect(response.status).toBe(200);
+    expect(service.preview).toHaveBeenCalledWith(ADMIN_USER_ID, "document", id);
+    const status = await request(`/v1/deletion-operations/${id}`);
+    expect(status.response.status).toBe(200);
+    expect(status.service.get).toHaveBeenCalledWith(ADMIN_USER_ID, id);
+  });
+  it("keeps PDF cleanup pending instead of reporting full deletion", async () => {
+    const { response, service } = await request(`/v1/document-versions/${id}`, {
+      method: "DELETE",
+      body: JSON.stringify({ fingerprint: "a".repeat(64) }),
+    });
+    expect(response.status).toBe(202);
+    expect(
+      DeletionOperationResponseSchema.parse(await response.json()).data.status,
+    ).toBe("pending");
+    expect(service.delete).toHaveBeenCalledWith(
+      ADMIN_USER_ID,
+      "document",
+      id,
+      "a".repeat(64),
+    );
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+      "http://localhost:3000",
+    );
+  });
+  it("rejects stale confirmation and validates fingerprints", async () => {
+    const service = createService();
+    vi.mocked(service.delete).mockRejectedValue(
+      new DeletionServiceError("deletion_preview_changed"),
+    );
+    const { response } = await request(
+      `/v1/applications/${id}`,
+      {
+        method: "DELETE",
+        body: JSON.stringify({ fingerprint: "a".repeat(64) }),
+      },
+      service,
+    );
+    expect(response.status).toBe(409);
+    expect(
+      ((await response.json()) as { error: { details: { reason: string } } })
+        .error.details.reason,
+    ).toBe("deletion_preview_changed");
+    const invalid = await request(`/v1/applications/${id}`, {
+      method: "DELETE",
+      body: JSON.stringify({ fingerprint: "bad" }),
+    });
+    expect(invalid.response.status).toBe(400);
+    expect(invalid.service.delete).not.toHaveBeenCalled();
+  });
+  it("blocks mutations during maintenance and sanitizes upstream errors", async () => {
+    const blocked = await request(
+      `/v1/applications/${id}`,
+      {
+        method: "DELETE",
+        body: JSON.stringify({ fingerprint: "a".repeat(64) }),
+      },
+      createService(),
+      true,
+    );
+    expect(blocked.response.status).toBe(409);
+    expect(blocked.service.delete).not.toHaveBeenCalled();
+    const service = createService();
+    vi.mocked(service.get).mockRejectedValue(
+      new Error("private PDF and token"),
+    );
+    const { response } = await request(
+      `/v1/deletion-operations/${id}`,
+      {},
+      service,
+    );
+    expect(response.status).toBe(503);
+    expect(await response.text()).not.toContain("private PDF and token");
+  });
+});
 
 const documentFixture: DocumentVersion = {
   archivedAt: null,
@@ -440,6 +592,7 @@ describe("worker document API", () => {
     });
     const headers = new Headers(init.headers);
     headers.set("Authorization", `Bearer ${await createAccessToken()}`);
+    headers.set("Origin", "http://localhost:3000");
     if (init.body) headers.set("Content-Type", "application/json");
     if (init.method === "POST") {
       headers.set("Idempotency-Key", crypto.randomUUID());
@@ -511,7 +664,9 @@ describe("worker document API", () => {
     expect(service.saveEvidenceReview).toHaveBeenCalledWith(
       ADMIN_USER_ID,
       documentFixture.id,
-      expect.objectContaining({ evidenceKey: evidenceReviewFixture.evidenceKey }),
+      expect.objectContaining({
+        evidenceKey: evidenceReviewFixture.evidenceKey,
+      }),
     );
   });
 
@@ -698,6 +853,19 @@ describe("worker document API", () => {
     expect(publication.response.status).toBe(200);
     expect(download.response.status).toBe(200);
     expect(unpublished.response.status).toBe(204);
+    expect(
+      unpublished.response.headers.get("Access-Control-Allow-Origin"),
+    ).toBe("http://localhost:3000");
+    expect(
+      unpublished.response.headers.get("Access-Control-Allow-Credentials"),
+    ).toBe("true");
+    expect(unpublished.response.headers.get("Cache-Control")).toContain(
+      "no-store",
+    );
+    expect(unpublished.response.headers.get("X-Content-Type-Options")).toBe(
+      "nosniff",
+    );
+    expect(unpublished.response.headers.get("X-Request-Id")).toBeTruthy();
     expect(service.update).toHaveBeenCalled();
     expect(service.setPublication).toHaveBeenCalled();
     expect(service.createDownloadUrl).toHaveBeenCalled();

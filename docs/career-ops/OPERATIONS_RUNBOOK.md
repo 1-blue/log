@@ -8,24 +8,57 @@
 4. 재시도 전에 작업 상태와 멱등성 키를 확인한다.
 5. `delivery_unknown`처럼 실행 여부가 불명확한 작업은 자동 재전송하지 않는다.
 
-## 개발 데이터 초기화
+## 관리자별 전체 데이터 초기화
 
-실제 Supabase 개발 프로젝트의 Career Ops 데이터만 비우고 관리자·문서·Storage를
-보존해야 할 때 사용한다. 운영 프로젝트에는 실행하지 않는다.
+지정 관리자 소유의 Career Ops 업무 데이터, 문서, 공개 설정과 PDF만 제거한다.
+관리자 Auth 계정, 블로그 게시글, 외부 Credential, 실제 Slack 메시지와 n8n 실행
+이력은 유지한다. 운영 초기화는 삭제 대상과 검증된 백업을 보여준 뒤 별도 승인을 받는다.
 
 ```bash
 ADMIN_USER_ID=<관리자 UUID> pnpm db:reset:career-ops:dry-run
-ADMIN_USER_ID=<관리자 UUID> pnpm db:reset:career-ops
+ADMIN_USER_ID=<관리자 UUID> pnpm db:reset:career-ops --prepare-backup
+# 백업과 대상 확인 후 별도 승인된 경우에만 실행
+ADMIN_USER_ID=<관리자 UUID> pnpm db:reset:career-ops --apply \
+  --backup <검증된 백업 디렉터리> --confirm <연결 프로젝트 ref:관리자 UUID>
 ```
 
-기본은 dry-run이며 `--apply` 때만 삭제한다. 스크립트는 활성 분석·수집·Slack 발송이
-있으면 중단하고, 삭제 전 백업을 `.local/career-ops-backups`에 제한된 권한으로 남긴다.
-보존 대상은 Auth 사용자, `document_versions`, `document_analysis_profiles`, 공개 설정,
-Storage object이며 삭제 대상은 지정 관리자 소유의 공고·지원·수집·분석·면접·Slack
-Outbox와 관련 멱등성 기록이다. `verify:offline`은 별도 임시 Supabase를 사용한다.
+기본은 dry-run이다. DB 프로젝트와 Storage 설정 불일치, 실행 중인 분석·추출·수집·알림,
+백업 실패, 백업 이후 데이터 변경 시 중단한다. 준비·삭제 동안 관리자별 유지보수 잠금으로
+새 쓰기와 PDF 업로드 완료를 막는다. 백업 준비는 잠금을 해제하며 데이터를 삭제하지 않는다.
 
-초기화 후 관리자 로그인, 문서 목록·프로필·공개 링크, Storage signed URL과 스키마
-검증을 확인한다. 백업 파일은 복구가 필요할 때까지 외부 암호화 저장소에도 복사한다.
+백업은 Git에서 제외된 `.local/career-ops-backups/<시각>`에 디렉터리 700, 파일 600으로
+보존한다. DB 데이터와 PDF 본문·크기·SHA-256 manifest를 저장하고 임시 격리 DB에
+복원해 삭제 대상 fingerprint를 대조한다. PDF는 원본과 백업의 바이트 해시를 대조한다.
+백업은 민감한 원문을 포함하므로 외부 전달 전에 암호화한다.
+
+부분 삭제 실패 시 유지보수 잠금과 백업을 유지한다. 같은 승인된 명령으로 정리 큐를
+재처리하고 관리자 존재, 업무 데이터·공개 포인터·PDF 잔여 0을 확인한다.
+전역 트리거 비활성화나 프로젝트 전체 DB reset은 사용하지 않는다.
+
+## 보관 자료 영구 삭제
+
+- 지원·문서는 보관된 경우에만 삭제한다. 실행 중인 관련 작업은 먼저 종료해야 한다.
+- 문서는 현재 선택뿐 아니라 과거 분석 참조도 검사한다. 활성 지원이 있으면 보관할
+  지원 목록을 표시하고 거부하며, 모두 보관됐다면 해당 지원과 종속 기록도 삭제한다.
+- 확인 화면의 fingerprint가 변경되면 409로 거부한다. 삭제 영향을 다시 확인한다.
+- PDF는 DB 트랜잭션의 정리 큐에서 Storage API로 삭제한다. 화면의 작업 상태가
+  `completed`일 때만 완전 삭제가 끝난 것이다. 실패는 Cron에서 재시도한다.
+- `GET /v1/deletion-operations/:id`로 관리자 소유 작업의 정리 상태를 확인한다.
+- 삭제된 대상의 늦은 콜백은 404이며 이전 추출 이벤트는 최신 결과를 덮어쓰지 않는다.
+
+## PDF 추출·OCR
+
+텍스트 레이어 추출 결과가 비었을 때만 기존 OpenAI Credential의 Responses API로
+자동 OCR을 호출한다. 20MB·30페이지 이내, 요청별 180초, 일시적 오류 최대 한 번 재시도다.
+모델은 `gpt-5.6-luna`이며 PDF 전체 페이지를 PNG로 렌더링해 페이지 번호와 함께
+`input_image`로 전달하고 `store: false`를 사용한다. 텍스트가 벡터 윤곽선으로 저장된
+PDF도 페이지 전체를 읽도록 하며, PDF 안의 삽화만 추출해 OCR하지 않는다.
+렌더링 모듈은 `Dockerfile.ocr`의 격리된 pnpm 런타임에 고정한다. 기본 n8n 이미지의
+미설치 native canvas binding에 의존하지 않는다. 일반 텍스트 PDF는 렌더링과 OCR을 생략한다.
+페이지 이미지는 최대 너비 1,600px·높이 2,600px, 이미지별 data URL 4MiB·전체 24MiB로
+제한하고 렌더링 종료 시 parser를 정리한다. 지나치게 긴 페이지는 자동 추출 대신 수동 입력을 안내한다.
+페이지 누락·불완전 응답·빈 결과·제한 초과는 실패로 표시한다. OCR 결과는 사용자 검토가
+필요하며, 재추출 또는 수동 보정 저장 후 분석할 수 있다. 수동 보정 이후 늦은 콜백은 무시한다.
 
 ## 장애별 대응
 

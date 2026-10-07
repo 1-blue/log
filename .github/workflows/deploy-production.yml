@@ -54,7 +54,8 @@ jobs:
           pnpm --filter worker run deploy
 
   deploy-n8n:
-    if: inputs.target == 'n8n' || inputs.target == 'all'
+    needs: deploy-worker
+    if: always() && (inputs.target == 'n8n' || inputs.target == 'all') && (needs.deploy-worker.result == 'success' || needs.deploy-worker.result == 'skipped')
     runs-on: ubuntu-latest
     environment: n8n-production
     steps:
@@ -101,12 +102,18 @@ jobs:
           set -euo pipefail
           : "${DEPLOY_HOST:?Set N8N_DEPLOY_HOST}"
           : "${DEPLOY_USER:?Set N8N_DEPLOY_USER}"
-          ssh -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" 'mkdir -p /opt/career-ops-n8n/scripts /opt/career-ops-n8n/workflows'
+          ssh -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" 'mkdir -p /opt/career-ops-n8n/scripts /opt/career-ops-n8n/workflows /opt/career-ops-n8n/ocr-runtime /opt/career-ops-n8n/custom-nodes'
           rsync -av -e 'ssh -o StrictHostKeyChecking=yes' \
-            apps/n8n/compose.prod.yml apps/n8n/Caddyfile \
+            apps/n8n/compose.prod.yml apps/n8n/Caddyfile apps/n8n/Dockerfile.ocr apps/n8n/.dockerignore \
             "$DEPLOY_USER@$DEPLOY_HOST:/opt/career-ops-n8n/"
           rsync -av -e 'ssh -o StrictHostKeyChecking=yes' \
-            apps/n8n/scripts/backup-production.sh apps/n8n/scripts/deploy-production.sh apps/n8n/scripts/publish-workflow-production.sh \
+            apps/n8n/ocr-runtime/package.json apps/n8n/ocr-runtime/pnpm-lock.yaml \
+            "$DEPLOY_USER@$DEPLOY_HOST:/opt/career-ops-n8n/ocr-runtime/"
+          rsync -av -e 'ssh -o StrictHostKeyChecking=yes' \
+            apps/n8n/custom-nodes/CareerPdfPages.node.js \
+            "$DEPLOY_USER@$DEPLOY_HOST:/opt/career-ops-n8n/custom-nodes/"
+          rsync -av -e 'ssh -o StrictHostKeyChecking=yes' \
+            apps/n8n/scripts/backup-production.sh apps/n8n/scripts/deploy-production.sh apps/n8n/scripts/publish-workflow-production.sh apps/n8n/scripts/prepare-workflow-publication.mjs apps/n8n/scripts/document-ocr.mjs \
             "$DEPLOY_USER@$DEPLOY_HOST:/opt/career-ops-n8n/scripts/"
           rsync -av -e 'ssh -o StrictHostKeyChecking=yes' \
             apps/n8n/workflows/*.json \

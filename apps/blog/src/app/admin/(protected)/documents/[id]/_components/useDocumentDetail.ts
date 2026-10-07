@@ -22,6 +22,17 @@ export function useDocumentDetail(documentVersionId: string) {
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [extractedTextDraft, setDraft] = useState("");
+  const [textDirty, setTextDirty] = useState(false);
+  const [awaitingExtraction, setAwaitingExtraction] = useState(false);
+  const setExtractedTextDraft = (text: string) => {
+    setTextDirty(true);
+    setDraft(text);
+  };
+
+  useEffect(() => {
+    if (!textDirty) setDraft(document?.extractedText ?? "");
+  }, [document?.extractedText, textDirty]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -29,6 +40,9 @@ export function useDocumentDetail(documentVersionId: string) {
     try {
       const response = await getDocumentVersion(documentVersionId);
       setDocument(response.data);
+      setAwaitingExtraction(
+        ["pending", "processing"].includes(response.data.extractionStatus),
+      );
     } catch (caught) {
       setError(getErrorMessage(caught));
     } finally {
@@ -40,6 +54,39 @@ export function useDocumentDetail(documentVersionId: string) {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!awaitingExtraction) return;
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const start = Date.now();
+    const poll = async () => {
+      try {
+        const response = await getDocumentVersion(documentVersionId);
+        if (!alive) return;
+        setDocument(response.data);
+        if (["ready", "failed"].includes(response.data.extractionStatus)) {
+          setAwaitingExtraction(false);
+          return;
+        }
+      } catch (caught) {
+        if (alive) setError(getErrorMessage(caught));
+      }
+      if (alive && Date.now() - start < 15 * 60 * 1000)
+        timer = setTimeout(() => void poll(), 3000);
+      else if (alive) {
+        setAwaitingExtraction(false);
+        setError(
+          "추출 상태 확인 시간이 초과되었습니다. 페이지를 새로고침해 확인해 주세요.",
+        );
+      }
+    };
+    timer = setTimeout(() => void poll(), 2000);
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [documentVersionId, awaitingExtraction]);
+
   async function runAction(
     name: string,
     action: () => Promise<DocumentVersion | void>,
@@ -50,6 +97,7 @@ export function useDocumentDetail(documentVersionId: string) {
       const updated = await action();
       if (updated) setDocument(updated);
       else await load();
+      if (name === "extract") setAwaitingExtraction(true);
     } catch (caught) {
       setError(getErrorMessage(caught));
     } finally {
@@ -67,6 +115,8 @@ export function useDocumentDetail(documentVersionId: string) {
           String(formData.get("extractedText") ?? "").trim() || null,
         label: String(formData.get("label") ?? "").trim(),
       });
+      setTextDirty(false);
+      setAwaitingExtraction(false);
       return response.data;
     });
   }
@@ -93,6 +143,8 @@ export function useDocumentDetail(documentVersionId: string) {
 
   return {
     document,
+    extractedTextDraft,
+    setExtractedTextDraft,
     error,
     handleMetadata,
     loading,

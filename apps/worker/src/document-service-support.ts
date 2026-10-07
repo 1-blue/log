@@ -77,6 +77,9 @@ export function mapDocumentVersion(
     documentType: row.document_type,
     extractedText: row.extracted_text,
     extractionStatus: row.extraction_status,
+    extractionError: row.extraction_error as DocumentVersion["extractionError"],
+    extractionSource:
+      row.extraction_source as DocumentVersion["extractionSource"],
     fileSize: row.file_size,
     id: row.id,
     isDefault: row.is_default,

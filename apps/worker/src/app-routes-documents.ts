@@ -113,18 +113,24 @@ export function registerDocumentsRoutes(routes: AppRouteDependencies) {
             input,
           );
           scheduleBackground(c, async () => {
+            let eventId: string | null = null;
             try {
               const payload = await documentService.prepareExtraction(
                 c.get("adminUserId"),
                 documentVersionId,
                 getRequestId(c),
               );
-              if (payload) await dispatchToN8n(payload, c.env);
+              if (payload) {
+                eventId = payload.eventId;
+                await dispatchToN8n(payload, c.env);
+              }
             } catch {
+              if (!eventId) return;
               await documentService.failExtraction(
                 c.get("adminUserId"),
                 documentVersionId,
                 "EXTRACTION_DISPATCH_FAILED",
+                eventId,
               );
             }
           });
@@ -147,18 +153,24 @@ export function registerDocumentsRoutes(routes: AppRouteDependencies) {
         documentVersionId,
       );
       scheduleBackground(c, async () => {
+        let eventId: string | null = null;
         try {
           const payload = await documentService.prepareExtraction(
             c.get("adminUserId"),
             documentVersionId,
             getRequestId(c),
           );
-          if (payload) await dispatchToN8n(payload, c.env);
+          if (payload) {
+            eventId = payload.eventId;
+            await dispatchToN8n(payload, c.env);
+          }
         } catch {
+          if (!eventId) return;
           await documentService.failExtraction(
             c.get("adminUserId"),
             documentVersionId,
             "EXTRACTION_DISPATCH_FAILED",
+            eventId,
           );
         }
       });
@@ -334,7 +346,7 @@ export function registerDocumentsRoutes(routes: AppRouteDependencies) {
         documentType.data,
       );
       return new Response(null, {
-        headers: { "X-Request-Id": getRequestId(c) },
+        headers: c.res.headers,
         status: 204,
       });
     } catch (error) {

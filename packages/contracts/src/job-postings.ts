@@ -58,6 +58,16 @@ export const DocumentExtractionErrorCodeSchema = z.enum([
   "PDF_PARSE_FAILED",
   "PDF_TEXT_EMPTY",
   "PDF_TEXT_TOO_LARGE",
+  "EXTRACTION_DISPATCH_FAILED",
+  "OCR_PAGE_LIMIT_EXCEEDED",
+  "OCR_PAGE_COUNT_UNKNOWN",
+  "OCR_TEXT_EMPTY",
+  "OCR_INCOMPLETE",
+  "OCR_TIMEOUT",
+  "OCR_RATE_LIMITED",
+  "OCR_BILLING_LIMIT",
+  "OCR_UNAVAILABLE",
+  "OCR_FAILED",
 ]);
 
 export type DocumentExtractionErrorCode = z.infer<

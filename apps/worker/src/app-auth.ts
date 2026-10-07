@@ -55,6 +55,25 @@ export function createRequireAdmin(
       `admin:${userId}`,
     );
     if (rateLimitResponse) return rateLimitResponse;
+    if (!["GET", "HEAD"].includes(c.req.method) && dependencies.isMaintenance) {
+      try {
+        if (await dependencies.isMaintenance(c.env))
+          return errorResponse(
+            c,
+            409,
+            "CONFLICT",
+            "데이터 초기화 중입니다. 잠시 후 다시 시도해 주세요.",
+          );
+      } catch {
+        return errorResponse(
+          c,
+          503,
+          "UPSTREAM_UNAVAILABLE",
+          "서비스 상태를 확인하지 못했습니다.",
+          true,
+        );
+      }
+    }
     await next();
   };
 }

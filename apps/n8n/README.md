@@ -206,18 +206,45 @@ DB 백업만으로 Credential을 복호화할 수 없으므로 `.env`의 `N8N_EN
 - Slack Bot Token은 n8n Credential에만 저장하고 payload, 환경변수, Workflow export에는 포함하지 않는다.
 - 운영 공개 주소, HTTPS, reverse proxy, 외부 task runner와 백업 자동화는 운영 배포 단계에서 추가한다.
 
-운영 자동 배포는 `.github/workflows/deploy-production.yml`이 담당한다. `master` push에서는
-변경 경로에 따라 Worker와 n8n 배포 대상을 판정하고, GitHub 환경의
-`ENABLE_PRODUCTION_DEPLOY` 변수가 문자열 `true`일 때만 실행한다. `workflow_dispatch`에서는
-`worker`, `n8n`, `all` 중 대상을 선택해 수동 실행할 수 있다.
+운영 배포는 `.github/workflows/deploy-production.yml`의 `workflow_dispatch`로 실행한다.
+`worker`, `n8n`, `all` 중 대상을 선택하며 `all`은 Worker 성공 후 n8n을 배포한다.
+DB 백업과 추가 migration은 먼저 반영하고 Blog는 n8n 이후 별도로 배포한다.
 
-- 변수: `ENABLE_PRODUCTION_DEPLOY`, `N8N_DEPLOY_HOST`, `N8N_DEPLOY_USER`, `N8N_WORKFLOW_ID`
+- 변수: `N8N_DEPLOY_HOST`, `N8N_DEPLOY_USER`, `N8N_PUBLIC_URL`, `N8N_WORKFLOW_ID`
 - Secret: `N8N_DEPLOY_SSH_KEY`, `N8N_DEPLOY_KNOWN_HOSTS`
 
 배포 스크립트는 기존 n8n PostgreSQL과 data volume을 백업한 뒤 Compose를 갱신하고,
 명시적인 `--publish-workflow <id>`가 있을 때만 호스트의 Workflow 파일을
-컨테이너 경로 `/workflows/career-analysis.json`으로 import·publish한다. Credential 값은 export,
+컨테이너 경로 `/workflows/career-analysis.json`으로 import·publish한다. 게시 전 기존 운영
+Workflow를 export해 실제 ID와 Credential 참조를 유지한다. 신규 OCR 노드도 기존
+`OpenAI 프로필 비교` 노드의 Credential을 재사용하며, 운영 ID나 참조가 없거나
+현재 게시되지 않은 Workflow를 지정하면 import를 중단한다.
+`N8N_WORKFLOW_ID`에는 로컬 JSON의 ID가 아니라 실제 운영 Webhook을 처리하는 ID를 지정한다.
+동일 Webhook을 처리하는 Workflow를 중복 게시하지 않는다. Credential 값은 export,
 GitHub, Workflow payload에 포함하지 않는다. 배포 이력에는 Git SHA, n8n 이미지
 digest, Workflow `versionId`/파일 hash와 적용 migration 버전을 함께 기록한다.
 코드 rollback은 n8n DB나 Supabase schema를 되돌리지 않으므로, DB 복구가 필요한
 경우에는 해당 시점의 별도 백업과 보정 migration 절차를 사용한다.
+
+### 페이지 전체 이미지 기반 PDF OCR
+
+텍스트 레이어가 없는 PDF는 페이지 전체를 PNG로 렌더링한 뒤, 기존 OpenAI Credential로
+페이지 번호가 붙은 이미지들을 전송한다. 원본 PDF의 임베디드 이미지만 읽거나 페이지를
+누락하는 결과를 성공 처리하지 않는다. 20MB·30페이지 제한, 요청별 180초 및 일시적
+오류 한 번 재시도는 유지한다. 일반 텍스트 PDF에는 OCR을 호출하지 않는다.
+
+`Dockerfile.ocr`는 digest로 고정한 n8n 이미지에 `ocr-runtime/pnpm-lock.yaml`의 PDF 렌더러를
+추가한다. 이 런타임은 모노레포와 분리된 Docker 전용 pnpm 설치이며, 다음 명령으로 갱신한다.
+
+```bash
+pnpm --dir apps/n8n/ocr-runtime install --ignore-workspace
+docker compose --env-file apps/n8n/.env.example -f apps/n8n/compose.yml build n8n
+node apps/n8n/scripts/update-document-ocr.mjs
+node --test apps/n8n/scripts/document-ocr.test.mjs
+```
+
+PDF 렌더링은 저장소에서 관리하는 `CUSTOM.careerPdfPages` 노드에서 실행한다. Code 노드의
+외부 모듈 허용이나 sandbox 보안 해제 없이 native canvas·PDF worker를 사용한다.
+Docker build context에는 Dockerfile, 런타임 manifest·lockfile, PDF 렌더링 노드와 OCR helper만
+포함하고 환경변수, Credential, 백업, 실행 로그는 포함하지 않는다. 배포 스크립트는 기본 이미지 pull 이후
+이 이미지를 빌드하며, 기존 DB·n8n data volume과 Credential은 그대로 유지한다.

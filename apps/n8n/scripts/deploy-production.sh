@@ -45,7 +45,8 @@ if docker volume inspect blog-career-ops-n8n_postgres_data > /dev/null 2>&1; the
   bash ./scripts/backup-production.sh
 fi
 
-"${compose[@]}" pull
+"${compose[@]}" pull --ignore-buildable
+"${compose[@]}" build n8n
 "${compose[@]}" run --rm --no-deps caddy caddy validate \
   --config /etc/caddy/Caddyfile \
   --adapter caddyfile

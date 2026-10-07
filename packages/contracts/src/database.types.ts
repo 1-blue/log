@@ -7,11 +7,6 @@ export type Json =
   | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5";
-  };
   public: {
     Tables: {
       analysis_job_events: {
@@ -615,6 +610,101 @@ export type Database = {
           },
         ];
       };
+      career_deletion_operations: {
+        Row: {
+          completed_at: string | null;
+          created_at: string;
+          error: string | null;
+          fingerprint: string;
+          id: string;
+          owner_id: string;
+          status: string;
+          target_id: string | null;
+          target_type: string;
+        };
+        Insert: {
+          completed_at?: string | null;
+          created_at?: string;
+          error?: string | null;
+          fingerprint: string;
+          id?: string;
+          owner_id: string;
+          status: string;
+          target_id?: string | null;
+          target_type: string;
+        };
+        Update: {
+          completed_at?: string | null;
+          created_at?: string;
+          error?: string | null;
+          fingerprint?: string;
+          id?: string;
+          owner_id?: string;
+          status?: string;
+          target_id?: string | null;
+          target_type?: string;
+        };
+        Relationships: [];
+      };
+      career_ops_maintenance: {
+        Row: {
+          enabled: boolean;
+          owner_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          enabled?: boolean;
+          owner_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          enabled?: boolean;
+          owner_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      career_storage_cleanup: {
+        Row: {
+          attempts: number;
+          error: string | null;
+          id: string;
+          operation_id: string;
+          owner_id: string;
+          status: string;
+          storage_path: string;
+          updated_at: string;
+        };
+        Insert: {
+          attempts?: number;
+          error?: string | null;
+          id?: string;
+          operation_id: string;
+          owner_id: string;
+          status?: string;
+          storage_path: string;
+          updated_at?: string;
+        };
+        Update: {
+          attempts?: number;
+          error?: string | null;
+          id?: string;
+          operation_id?: string;
+          owner_id?: string;
+          status?: string;
+          storage_path?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "career_storage_cleanup_operation_id_fkey";
+            columns: ["operation_id"];
+            isOneToOne: false;
+            referencedRelation: "career_deletion_operations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       document_analysis_profiles: {
         Row: {
           created_at: string;
@@ -774,6 +864,8 @@ export type Database = {
           document_type: Database["public"]["Enums"]["document_type"];
           extracted_text: string | null;
           extraction_error: string | null;
+          extraction_event_id: string | null;
+          extraction_source: string | null;
           extraction_status: Database["public"]["Enums"]["document_extraction_status"];
           file_size: number;
           id: string;
@@ -792,6 +884,8 @@ export type Database = {
           document_type: Database["public"]["Enums"]["document_type"];
           extracted_text?: string | null;
           extraction_error?: string | null;
+          extraction_event_id?: string | null;
+          extraction_source?: string | null;
           extraction_status?: Database["public"]["Enums"]["document_extraction_status"];
           file_size: number;
           id?: string;
@@ -810,6 +904,8 @@ export type Database = {
           document_type?: Database["public"]["Enums"]["document_type"];
           extracted_text?: string | null;
           extraction_error?: string | null;
+          extraction_event_id?: string | null;
+          extraction_source?: string | null;
           extraction_status?: Database["public"]["Enums"]["document_extraction_status"];
           file_size?: number;
           id?: string;
@@ -1477,6 +1573,10 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      begin_document_extraction: {
+        Args: { p_document_id: string; p_event_id: string; p_owner_id: string };
+        Returns: boolean;
+      };
       cancel_analysis_job: {
         Args: {
           p_analysis_job_id: string;
@@ -1548,6 +1648,25 @@ export type Database = {
           stored_response_body: Json;
           stored_response_status: number;
         }[];
+      };
+      claim_career_storage_cleanup: {
+        Args: { p_limit?: number; p_owner_id: string };
+        Returns: {
+          attempts: number;
+          error: string | null;
+          id: string;
+          operation_id: string;
+          owner_id: string;
+          status: string;
+          storage_path: string;
+          updated_at: string;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "career_storage_cleanup";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
       };
       claim_slack_notifications: {
         Args: { p_limit?: number };
@@ -1861,6 +1980,35 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      delete_career_resource: {
+        Args: {
+          p_fingerprint: string;
+          p_owner_id: string;
+          p_target_id: string;
+          p_target_type: string;
+        };
+        Returns: {
+          completed_at: string | null;
+          created_at: string;
+          error: string | null;
+          fingerprint: string;
+          id: string;
+          owner_id: string;
+          status: string;
+          target_id: string | null;
+          target_type: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "career_deletion_operations";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      enqueue_career_reset_objects: {
+        Args: { p_operation_id: string; p_owner_id: string; p_paths: string[] };
+        Returns: undefined;
+      };
       fail_slack_notification_dispatch: {
         Args: {
           p_error_message: string;
@@ -1910,6 +2058,37 @@ export type Database = {
       fail_stale_slack_notifications: {
         Args: { p_cutoff: string; p_limit?: number };
         Returns: string[];
+      };
+      finish_career_storage_cleanup: {
+        Args: {
+          p_attempt: number;
+          p_cleanup_id: string;
+          p_owner_id: string;
+          p_success: boolean;
+        };
+        Returns: undefined;
+      };
+      finish_document_extraction: {
+        Args: {
+          p_content_hash: string;
+          p_document_id: string;
+          p_error: string;
+          p_event_id: string;
+          p_owner_id: string;
+          p_profile?: Json;
+          p_profile_metadata?: Json;
+          p_source: string;
+          p_text: string;
+        };
+        Returns: boolean;
+      };
+      preview_career_deletion: {
+        Args: {
+          p_owner_id: string;
+          p_target_id: string;
+          p_target_type: string;
+        };
+        Returns: Json;
       };
       record_analysis_event: {
         Args: {
@@ -2049,6 +2228,8 @@ export type Database = {
           document_type: Database["public"]["Enums"]["document_type"];
           extracted_text: string | null;
           extraction_error: string | null;
+          extraction_event_id: string | null;
+          extraction_source: string | null;
           extraction_status: Database["public"]["Enums"]["document_extraction_status"];
           file_size: number;
           id: string;
@@ -2174,6 +2355,10 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      set_career_maintenance: {
+        Args: { p_enabled: boolean; p_owner_id: string };
+        Returns: boolean;
+      };
       set_default_document_version: {
         Args: {
           p_document_type: Database["public"]["Enums"]["document_type"];
@@ -2187,6 +2372,8 @@ export type Database = {
           document_type: Database["public"]["Enums"]["document_type"];
           extracted_text: string | null;
           extraction_error: string | null;
+          extraction_event_id: string | null;
+          extraction_source: string | null;
           extraction_status: Database["public"]["Enums"]["document_extraction_status"];
           file_size: number;
           id: string;

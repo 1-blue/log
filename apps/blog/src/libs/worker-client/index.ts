@@ -11,6 +11,7 @@ export * from "./analysis";
 export * from "./applications";
 export * from "./collections";
 export * from "./core";
+export * from "./deletions";
 export * from "./documents";
 export * from "./interview";
 

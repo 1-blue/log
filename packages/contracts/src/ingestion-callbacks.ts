@@ -77,6 +77,7 @@ export const DocumentExtractionCallbackSchema = z
     documentVersionId: UuidSchema,
     contentHash: z.string().regex(/^[0-9a-f]{64}$/),
     outcome: DocumentExtractionOutcomeSchema,
+    extractionSource: z.enum(["pdf", "ocr"]).optional(),
     extractedText: z
       .string()
       .max(DOCUMENT_EXTRACTED_TEXT_MAX_LENGTH)

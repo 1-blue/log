@@ -4,6 +4,7 @@ import {
   createAnalysisJobService,
 } from "./analysis-jobs.js";
 import { app } from "./app.js";
+import { createDeletionService } from "./deletions.js";
 import { createDocumentService, type DocumentService } from "./documents.js";
 import { logInfo } from "./logger.js";
 import {
@@ -74,11 +75,16 @@ export default {
   fetch: app.fetch,
   async scheduled(controller, env, context) {
     context.waitUntil(
-      Promise.all([
-        runStaleAnalysisSweep(env, controller.scheduledTime),
-        runSlackNotificationSweep(env, controller.scheduledTime),
-        runDocumentOrphanSweep(env, controller.scheduledTime),
-      ]),
+      (async () => {
+        const deletions = createDeletionService(env);
+        await deletions.cleanup(env.ADMIN_USER_ID);
+        if (await deletions.isMaintenance(env.ADMIN_USER_ID)) return;
+        await Promise.all([
+          runStaleAnalysisSweep(env, controller.scheduledTime),
+          runSlackNotificationSweep(env, controller.scheduledTime),
+          runDocumentOrphanSweep(env, controller.scheduledTime),
+        ]);
+      })(),
     );
   },
 } satisfies ExportedHandler<CloudflareBindings>;

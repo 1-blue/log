@@ -375,17 +375,34 @@ class SupabaseDocumentService implements DocumentService {
       return null;
     }
 
-    const download = await this.createSignedDocumentUrl(
-      row,
-      "inline",
-      EXTRACTION_URL_TTL_SECONDS,
+    const eventId = crypto.randomUUID();
+    const { data: started, error } = await this.supabase.rpc(
+      "begin_document_extraction",
+      {
+        p_owner_id: ownerId,
+        p_document_id: documentVersionId,
+        p_event_id: eventId,
+      },
     );
-    const { error } = await this.supabase
-      .from("document_versions")
-      .update({ extraction_error: null, extraction_status: "processing" })
-      .eq("owner_id", ownerId)
-      .eq("id", documentVersionId);
     if (error) throw new DocumentServiceError("unavailable");
+    if (!started) return null;
+
+    let download: DocumentDownloadUrl;
+    try {
+      download = await this.createSignedDocumentUrl(
+        row,
+        "inline",
+        EXTRACTION_URL_TTL_SECONDS,
+      );
+    } catch {
+      await this.failExtraction(
+        ownerId,
+        documentVersionId,
+        "EXTRACTION_DISPATCH_FAILED",
+        eventId,
+      );
+      throw new DocumentServiceError("unavailable");
+    }
 
     return {
       callbackPath: `/v1/internal/document-versions/${documentVersionId}/extract`,
@@ -396,7 +413,7 @@ class SupabaseDocumentService implements DocumentService {
         id: row.id,
         type: row.document_type,
       },
-      eventId: crypto.randomUUID(),
+      eventId,
       kind: "document_extraction",
       outputSchema: toOpenAiStructuredOutputSchema(
         z.toJSONSchema(DocumentAnalysisProfileSchema, { target: "draft-07" }),
@@ -410,12 +427,14 @@ class SupabaseDocumentService implements DocumentService {
     ownerId: string,
     documentVersionId: string,
     errorCode: string,
+    eventId: string,
   ): Promise<void> {
     const { error } = await this.supabase
       .from("document_versions")
       .update({ extraction_error: errorCode, extraction_status: "failed" })
       .eq("owner_id", ownerId)
       .eq("id", documentVersionId)
+      .eq("extraction_event_id", eventId)
       .eq("extraction_status", "processing");
     if (error) throw new DocumentServiceError("unavailable");
   }
@@ -431,8 +450,11 @@ class SupabaseDocumentService implements DocumentService {
       });
     }
 
-    // A late failure callback must not erase a successful extraction or a manual correction.
-    if (current.extraction_status === "ready" && input.outcome === "failed") {
+    if (
+      current.extraction_status !== "processing" ||
+      (current.extraction_event_id &&
+        current.extraction_event_id !== input.eventId)
+    ) {
       return this.get(ownerId, input.documentVersionId);
     }
 
@@ -450,41 +472,19 @@ class SupabaseDocumentService implements DocumentService {
           reason: "invalid_document_analysis_profile",
         });
       }
-
-      const profileMetadata = input.profileMetadata;
-      const { error: profileError } = await this.supabase
-        .from("document_analysis_profiles")
-        .upsert(
-          {
-            document_type: current.document_type,
-            document_version_id: current.id,
-            input_hash: input.contentHash,
-            model: profileMetadata?.model ?? null,
-            owner_id: ownerId,
-            profile: profile.data,
-            prompt_version:
-              profileMetadata?.promptVersion ?? "document-profile-v1",
-            reasoning_effort: profileMetadata?.reasoningEffort ?? null,
-            source: "ai",
-            status: "succeeded",
-          },
-          {
-            onConflict:
-              "owner_id,document_version_id,source,input_hash,prompt_version",
-          },
-        );
-      if (profileError) throw new DocumentServiceError("unavailable");
     }
 
-    const { error } = await this.supabase
-      .from("document_versions")
-      .update({
-        extracted_text: input.outcome === "ready" ? extractedText : null,
-        extraction_error: input.errorCode,
-        extraction_status: input.outcome === "ready" ? "ready" : "failed",
-      })
-      .eq("owner_id", ownerId)
-      .eq("id", input.documentVersionId);
+    const { error } = await this.supabase.rpc("finish_document_extraction", {
+      p_owner_id: ownerId,
+      p_document_id: input.documentVersionId,
+      p_event_id: input.eventId,
+      p_content_hash: input.contentHash,
+      p_text: input.outcome === "ready" ? (extractedText ?? "") : "",
+      p_error: input.errorCode ?? "",
+      p_source: input.extractionSource ?? "pdf",
+      p_profile: input.profile ?? null,
+      p_profile_metadata: input.profileMetadata ?? null,
+    });
     if (error) throw new DocumentServiceError("unavailable");
     return this.get(ownerId, input.documentVersionId);
   }
@@ -637,6 +637,8 @@ class SupabaseDocumentService implements DocumentService {
           : {
               extracted_text: extractedText,
               extraction_error: null,
+              extraction_event_id: null,
+              extraction_source: extractedText ? "manual" : null,
               extraction_status: extractedText ? "ready" : "pending",
             }),
       })

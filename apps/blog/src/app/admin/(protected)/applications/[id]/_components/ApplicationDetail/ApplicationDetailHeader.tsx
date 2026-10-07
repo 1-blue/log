@@ -22,6 +22,8 @@ import {
 
 import { getApplicationStatusLabel } from "#/libs/application-ui";
 
+import { DeleteResourceDialog } from "../../../../_components/DeleteResourceDialog";
+
 export function ApplicationDetailHeader({
   application,
   archived,
@@ -109,6 +111,7 @@ export function ApplicationDetailHeader({
       ) : null}
 
       <ApplicationActions
+        applicationId={application.id}
         archived={archived}
         disabled={disabled}
         reapply={reapply}
@@ -131,11 +134,13 @@ export function ApplicationDetailHeader({
 }
 
 function ApplicationActions({
+  applicationId,
   archived,
   disabled,
   reapply,
   setArchived,
 }: Readonly<{
+  applicationId: string;
   archived: boolean;
   disabled: boolean;
   reapply: () => Promise<void>;
@@ -180,6 +185,13 @@ function ApplicationActions({
         <Button disabled={disabled} onClick={() => void setArchived(false)}>
           <RotateCcwIcon /> 보관 해제
         </Button>
+      )}
+      {archived && (
+        <DeleteResourceDialog
+          targetType="application"
+          targetId={applicationId}
+          disabled={disabled}
+        />
       )}
     </div>
   );
