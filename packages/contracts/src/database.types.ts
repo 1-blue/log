@@ -9,6 +9,90 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_balance_baselines: {
+        Row: {
+          balance_usd: number;
+          owner_id: string;
+          recorded_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          balance_usd: number;
+          owner_id: string;
+          recorded_at: string;
+          updated_at?: string;
+        };
+        Update: {
+          balance_usd?: number;
+          owner_id?: string;
+          recorded_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      ai_usage_calls: {
+        Row: {
+          attempt: number;
+          call_id: string;
+          estimated_cost_usd: number | null;
+          finished_at: string | null;
+          latency_ms: number | null;
+          model: string;
+          operation: string;
+          owner_id: string;
+          pricing_version: string | null;
+          received_at: string;
+          request_id: string;
+          resource_id: string;
+          response_id: string | null;
+          run_attempt: number;
+          service_tier: string | null;
+          started_at: string;
+          status: string;
+          usage: Json | null;
+        };
+        Insert: {
+          attempt: number;
+          call_id: string;
+          estimated_cost_usd?: number | null;
+          finished_at?: string | null;
+          latency_ms?: number | null;
+          model: string;
+          operation: string;
+          owner_id: string;
+          pricing_version?: string | null;
+          received_at?: string;
+          request_id: string;
+          resource_id: string;
+          response_id?: string | null;
+          run_attempt: number;
+          service_tier?: string | null;
+          started_at: string;
+          status: string;
+          usage?: Json | null;
+        };
+        Update: {
+          attempt?: number;
+          call_id?: string;
+          estimated_cost_usd?: number | null;
+          finished_at?: string | null;
+          latency_ms?: number | null;
+          model?: string;
+          operation?: string;
+          owner_id?: string;
+          pricing_version?: string | null;
+          received_at?: string;
+          request_id?: string;
+          resource_id?: string;
+          response_id?: string | null;
+          run_attempt?: number;
+          service_tier?: string | null;
+          started_at?: string;
+          status?: string;
+          usage?: Json | null;
+        };
+        Relationships: [];
+      };
       analysis_job_events: {
         Row: {
           analysis_job_id: string;
@@ -1407,6 +1491,7 @@ export type Database = {
           created_at: string;
           dedupe_key: string;
           dispatched_at: string | null;
+          document_version_id: string | null;
           error_code: string | null;
           error_message: string | null;
           error_retryable: boolean;
@@ -1415,7 +1500,7 @@ export type Database = {
           finished_at: string | null;
           http_status: number | null;
           id: string;
-          job_posting_id: string;
+          job_posting_id: string | null;
           message_ts: string | null;
           not_before: string;
           owner_id: string;
@@ -1436,6 +1521,7 @@ export type Database = {
           created_at?: string;
           dedupe_key: string;
           dispatched_at?: string | null;
+          document_version_id?: string | null;
           error_code?: string | null;
           error_message?: string | null;
           error_retryable?: boolean;
@@ -1444,7 +1530,7 @@ export type Database = {
           finished_at?: string | null;
           http_status?: number | null;
           id?: string;
-          job_posting_id: string;
+          job_posting_id?: string | null;
           message_ts?: string | null;
           not_before?: string;
           owner_id: string;
@@ -1465,6 +1551,7 @@ export type Database = {
           created_at?: string;
           dedupe_key?: string;
           dispatched_at?: string | null;
+          document_version_id?: string | null;
           error_code?: string | null;
           error_message?: string | null;
           error_retryable?: boolean;
@@ -1473,7 +1560,7 @@ export type Database = {
           finished_at?: string | null;
           http_status?: number | null;
           id?: string;
-          job_posting_id?: string;
+          job_posting_id?: string | null;
           message_ts?: string | null;
           not_before?: string;
           owner_id?: string;
@@ -1503,6 +1590,13 @@ export type Database = {
             columns: ["collection_run_id", "owner_id"];
             isOneToOne: false;
             referencedRelation: "job_posting_collection_runs";
+            referencedColumns: ["id", "owner_id"];
+          },
+          {
+            foreignKeyName: "slack_notifications_document_fk";
+            columns: ["document_version_id", "owner_id"];
+            isOneToOne: false;
+            referencedRelation: "document_versions";
             referencedColumns: ["id", "owner_id"];
           },
           {
@@ -1681,6 +1775,7 @@ export type Database = {
           created_at: string;
           dedupe_key: string;
           dispatched_at: string | null;
+          document_version_id: string | null;
           error_code: string | null;
           error_message: string | null;
           error_retryable: boolean;
@@ -1689,7 +1784,7 @@ export type Database = {
           finished_at: string | null;
           http_status: number | null;
           id: string;
-          job_posting_id: string;
+          job_posting_id: string | null;
           message_ts: string | null;
           not_before: string;
           owner_id: string;
@@ -1887,6 +1982,7 @@ export type Database = {
           created_at: string;
           dedupe_key: string;
           dispatched_at: string | null;
+          document_version_id: string | null;
           error_code: string | null;
           error_message: string | null;
           error_retryable: boolean;
@@ -1895,7 +1991,7 @@ export type Database = {
           finished_at: string | null;
           http_status: number | null;
           id: string;
-          job_posting_id: string;
+          job_posting_id: string | null;
           message_ts: string | null;
           not_before: string;
           owner_id: string;
@@ -2026,6 +2122,7 @@ export type Database = {
           created_at: string;
           dedupe_key: string;
           dispatched_at: string | null;
+          document_version_id: string | null;
           error_code: string | null;
           error_message: string | null;
           error_retryable: boolean;
@@ -2034,7 +2131,7 @@ export type Database = {
           finished_at: string | null;
           http_status: number | null;
           id: string;
-          job_posting_id: string;
+          job_posting_id: string | null;
           message_ts: string | null;
           not_before: string;
           owner_id: string;
@@ -2082,6 +2179,45 @@ export type Database = {
         };
         Returns: boolean;
       };
+      mark_slack_dispatch_unknown: {
+        Args: { p_notification_id: string };
+        Returns: {
+          analysis_job_id: string | null;
+          application_id: string | null;
+          attempt_count: number;
+          channel_id: string | null;
+          collection_run_id: string | null;
+          completion_event_id: string | null;
+          context: Json;
+          created_at: string;
+          dedupe_key: string;
+          dispatched_at: string | null;
+          document_version_id: string | null;
+          error_code: string | null;
+          error_message: string | null;
+          error_retryable: boolean;
+          event_id: string;
+          event_type: Database["public"]["Enums"]["slack_notification_event_type"];
+          finished_at: string | null;
+          http_status: number | null;
+          id: string;
+          job_posting_id: string | null;
+          message_ts: string | null;
+          not_before: string;
+          owner_id: string;
+          request_id: string;
+          route_key: string;
+          status: Database["public"]["Enums"]["slack_notification_status"];
+          target: Database["public"]["Enums"]["slack_notification_target"];
+          updated_at: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "slack_notifications";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       preview_career_deletion: {
         Args: {
           p_owner_id: string;
@@ -2089,6 +2225,35 @@ export type Database = {
           p_target_type: string;
         };
         Returns: Json;
+      };
+      record_ai_usage: {
+        Args: { p_call: Json; p_owner_id: string };
+        Returns: {
+          attempt: number;
+          call_id: string;
+          estimated_cost_usd: number | null;
+          finished_at: string | null;
+          latency_ms: number | null;
+          model: string;
+          operation: string;
+          owner_id: string;
+          pricing_version: string | null;
+          received_at: string;
+          request_id: string;
+          resource_id: string;
+          response_id: string | null;
+          run_attempt: number;
+          service_tier: string | null;
+          started_at: string;
+          status: string;
+          usage: Json | null;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "ai_usage_calls";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
       record_analysis_event: {
         Args: {
@@ -2316,6 +2481,50 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      retry_slack_notification: {
+        Args: {
+          p_confirm_unknown?: boolean;
+          p_expected_updated_at: string;
+          p_notification_id: string;
+          p_owner_id: string;
+        };
+        Returns: {
+          analysis_job_id: string | null;
+          application_id: string | null;
+          attempt_count: number;
+          channel_id: string | null;
+          collection_run_id: string | null;
+          completion_event_id: string | null;
+          context: Json;
+          created_at: string;
+          dedupe_key: string;
+          dispatched_at: string | null;
+          document_version_id: string | null;
+          error_code: string | null;
+          error_message: string | null;
+          error_retryable: boolean;
+          event_id: string;
+          event_type: Database["public"]["Enums"]["slack_notification_event_type"];
+          finished_at: string | null;
+          http_status: number | null;
+          id: string;
+          job_posting_id: string | null;
+          message_ts: string | null;
+          not_before: string;
+          owner_id: string;
+          request_id: string;
+          route_key: string;
+          status: Database["public"]["Enums"]["slack_notification_status"];
+          target: Database["public"]["Enums"]["slack_notification_target"];
+          updated_at: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "slack_notifications";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       save_analysis_review: {
         Args: {
           p_analysis_job_id: string;
@@ -2493,7 +2702,10 @@ export type Database = {
         | "analysis_failed"
         | "analysis_cancelled"
         | "application_status_changed"
-        | "interview_scheduled";
+        | "interview_scheduled"
+        | "document_uploaded"
+        | "document_extraction_succeeded"
+        | "document_extraction_failed";
       slack_notification_status:
         | "queued"
         | "dispatching"
@@ -2501,7 +2713,11 @@ export type Database = {
         | "failed"
         | "delivery_unknown"
         | "skipped";
-      slack_notification_target: "job_root" | "job_thread" | "error_channel";
+      slack_notification_target:
+        | "job_root"
+        | "job_thread"
+        | "error_channel"
+        | "document";
       slack_thread_status: "pending" | "ready" | "failed" | "delivery_unknown";
     };
     CompositeTypes: {
@@ -2713,6 +2929,9 @@ export const Constants = {
         "analysis_cancelled",
         "application_status_changed",
         "interview_scheduled",
+        "document_uploaded",
+        "document_extraction_succeeded",
+        "document_extraction_failed",
       ],
       slack_notification_status: [
         "queued",
@@ -2722,7 +2941,12 @@ export const Constants = {
         "delivery_unknown",
         "skipped",
       ],
-      slack_notification_target: ["job_root", "job_thread", "error_channel"],
+      slack_notification_target: [
+        "job_root",
+        "job_thread",
+        "error_channel",
+        "document",
+      ],
       slack_thread_status: ["pending", "ready", "failed", "delivery_unknown"],
     },
   },

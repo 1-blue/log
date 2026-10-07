@@ -2,28 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  assessPdf,
   buildOcrBody,
   readOcrResponse,
   classifyOcrError,
   extractionCallbackCode,
   renderPdfPages,
 } from "./document-ocr.mjs";
-test("text PDFs skip OCR; empty vector PDFs use it within the page limit", () => {
-  assert.equal(
-    assessPdf({ text: "개발 경험", numpages: 9 }).ocrRequired,
-    false,
-  );
-  assert.equal(assessPdf({ text: "", numpages: 9 }).ocrRequired, true);
-  assert.equal(
-    assessPdf({ text: "", numpages: 31 }).extractionError,
-    "OCR_PAGE_LIMIT_EXCEEDED",
-  );
-  assert.equal(
-    assessPdf({ text: "" }).extractionError,
-    "OCR_PAGE_COUNT_UNKNOWN",
-  );
-});
 const imagePages = (count) =>
   Array.from({ length: count }, (_, index) => ({
     page: index + 1,
@@ -82,7 +66,7 @@ test("renderer checks each page, bounds memory and always frees the parser", asy
     }
   }
   assert.deepEqual(
-    await renderPdfPages(Buffer.from("%PDF-fixture"), 2, Parser),
+    await renderPdfPages(Buffer.from("%PDF-fixture"), Parser),
     imagePages(2),
   );
   assert.deepEqual(
@@ -96,7 +80,7 @@ test("renderer checks each page, bounds memory and always frees the parser", asy
     }
   }
   await assert.rejects(
-    renderPdfPages(Buffer.from("%PDF-fixture"), 2, MissingPage),
+    renderPdfPages(Buffer.from("%PDF-fixture"), MissingPage),
     /OCR_INCOMPLETE/,
   );
   assert.equal(destroyed, 2);
@@ -113,7 +97,7 @@ test("renderer checks each page, bounds memory and always frees the parser", asy
     }
   }
   await assert.rejects(
-    renderPdfPages(Buffer.from("%PDF-fixture"), 2, OversizedImage),
+    renderPdfPages(Buffer.from("%PDF-fixture"), OversizedImage),
     /OCR_FAILED/,
   );
   assert.equal(destroyed, 3);
@@ -123,12 +107,12 @@ test("renderer checks each page, bounds memory and always frees the parser", asy
     }
   }
   await assert.rejects(
-    renderPdfPages(Buffer.from("%PDF-fixture"), 2, WrongCount),
-    /OCR_INCOMPLETE/,
+    renderPdfPages(Buffer.from("%PDF-fixture"), WrongCount),
+    /OCR_PAGE_LIMIT_EXCEEDED/,
   );
   assert.equal(destroyed, 4);
   await assert.rejects(
-    renderPdfPages(Buffer.from("not a PDF"), 2, Parser),
+    renderPdfPages(Buffer.from("not a PDF"), Parser),
     /OCR_FAILED/,
   );
 });
@@ -226,9 +210,12 @@ test("published workflow uses verified page rendering, callback and 180 second c
     ),
   );
   const nodes = new Map(workflow.nodes.map((node) => [node.name, node]));
-  assert.equal(
-    nodes.get("PDF 텍스트 추출").parameters.options.keepSource,
-    "binary",
+  assert.equal(nodes.has("PDF 텍스트 추출"), false);
+  assert.equal(nodes.has("자동 OCR 필요"), false);
+  assert.ok(
+    !workflow.nodes.some(
+      (node) => node.type === "n8n-nodes-base.extractFromFile",
+    ),
   );
   assert.equal(
     nodes.get("문서 추출 결과 구성").parameters.jsCode,
@@ -249,7 +236,7 @@ test("published workflow uses verified page rendering, callback and 180 second c
       .parameters.contentHash.includes("payload.document.contentHash"),
   );
   assert.equal(
-    workflow.connections["자동 OCR 필요"].main[0][0].node,
+    workflow.connections["문서 PDF 다운로드"].main[0][0].node,
     "문서 PDF 페이지 렌더링",
   );
   assert.equal(

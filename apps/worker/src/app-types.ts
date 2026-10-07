@@ -1,6 +1,7 @@
 import type { MiddlewareHandler } from "hono";
 import type { Hono } from "hono";
 
+import type { AiUsageService } from "./ai-usage.js";
 import type { AnalysisJobService } from "./analysis-jobs.js";
 import type { ApplicationService } from "./applications.js";
 import type { JwtVerificationKey } from "./auth.js";
@@ -21,6 +22,7 @@ export type WorkerAppEnv = {
 };
 
 export type AppDependencies = {
+  aiUsageServiceFactory?: (env: CloudflareBindings) => AiUsageService;
   deletionServiceFactory?: (env: CloudflareBindings) => DeletionService;
   isMaintenance?: (env: CloudflareBindings) => Promise<boolean>;
   analysisJobServiceFactory?: (env: CloudflareBindings) => AnalysisJobService;

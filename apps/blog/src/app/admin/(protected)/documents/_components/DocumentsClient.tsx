@@ -94,7 +94,8 @@ export default function DocumentsClient() {
           <div>
             <Label htmlFor="document-file">PDF 파일</Label>
             <p className="text-muted-foreground mt-1 text-xs">
-              최대 20MiB의 PDF 파일을 선택할 수 있습니다.
+              최대 20MiB의 PDF를 선택할 수 있습니다. AI OCR은 30페이지 이하
+              문서를 지원하며, 초과한 경우 텍스트를 직접 입력해야 합니다.
             </p>
           </div>
           <div className="flex min-w-0 flex-wrap items-center gap-3">

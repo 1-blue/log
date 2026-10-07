@@ -1,9 +1,11 @@
 import { Hono } from "hono";
 import * as z from "zod";
 
+import { createAiUsageService } from "./ai-usage.js";
 import { createAnalysisJobService } from "./analysis-jobs.js";
 import { createRequireAdmin } from "./app-auth.js";
 import { errorResponse, getRequestId } from "./app-response.js";
+import { registerAiUsageRoutes } from "./app-routes-ai-usage.js";
 import { registerAnalysisRoutes } from "./app-routes-analysis.js";
 import { registerApplicationsRoutes } from "./app-routes-applications.js";
 import { registerCollectionsRoutes } from "./app-routes-collections.js";
@@ -11,6 +13,7 @@ import { registerDeletionRoutes } from "./app-routes-deletions.js";
 import { registerDocumentsRoutes } from "./app-routes-documents.js";
 import { registerInternalRoutes } from "./app-routes-internal.js";
 import { registerInterviewRoutes } from "./app-routes-interview.js";
+import { registerNotificationRoutes } from "./app-routes-notifications.js";
 import type { AppDependencies, WorkerAppEnv } from "./app-types.js";
 import { createApplicationService } from "./applications.js";
 import { createDeletionService } from "./deletions.js";
@@ -255,10 +258,15 @@ export function createApp(dependencies?: AppDependencies) {
   };
 
   registerApplicationsRoutes(routeDependencies);
+  registerAiUsageRoutes(
+    routeDependencies,
+    resolvedDependencies.aiUsageServiceFactory ?? createAiUsageService,
+  );
   registerAnalysisRoutes(routeDependencies);
   registerInterviewRoutes(routeDependencies);
   registerCollectionsRoutes(routeDependencies);
   registerInternalRoutes(routeDependencies);
+  registerNotificationRoutes(routeDependencies);
   registerDocumentsRoutes(routeDependencies);
   registerDeletionRoutes(
     routeDependencies,

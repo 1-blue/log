@@ -19,12 +19,6 @@ class CareerPdfPages {
         default: "data",
       },
       {
-        displayName: "Page Count",
-        name: "pageCount",
-        type: "number",
-        default: 0,
-      },
-      {
         displayName: "Expected File Size",
         name: "fileSize",
         type: "number",
@@ -47,7 +41,6 @@ class CareerPdfPages {
     for (let index = 0; index < items.length; index++) {
       const key = this.getNodeParameter("binaryPropertyName", index);
       const bytes = await this.helpers.getBinaryDataBuffer(index, key);
-      const pageCount = this.getNodeParameter("pageCount", index);
       const fileSize = this.getNodeParameter("fileSize", index);
       const expectedHash = this.getNodeParameter("contentHash", index);
       if (
@@ -55,8 +48,11 @@ class CareerPdfPages {
         createHash("sha256").update(bytes).digest("hex") !== expectedHash
       )
         throw new Error("OCR_FAILED");
-      const pages = await renderPdfPages(bytes, pageCount, PDFParse);
-      results.push({ json: { pageCount, pages }, pairedItem: { item: index } });
+      const pages = await renderPdfPages(bytes, PDFParse);
+      results.push({
+        json: { pageCount: pages.length, pages },
+        pairedItem: { item: index },
+      });
     }
     return [results];
   }

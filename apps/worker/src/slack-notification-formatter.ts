@@ -39,6 +39,9 @@ const EVENT_TITLES: Record<SlackNotificationEventType, string> = {
   collection_succeeded: "공고 수집 완료",
   interview_scheduled: "면접 일정 등록",
   job_posting_registered: "채용공고 등록",
+  document_uploaded: "문서 업로드 접수",
+  document_extraction_succeeded: "문서 AI OCR 완료",
+  document_extraction_failed: "문서 AI OCR 실패",
 };
 
 function contextObject(value: Json): Record<string, Json | undefined> {
@@ -111,6 +114,12 @@ export function formatEnvironment(appBaseUrl: string): string {
 }
 
 function adminUrl(appBaseUrl: string, notification: NotificationRow): string {
+  if (notification.document_version_id) {
+    return new URL(
+      `/admin/documents/${notification.document_version_id}`,
+      appBaseUrl,
+    ).toString();
+  }
   if (notification.application_id && notification.analysis_job_id) {
     return new URL(
       `/admin/applications/${notification.application_id}/analyses/${notification.analysis_job_id}`,
@@ -148,6 +157,18 @@ function formatEventDetails(
 ): string[] {
   const context = contextObject(notification.context);
   switch (notification.event_type) {
+    case "document_uploaded":
+      return [
+        "PDF 업로드가 완료되었습니다. AI OCR 처리 결과는 별도 알림으로 안내합니다.",
+      ];
+    case "document_extraction_succeeded":
+      return [
+        "AI OCR 텍스트가 준비되었습니다. 문서 화면에서 원본과 추출 결과를 확인하세요.",
+      ];
+    case "document_extraction_failed":
+      return [
+        "PDF에서 텍스트를 추출하지 못했습니다. 문서 화면에서 원인을 확인하고 재추출하거나 직접 입력하세요.",
+      ];
     case "collection_succeeded":
       return [
         `수집 방식: ${stringValue(context.mode) === "manual" ? "수동 입력" : "자동 수집"}`,
@@ -230,12 +251,20 @@ function formatEventDetails(
 export function formatSlackNotification(input: {
   appBaseUrl: string;
   notification: NotificationRow;
-  posting: PostingRow;
+  posting: PostingRow | null;
   thread: ThreadRow | null;
   now?: number;
 }): Pick<N8nSlackNotificationDispatchPayload, "blocks" | "text" | "threadTs"> {
-  const companyName = escapeSlackMrkdwn(input.posting.company_name);
-  const title = escapeSlackMrkdwn(input.posting.title);
+  const context = contextObject(input.notification.context);
+  const companyName = escapeSlackMrkdwn(
+    input.posting?.company_name ??
+      (stringValue(context.documentType) === "resume"
+        ? "이력서"
+        : "포트폴리오"),
+  );
+  const title = escapeSlackMrkdwn(
+    input.posting?.title ?? stringValue(context.label) ?? "업로드 문서",
+  );
   const eventTitle = EVENT_TITLES[input.notification.event_type];
   const details = formatEventDetails(
     input.notification,
@@ -245,7 +274,7 @@ export function formatSlackNotification(input: {
   const heading = `*${eventTitle}* · [${formatEnvironment(input.appBaseUrl)}]`;
   const sourceLink =
     input.notification.target === "job_root"
-      ? `<${input.posting.canonical_url}|Wanted 공고 보기>`
+      ? `<${input.posting!.canonical_url}|Wanted 공고 보기>`
       : null;
   const body = [`*${companyName}* — ${title}`, sourceLink, ...details]
     .filter(Boolean)

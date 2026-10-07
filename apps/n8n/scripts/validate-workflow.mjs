@@ -58,7 +58,7 @@ for (const name of [
   "분석 요청 여부",
   "문서 추출 요청 여부",
   "문서 PDF 다운로드",
-  "PDF 텍스트 추출",
+  "문서 PDF 페이지 렌더링",
   "문서 추출 결과 구성",
   "문서 추출 실패 구성",
   "AI 원문 보완 요청 여부",
@@ -124,12 +124,15 @@ assert(
   documentDownload.parameters.options.response.response.fullResponse === false,
   "문서 다운로드는 전체 HTTP 응답을 본문으로 변환하면 안 됩니다.",
 );
-const documentExtract = nodes.get("PDF 텍스트 추출");
+const documentExtract = nodes.get("문서 PDF 페이지 렌더링");
 assert(
-  documentExtract.type === "n8n-nodes-base.extractFromFile" &&
-    documentExtract.parameters.operation === "pdf" &&
+  documentExtract.type === "CUSTOM.careerPdfPages" &&
     documentExtract.parameters.binaryPropertyName === "data",
-  "PDF 텍스트 추출 노드 설정이 올바르지 않습니다.",
+  "PDF 전체 페이지 렌더링 노드 설정이 올바르지 않습니다.",
+);
+assert(
+  !nodes.has("PDF 텍스트 추출") && !nodes.has("자동 OCR 필요"),
+  "PDF 텍스트 파서와 fallback 분기는 제거해야 합니다.",
 );
 
 const expectedOpenAi = [

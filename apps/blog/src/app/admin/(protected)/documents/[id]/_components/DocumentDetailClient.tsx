@@ -207,19 +207,20 @@ export default function DocumentDetailClient({
         <div>
           <h3 className="font-semibold">분석용 문서 정보</h3>
           <p className="text-muted-foreground mt-1 text-sm">
-            업로드한 PDF에서 텍스트를 자동 추출해 분석에 사용합니다. 추출이
-            어려운 PDF는 아래에서 직접 보정할 수 있습니다.
+            업로드한 PDF의 전체 페이지를 AI OCR로 읽어 분석에 사용합니다. 자동
+            처리는 20MB·30페이지 이하이며, 실패한 경우 아래에서 직접 입력하거나
+            보정할 수 있습니다.
           </p>
           {document.extractionSource === "ocr" && (
             <p className="mt-2 text-sm text-amber-600">
-              OCR로 추출했습니다. 누락이나 오인식이 없는지 원본 PDF와 비교해
+              AI OCR로 추출했습니다. 누락이나 오인식이 없는지 원본 PDF와 비교해
               주세요.
             </p>
           )}
           {document.extractionStatus === "processing" && (
             <p className="mt-2 text-sm" role="status">
-              PDF 추출 중입니다. 텍스트가 없으면 30페이지 이하 문서에 자동 OCR을
-              시도합니다.
+              PDF 전체 페이지를 AI OCR로 처리 중입니다. 완료 후 결과를 확인해
+              주세요.
             </p>
           )}
           {document.extractionStatus === "failed" && (

@@ -1,6 +1,7 @@
 import {
   CONTRACT_VERSION,
   type N8nSlackNotificationDispatchPayload,
+  type SlackNotificationListItem,
   type SlackNotificationResponse,
   type SlackNotificationResultCallback,
 } from "@workspace/contracts";
@@ -52,6 +53,13 @@ export class SlackNotificationServiceError extends Error {
 }
 
 export interface SlackNotificationService {
+  list(ownerId: string): Promise<SlackNotificationListItem[]>;
+  retry(
+    ownerId: string,
+    id: string,
+    expectedUpdatedAt: string,
+    confirmUnknown: boolean,
+  ): Promise<SlackNotificationResponse>;
   complete(
     input: SlackNotificationResultCallback,
   ): Promise<SlackNotificationResponse>;
@@ -90,9 +98,11 @@ export class SupabaseSlackNotificationService
   }
 
   private async alertDispatchFailure(row: NotificationRow): Promise<void> {
-    const posting = await this.getPosting(row.job_posting_id).catch(() => null);
+    const posting = row.job_posting_id
+      ? await this.getPosting(row.job_posting_id).catch(() => null)
+      : null;
     const text = truncateSlackText(
-      `[${formatEnvironment(this.env.APP_BASE_URL)}] Slack 알림을 n8n에 전달하지 못했습니다. ` +
+      `[${formatEnvironment(this.env.APP_BASE_URL)}] ${row.status === "delivery_unknown" ? "Slack 알림의 전달 결과를 확인하지 못했습니다." : "Slack 알림을 n8n에 전달하지 못했습니다."} ` +
         `${posting ? `${posting.company_name} — ${posting.title} / ` : ""}` +
         `Request ID: ${row.request_id}`,
       2_000,
@@ -108,8 +118,8 @@ export class SupabaseSlackNotificationService
   private async dispatchOne(row: NotificationRow): Promise<NotificationRow> {
     try {
       const [posting, thread] = await Promise.all([
-        this.getPosting(row.job_posting_id),
-        this.getThread(row.job_posting_id),
+        row.job_posting_id ? this.getPosting(row.job_posting_id) : null,
+        row.job_posting_id ? this.getThread(row.job_posting_id) : null,
       ]);
       const message = formatSlackNotification({
         appBaseUrl: this.env.APP_BASE_URL,
@@ -122,6 +132,7 @@ export class SupabaseSlackNotificationService
         callbackPath: `/v1/internal/slack-notifications/${row.id}/result`,
         eventId: row.event_id,
         jobPostingId: row.job_posting_id,
+        documentVersionId: row.document_version_id,
         kind: "slack_notification",
         notificationId: row.id,
         requestId: row.request_id,
@@ -132,17 +143,22 @@ export class SupabaseSlackNotificationService
       return row;
     } catch (error) {
       const dispatchError = error instanceof N8nDispatchError ? error : null;
-      const { data, error: databaseError } = await this.supabase.rpc(
-        "fail_slack_notification_dispatch",
-        {
-          p_error_message: "n8n에서 Slack 알림 요청을 받지 못했습니다.",
-          p_notification_id: row.id,
-          p_retryable: dispatchError?.retryable ?? true,
-        },
-      );
+      const ambiguous =
+        dispatchError?.kind === "timeout" ||
+        dispatchError?.kind === "unavailable" ||
+        (dispatchError?.kind === "rejected" && dispatchError.retryable);
+      const { data, error: databaseError } = ambiguous
+        ? await this.supabase.rpc("mark_slack_dispatch_unknown", {
+            p_notification_id: row.id,
+          })
+        : await this.supabase.rpc("fail_slack_notification_dispatch", {
+            p_error_message: "n8n에서 Slack 알림 요청을 받지 못했습니다.",
+            p_notification_id: row.id,
+            p_retryable: dispatchError?.retryable ?? true,
+          });
       if (databaseError || !data)
         throw new SlackNotificationServiceError("unavailable");
-      await this.alertDispatchFailure(row);
+      await this.alertDispatchFailure(data);
       return data;
     }
   }
@@ -195,6 +211,113 @@ export class SupabaseSlackNotificationService
     );
     if (error) throw new SlackNotificationServiceError("unavailable");
     return data ?? [];
+  }
+
+  async list(ownerId: string): Promise<SlackNotificationListItem[]> {
+    const { data, error } = await this.supabase
+      .from("slack_notifications")
+      .select("*")
+      .eq("owner_id", ownerId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(100);
+    if (error) throw new SlackNotificationServiceError("unavailable");
+    const postingIds = [
+      ...new Set(
+        (data ?? []).flatMap((row) =>
+          row.job_posting_id ? [row.job_posting_id] : [],
+        ),
+      ),
+    ];
+    const threads = postingIds.length
+      ? await this.supabase
+          .from("slack_job_threads")
+          .select("*")
+          .eq("owner_id", ownerId)
+          .in("job_posting_id", postingIds)
+      : { data: [], error: null };
+    if (threads.error) throw new SlackNotificationServiceError("unavailable");
+    const postings = postingIds.length
+      ? await this.supabase
+          .from("job_postings")
+          .select("id,company_name,title")
+          .eq("owner_id", ownerId)
+          .in("id", postingIds)
+      : { data: [], error: null };
+    if (postings.error) throw new SlackNotificationServiceError("unavailable");
+    const missingRoots = (threads.data ?? [])
+      .filter(
+        (thread) =>
+          thread.status !== "ready" &&
+          !data?.some((row) => row.id === thread.root_notification_id),
+      )
+      .map((thread) => thread.root_notification_id);
+    const roots = missingRoots.length
+      ? await this.supabase
+          .from("slack_notifications")
+          .select("*")
+          .eq("owner_id", ownerId)
+          .in("id", missingRoots)
+      : { data: [], error: null };
+    if (roots.error) throw new SlackNotificationServiceError("unavailable");
+    return [...(data ?? []), ...(roots.data ?? [])].map((row) => {
+      const context =
+        row.context &&
+        typeof row.context === "object" &&
+        !Array.isArray(row.context)
+          ? row.context
+          : {};
+      const posting = postings.data?.find(
+        (posting) => posting.id === row.job_posting_id,
+      );
+      const label = [
+        context.label,
+        posting?.company_name ?? context.companyName,
+        posting?.title ?? context.title,
+      ]
+        .filter((value) => typeof value === "string")
+        .join(" · ")
+        .slice(0, 1000);
+      const thread = threads.data?.find(
+        (thread) => thread.job_posting_id === row.job_posting_id,
+      );
+      return {
+        ...mapSlackNotification(row),
+        label: label || row.event_type,
+        blockedByRootId:
+          row.status === "queued" &&
+          row.target === "job_thread" &&
+          thread?.status !== "ready"
+            ? (thread?.root_notification_id ?? null)
+            : null,
+      };
+    });
+  }
+
+  async retry(
+    ownerId: string,
+    id: string,
+    expectedUpdatedAt: string,
+    confirmUnknown: boolean,
+  ) {
+    const { data, error } = await this.supabase.rpc(
+      "retry_slack_notification",
+      {
+        p_owner_id: ownerId,
+        p_notification_id: id,
+        p_expected_updated_at: expectedUpdatedAt,
+        p_confirm_unknown: confirmUnknown,
+      },
+    );
+    if (error || !data)
+      throw new SlackNotificationServiceError(
+        error?.code === "P0002"
+          ? "not_found"
+          : error?.code === "23514"
+            ? "conflict"
+            : "unavailable",
+      );
+    return mapSlackNotification(data);
   }
 }
 

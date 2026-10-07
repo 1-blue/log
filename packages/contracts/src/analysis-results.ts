@@ -30,6 +30,7 @@ export const RequirementMatchSchema = z.strictObject({
   requirementId: z.string().min(1).max(100),
   status: MatchStatusSchema,
   rationale: z.string().min(1).max(2_000),
+  experienceSummary: z.string().max(1_000).nullable().default(null),
   profileEvidence: z.array(EvidenceSchema).max(10),
 });
 
@@ -67,6 +68,26 @@ export const ProfileComparisonSchema = z.strictObject({
     keyMessages: z.array(z.string().min(1).max(1_000)).max(10),
     resumeFocus: z.string().max(2_000).nullable(),
     portfolioFocus: z.string().max(2_000).nullable(),
+    resumeSuggestions: z
+      .array(
+        z.strictObject({
+          title: z.string().min(1).max(200),
+          reason: z.string().min(1).max(1_000),
+          action: z.string().min(1).max(1_000),
+        }),
+      )
+      .max(5)
+      .default([]),
+    portfolioSuggestions: z
+      .array(
+        z.strictObject({
+          title: z.string().min(1).max(200),
+          reason: z.string().min(1).max(1_000),
+          action: z.string().min(1).max(1_000),
+        }),
+      )
+      .max(5)
+      .default([]),
     warnings: z.array(z.string().min(1).max(1_000)).max(10),
   }),
   warnings: z.array(z.string().min(1).max(1_000)).max(20),

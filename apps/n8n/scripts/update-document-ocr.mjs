@@ -24,7 +24,10 @@ for (const node of ocrWorkflowNodes(credentials)) {
     ...(previous.webhookId ? { webhookId: previous.webhookId } : {}),
   };
 }
-workflow.connections["자동 OCR 필요"].main[0] = [
+const removed = new Set(["PDF 텍스트 추출", "문서 OCR 판정", "자동 OCR 필요"]);
+workflow.nodes = workflow.nodes.filter((node) => !removed.has(node.name));
+for (const name of removed) delete workflow.connections[name];
+workflow.connections["문서 PDF 다운로드"].main[0] = [
   { node: "문서 PDF 페이지 렌더링", type: "main", index: 0 },
 ];
 workflow.connections["문서 PDF 페이지 렌더링"] = {

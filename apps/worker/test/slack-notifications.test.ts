@@ -42,6 +42,7 @@ type NotificationRow =
 type PostingRow = Database["public"]["Tables"]["job_postings"]["Row"];
 
 const notification: NotificationRow = {
+  document_version_id: null,
   analysis_job_id: null,
   application_id: null,
   attempt_count: 1,
@@ -97,6 +98,7 @@ const posting: PostingRow = {
 };
 
 const response: SlackNotificationResponse = {
+  documentVersionId: null,
   analysisJobId: null,
   applicationId: null,
   attemptCount: 1,
@@ -175,6 +177,8 @@ describe("Slack notification callback API", () => {
     const complete = vi.fn(async () => response);
     const drain = vi.fn(async () => []);
     const service: SlackNotificationService = {
+      list: vi.fn(async () => []),
+      retry: vi.fn(async () => response),
       complete,
       drain,
       failStale: vi.fn(async () => []),
@@ -222,6 +226,8 @@ describe("Slack notification callback API", () => {
 
   it("rejects an unsigned callback", async () => {
     const service: SlackNotificationService = {
+      list: vi.fn(async () => []),
+      retry: vi.fn(async () => response),
       complete: vi.fn(async () => response),
       drain: vi.fn(async () => []),
       failStale: vi.fn(async () => []),
@@ -268,6 +274,11 @@ describe("Slack notification outbox dispatcher", () => {
       if (name === "fail_slack_notification_dispatch") {
         return { data: failedRow, error: null };
       }
+      if (name === "mark_slack_dispatch_unknown")
+        return {
+          data: { ...failedRow, status: "delivery_unknown" },
+          error: null,
+        };
       return { data: null, error: null };
     });
     const from = vi.fn((table: string) => ({
@@ -317,10 +328,10 @@ describe("Slack notification outbox dispatcher", () => {
   it("isolates n8n dispatch failure and attempts the error webhook once", async () => {
     const fixture = supabaseFixture({ dispatchFailure: true });
     await expect(fixture.service.drain(2)).resolves.toEqual([
-      expect.objectContaining({ status: "failed" }),
+      expect.objectContaining({ status: "delivery_unknown" }),
     ]);
     expect(fixture.rpc).toHaveBeenCalledWith(
-      "fail_slack_notification_dispatch",
+      "mark_slack_dispatch_unknown",
       expect.objectContaining({ p_notification_id: NOTIFICATION_ID }),
     );
     expect(fixture.fetcher).toHaveBeenCalledOnce();

@@ -84,21 +84,39 @@ export function AnalysisRequirementsTab({
                   AI {MATCH_LABELS[match?.status ?? "unknown"]}
                 </span>
               </div>
-              <p className="text-muted-foreground text-sm">
+              <p className="text-muted-foreground text-sm leading-7 whitespace-pre-wrap">
+                <span className="text-foreground mb-1 block font-medium">
+                  판단 이유
+                </span>
                 {match?.rationale ?? "비교 설명이 없습니다."}
               </p>
-              <div className="grid gap-3 lg:grid-cols-2">
-                <div>
-                  <p className="mb-2 text-xs font-medium">
-                    공고에서 요구한 내용
+              {match?.experienceSummary ? (
+                <div className="bg-muted/30 rounded-md p-4 text-sm leading-7">
+                  <p className="mb-1 font-medium">
+                    관련 경험 요약{" "}
+                    <span className="text-muted-foreground text-xs">
+                      AI 해석
+                    </span>
                   </p>
-                  <EvidenceList evidence={requirement.evidence} />
+                  <p className="whitespace-pre-wrap">
+                    {match.experienceSummary}
+                  </p>
                 </div>
-                <div>
-                  <p className="mb-2 text-xs font-medium">
-                    내 자료에서 찾은 경험
-                  </p>
-                  <EvidenceList evidence={match?.profileEvidence ?? []} />
+              ) : null}
+              <div className="@container">
+                <div className="grid gap-4 @min-[1000px]:grid-cols-2">
+                  <div>
+                    <p className="mb-2 text-xs font-medium">
+                      공고에서 요구한 내용
+                    </p>
+                    <EvidenceList evidence={requirement.evidence} />
+                  </div>
+                  <div>
+                    <p className="mb-2 text-xs font-medium">
+                      내 자료에서 찾은 경험
+                    </p>
+                    <EvidenceList evidence={match?.profileEvidence ?? []} />
+                  </div>
                 </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-[180px_1fr]">

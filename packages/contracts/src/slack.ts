@@ -18,6 +18,9 @@ export const SlackNotificationEventTypeSchema = z.enum([
   "analysis_cancelled",
   "application_status_changed",
   "interview_scheduled",
+  "document_uploaded",
+  "document_extraction_succeeded",
+  "document_extraction_failed",
 ]);
 
 export type SlackNotificationEventType = z.infer<
@@ -28,6 +31,7 @@ export const SlackNotificationTargetSchema = z.enum([
   "job_root",
   "job_thread",
   "error_channel",
+  "document",
 ]);
 
 export type SlackNotificationTarget = z.infer<
@@ -79,7 +83,8 @@ export const N8nSlackNotificationDispatchPayloadSchema = z
     eventId: UuidSchema,
     requestId: UuidSchema,
     notificationId: UuidSchema,
-    jobPostingId: UuidSchema,
+    jobPostingId: UuidSchema.nullable(),
+    documentVersionId: UuidSchema.nullable().default(null),
     target: SlackNotificationTargetSchema,
     threadTs: z
       .string()
@@ -92,6 +97,17 @@ export const N8nSlackNotificationDispatchPayloadSchema = z
       .regex(/^\/v1\/internal\/slack-notifications\/[0-9a-f-]+\/result$/),
   })
   .superRefine((value, context) => {
+    if (
+      value.target === "document"
+        ? !value.documentVersionId || value.jobPostingId !== null
+        : !value.jobPostingId || value.documentVersionId !== null
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Notification resource does not match target",
+        path: ["target"],
+      });
+    }
     if ((value.target === "job_thread") !== (value.threadTs !== null)) {
       context.addIssue({
         code: "custom",
@@ -187,7 +203,8 @@ export const SlackNotificationResponseSchema = z.strictObject({
   eventType: SlackNotificationEventTypeSchema,
   target: SlackNotificationTargetSchema,
   status: SlackNotificationStatusSchema,
-  jobPostingId: UuidSchema,
+  jobPostingId: UuidSchema.nullable(),
+  documentVersionId: UuidSchema.nullable().default(null),
   applicationId: UuidSchema.nullable(),
   collectionRunId: UuidSchema.nullable(),
   analysisJobId: UuidSchema.nullable(),
@@ -205,3 +222,20 @@ export const SlackNotificationResponseSchema = z.strictObject({
 export type SlackNotificationResponse = z.infer<
   typeof SlackNotificationResponseSchema
 >;
+
+export const SlackNotificationListItemSchema =
+  SlackNotificationResponseSchema.extend({
+    label: z.string().max(1000),
+    blockedByRootId: UuidSchema.nullable(),
+  });
+export const SlackNotificationListEnvelopeSchema = z.strictObject({
+  data: z.array(SlackNotificationListItemSchema).max(200),
+  meta: z.strictObject({ requestId: UuidSchema }),
+});
+export type SlackNotificationListItem = z.infer<
+  typeof SlackNotificationListItemSchema
+>;
+export const RetrySlackNotificationRequestSchema = z.strictObject({
+  expectedUpdatedAt: Rfc3339TimestampSchema,
+  confirmUnknownDelivery: z.boolean().default(false),
+});

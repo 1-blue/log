@@ -215,6 +215,8 @@ const result: NonNullable<AnalysisWorkspace["job"]["result"]> = {
     ],
     matches: [
       {
+        experienceSummary:
+          "개인 프로젝트에서 Docker Compose로 n8n 실행 환경을 구성했습니다. 장기 운영 장애 대응 여부는 자료로 확인되지 않습니다.",
         profileEvidence: [
           {
             excerpt: "Docker Compose로 n8n 로컬 실행 환경을 구성했습니다.",
@@ -242,12 +244,15 @@ const result: NonNullable<AnalysisWorkspace["job"]["result"]> = {
           },
         ],
         rationale: "API Gateway의 인증과 비동기 요청 경계를 직접 구현했습니다.",
+        experienceSummary:
+          "Cloudflare Worker에서 JWT 검증과 요청 검증, 멱등성 및 HMAC callback을 구현한 경험이 있습니다.",
         requirementId: "required-2",
         status: "matched",
       },
       {
         profileEvidence: [],
         rationale: "Infrastructure as Code 도구 사용 근거를 찾지 못했습니다.",
+        experienceSummary: null,
         requirementId: "preferred-1",
         status: "missing",
       },
@@ -255,6 +260,7 @@ const result: NonNullable<AnalysisWorkspace["job"]["result"]> = {
         profileEvidence: [],
         rationale:
           "대규모 트래픽 환경의 운영 범위를 자료에서 확인할 수 없습니다.",
+        experienceSummary: null,
         requirementId: "preferred-2",
         status: "unknown",
       },
@@ -269,6 +275,23 @@ const result: NonNullable<AnalysisWorkspace["job"]["result"]> = {
         "Worker와 n8n의 책임을 분리한 설계",
       ],
       resumeFocus: "API Gateway 인증·멱등성·오류 처리 경험을 강조합니다.",
+      resumeSuggestions: [
+        {
+          title: "Worker API의 인증과 중복 요청 처리",
+          reason: "공고가 요구하는 API 개발 및 운영 경계와 연결됩니다.",
+          action:
+            "JWT 검증·요청 검증·멱등성을 구현한 내용을 핵심 경험으로 정리하세요.",
+        },
+      ],
+      portfolioSuggestions: [
+        {
+          title: "Worker와 n8n의 비동기 연결",
+          reason:
+            "반복 업무 자동화와 각 구성 요소의 책임을 설명할 수 있는 경험입니다.",
+          action:
+            "요청부터 callback까지 흐름을 도식화하고, 직접 구현한 영역과 아직 검증하지 못한 운영 범위를 구분하세요.",
+        },
+      ],
       portfolioFocus:
         "실제 화면과 비동기 분석 Workflow의 운영 흐름을 보여줍니다.",
       warnings: [],

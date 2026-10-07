@@ -93,20 +93,27 @@ export function EvidenceList({
     <ul className="grid gap-2">
       {evidence.map((item, index) => (
         <li
-          className="border-border bg-muted/30 rounded-md border p-3 text-xs"
+          className="border-border bg-muted/20 rounded-md border p-4 text-sm"
           key={`${item.source}-${item.sourceVersionId}-${index}`}
         >
           <p className="font-medium">
             {SOURCE_LABELS[item.source]}
             {item.section ? ` · ${item.section}` : ""}
           </p>
-          <p className="text-muted-foreground mt-2 leading-5 break-words">
-            <span className="text-foreground font-medium">문맥:</span>{" "}
-            {item.context ?? "원문에서 주변 문맥을 찾지 못했습니다."}
+          <p className="text-muted-foreground mt-3 text-xs">
+            원문 근거 · 요약이 아닌 직접 인용입니다.
           </p>
-          <blockquote className="text-muted-foreground mt-1 leading-5 break-words">
-            “{item.excerpt}”
+          <blockquote className="border-primary/40 mt-2 border-l-2 pl-3 leading-7 break-words whitespace-pre-wrap">
+            {item.excerpt}
           </blockquote>
+          <details className="mt-3">
+            <summary className="text-muted-foreground cursor-pointer text-xs font-medium">
+              주변 원문 보기
+            </summary>
+            <p className="text-muted-foreground mt-3 leading-7 break-words whitespace-pre-wrap">
+              {item.context ?? "원문에서 주변 문맥을 찾지 못했습니다."}
+            </p>
+          </details>
         </li>
       ))}
     </ul>

@@ -1,31 +1,4 @@
-export function assessPdf(input) {
-  const text =
-    typeof input.text === "string"
-      ? input.text.normalize("NFKC").replace(/\r\n?/g, "\n").trim()
-      : "";
-  const pageCount = Number(input.numpages);
-  const error =
-    text.length > 500000
-      ? "PDF_TEXT_TOO_LARGE"
-      : text
-        ? null
-        : !Number.isInteger(pageCount) || pageCount < 1
-          ? "OCR_PAGE_COUNT_UNKNOWN"
-          : pageCount > 30
-            ? "OCR_PAGE_LIMIT_EXCEEDED"
-            : null;
-  return {
-    ...input,
-    text,
-    extractionSource: "pdf",
-    extractionError: error,
-    ocrRequired: !text && !error,
-    pageCount,
-  };
-}
-export async function renderPdfPages(buffer, pageCount, PDFParse) {
-  if (!Number.isInteger(pageCount) || pageCount < 1 || pageCount > 30)
-    throw new Error("OCR_PAGE_LIMIT_EXCEEDED");
+export async function renderPdfPages(buffer, PDFParse) {
   if (buffer.length > 20971520 || buffer.subarray(0, 5).toString() !== "%PDF-")
     throw new Error("OCR_FAILED");
   const parser = new PDFParse({
@@ -37,8 +10,11 @@ export async function renderPdfPages(buffer, pageCount, PDFParse) {
   const startedAt = Date.now();
   try {
     const info = await parser.getInfo({ parsePageInfo: true });
-    if (info.total !== pageCount || info.pages?.length !== pageCount)
-      throw new Error("OCR_INCOMPLETE");
+    const pageCount = info.total;
+    if (!Number.isInteger(pageCount) || pageCount < 1)
+      throw new Error("OCR_PAGE_COUNT_UNKNOWN");
+    if (pageCount > 30) throw new Error("OCR_PAGE_LIMIT_EXCEEDED");
+    if (info.pages?.length !== pageCount) throw new Error("OCR_INCOMPLETE");
     const pages = [];
     let totalBytes = 0;
     for (const page of info.pages) {
@@ -114,6 +90,7 @@ export function buildOcrBody(pages) {
   };
   return {
     model: "gpt-5.6-luna",
+    service_tier: "default",
     store: false,
     reasoning: { effort: "none" },
     max_output_tokens: 32000,
@@ -226,7 +203,13 @@ export function classifyOcrError(input, attempt = 0) {
         ? "OCR_RATE_LIMITED"
         : status >= 500 || transient
           ? "OCR_UNAVAILABLE"
-          : "OCR_FAILED";
+          : /OCR_PAGE_LIMIT_EXCEEDED/.test(message)
+            ? "OCR_PAGE_LIMIT_EXCEEDED"
+            : /OCR_PAGE_COUNT_UNKNOWN/.test(message)
+              ? "OCR_PAGE_COUNT_UNKNOWN"
+              : /OCR_INCOMPLETE/.test(message)
+                ? "OCR_INCOMPLETE"
+                : "OCR_FAILED";
   const wait = Number(
     input.headers?.["retry-after"] ??
       input.response?.headers?.["retry-after"] ??
@@ -302,17 +285,9 @@ export function ocrWorkflowNodes(credentials) {
     credentials,
   });
   return [
-    code(
-      "문서 OCR 판정",
-      `${assessPdf.toString()}\nconst item=$input.first(); return [{json:assessPdf(item.json),binary:item.binary}];`,
-      -50,
-      1100,
-    ),
-    condition("자동 OCR 필요", "$json.ocrRequired", 180, 1100),
     {
       parameters: {
         binaryPropertyName: "data",
-        pageCount: "={{ $json.pageCount }}",
         fileSize:
           "={{ $('HMAC 요청 검증').first().json.payload.document.fileSize }}",
         contentHash:
@@ -367,5 +342,5 @@ export function ocrWorkflowNodes(credentials) {
   ];
 }
 export function extractionCallbackCode() {
-  return `const payload=$('HMAC 요청 검증').first().json.payload;const input=$input.first().json;\nconst text=typeof input.text==='string'?input.text.normalize('NFKC').replace(/\\r\\n?/g,'\\n').trim():'';\nconst tooLarge=text.length>500000 || Buffer.byteLength(text,'utf8')>1100000;const error=input.extractionError ?? (tooLarge?'PDF_TEXT_TOO_LARGE':!text?'PDF_TEXT_EMPTY':null);\nreturn [{json:{callback:{schemaVersion:'1.0.0',eventId:payload.eventId,requestId:payload.requestId,documentVersionId:payload.document.id,contentHash:payload.document.contentHash,outcome:error?'failed':'ready',extractedText:error?null:text,errorCode:error,extractionSource:input.extractionSource ?? 'pdf',occurredAt:new Date().toISOString()},callbackPath:payload.callbackPath}}];`;
+  return `const payload=$('HMAC 요청 검증').first().json.payload;const input=$input.first().json;\nconst text=typeof input.text==='string'?input.text.normalize('NFKC').replace(/\\r\\n?/g,'\\n').trim():'';\nconst tooLarge=text.length>500000 || Buffer.byteLength(text,'utf8')>1100000;const error=input.extractionError ?? (tooLarge?'PDF_TEXT_TOO_LARGE':!text?'OCR_TEXT_EMPTY':null);\nreturn [{json:{callback:{schemaVersion:'1.0.0',eventId:payload.eventId,requestId:payload.requestId,documentVersionId:payload.document.id,contentHash:payload.document.contentHash,outcome:error?'failed':'ready',extractedText:error?null:text,errorCode:error,extractionSource:'ocr',occurredAt:new Date().toISOString()},callbackPath:payload.callbackPath}}];`;
 }

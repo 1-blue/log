@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import {
+  BellIcon,
   BriefcaseBusinessIcon,
+  ChartColumnIcon,
   FileStackIcon,
   LayoutDashboardIcon,
 } from "lucide-react";
@@ -17,6 +19,8 @@ const items = [
     icon: BriefcaseBusinessIcon,
     label: "지원 관리",
   },
+  { href: "/admin/usage", icon: ChartColumnIcon, label: "AI 사용량·비용" },
+  { href: "/admin/notifications", icon: BellIcon, label: "Slack 알림" },
 ] as const;
 
 export default function AdminNav() {

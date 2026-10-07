@@ -40,6 +40,8 @@ const result: AnalysisResult = {
       keyMessages: [],
       resumeFocus: null,
       portfolioFocus: null,
+      resumeSuggestions: [],
+      portfolioSuggestions: [],
       warnings: [],
     },
     matches: [
@@ -54,6 +56,7 @@ const result: AnalysisResult = {
           },
         ],
         rationale: "관련 구현 경험이 명시되어 있습니다.",
+        experienceSummary: null,
         requirementId: "required-1",
         status: "matched",
       },

@@ -151,7 +151,13 @@ export function sanitizeAnalysisResult(
       profileEvidence.length === 0
         ? "unknown"
         : match.status;
-    return { ...match, profileEvidence, status };
+    return {
+      ...match,
+      profileEvidence,
+      status,
+      experienceSummary:
+        profileEvidence.length > 0 ? match.experienceSummary : null,
+    };
   });
 
   const gaps = result.comparison.gaps.map((gap) => ({

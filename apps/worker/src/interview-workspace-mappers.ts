@@ -42,10 +42,31 @@ export function evidenceContext(
   const index = sourceText.indexOf(needle);
   if (index < 0) return null;
 
-  const start = Math.max(0, index - 180);
-  const end = Math.min(sourceText.length, index + needle.length + 260);
-  const context = sourceText.slice(start, end).replace(/\s+/g, " ").trim();
-  return context || null;
+  // Display only the enclosing paragraph, not adjacent project/skill sections.
+  // Keep source whitespace and quotation unchanged. A large paragraph is
+  // reduced at sentence boundaries with explicit omissions, never mid-word.
+  const before = sourceText.slice(0, index);
+  const lastBreak = before.lastIndexOf("\n\n");
+  const paragraphStart = lastBreak < 0 ? 0 : lastBreak + 2;
+  const nextBreak = sourceText.indexOf("\n\n", index + needle.length);
+  const paragraphEnd = nextBreak < 0 ? sourceText.length : nextBreak;
+  const paragraph = sourceText
+    .slice(Math.max(0, paragraphStart), paragraphEnd)
+    .trim();
+  if (paragraph.length <= 4_000) return paragraph || null;
+  const sentenceBoundaries = [
+    ...sourceText.matchAll(/[.!?。！？](?=\s|$)/g),
+  ].map((match) => match.index! + 1);
+  const start = sentenceBoundaries
+    .filter((end) => end <= index && end >= index - 700)
+    .pop();
+  const end = sentenceBoundaries.find(
+    (end) => end >= index + needle.length && end <= index + needle.length + 700,
+  );
+  const context = sourceText
+    .slice(start ?? index, end ?? index + needle.length)
+    .trim();
+  return `… 앞부분 생략 …\n\n${context}\n\n… 뒷부분 생략 …`;
 }
 
 export function enrichResultEvidence(

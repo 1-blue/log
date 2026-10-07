@@ -119,6 +119,7 @@ const validAnalysisResult: AnalysisResult = {
       {
         requirementId: "requirement-1",
         status: "partial",
+        experienceSummary: null,
         rationale:
           "프로젝트 운영 경험은 있으나 클라우드 운영 범위가 제한적입니다.",
         profileEvidence: [
@@ -139,6 +140,8 @@ const validAnalysisResult: AnalysisResult = {
       keyMessages: [],
       resumeFocus: null,
       portfolioFocus: null,
+      resumeSuggestions: [],
+      portfolioSuggestions: [],
       warnings: [],
     },
     warnings: [],
@@ -147,6 +150,26 @@ const validAnalysisResult: AnalysisResult = {
 };
 
 describe("career operations contracts", () => {
+  it("keeps legacy analysis results readable with defaults for new display fields", () => {
+    const legacy = structuredClone(validAnalysisResult) as unknown as {
+      comparison: {
+        matches: Record<string, unknown>[];
+        applicationStrategy: Record<string, unknown>;
+      };
+    };
+    for (const match of legacy.comparison.matches)
+      delete match.experienceSummary;
+    delete legacy.comparison.applicationStrategy.resumeSuggestions;
+    delete legacy.comparison.applicationStrategy.portfolioSuggestions;
+    const parsed = AnalysisResultSchema.parse(legacy);
+    expect(parsed.comparison.matches[0]?.experienceSummary).toBeNull();
+    expect(parsed.comparison.applicationStrategy?.resumeSuggestions).toEqual(
+      [],
+    );
+    expect(parsed.comparison.applicationStrategy?.portfolioSuggestions).toEqual(
+      [],
+    );
+  });
   it("accepts only UUID idempotency keys", () => {
     expect(IdempotencyKeySchema.safeParse(validUuid).success).toBe(true);
     expect(IdempotencyKeySchema.safeParse("reused-key").success).toBe(false);

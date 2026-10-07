@@ -19,6 +19,7 @@ export function mapSlackNotification(
     collectionRunId: row.collection_run_id,
     createdAt: row.created_at,
     dispatchedAt: row.dispatched_at,
+    documentVersionId: row.document_version_id,
     error:
       row.error_code && row.error_message
         ? {

@@ -554,6 +554,18 @@
                     "minLength": 1,
                     "maxLength": 2000
                   },
+                  "experienceSummary": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 1000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "profileEvidence": {
                     "maxItems": 10,
                     "type": "array",
@@ -617,6 +629,7 @@
                   "requirementId",
                   "status",
                   "rationale",
+                  "experienceSummary",
                   "profileEvidence"
                 ],
                 "additionalProperties": false
@@ -914,6 +927,68 @@
                     }
                   ]
                 },
+                "resumeSuggestions": {
+                  "default": [],
+                  "maxItems": 5,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      },
+                      "action": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    },
+                    "required": [
+                      "title",
+                      "reason",
+                      "action"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "portfolioSuggestions": {
+                  "default": [],
+                  "maxItems": 5,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      },
+                      "action": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    },
+                    "required": [
+                      "title",
+                      "reason",
+                      "action"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
                 "warnings": {
                   "maxItems": 10,
                   "type": "array",
@@ -929,6 +1004,8 @@
                 "keyMessages",
                 "resumeFocus",
                 "portfolioFocus",
+                "resumeSuggestions",
+                "portfolioSuggestions",
                 "warnings"
               ],
               "additionalProperties": false

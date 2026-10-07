@@ -1,3 +1,4 @@
+export * from "./ai-usage";
 export type {
   AnalysisInputPolicy,
   AnalysisJobActionRequest,
@@ -336,6 +337,7 @@ export type {
   SlackNotificationDeliveryOutcome,
   SlackNotificationErrorCode,
   SlackNotificationEventType,
+  SlackNotificationListItem,
   SlackNotificationResponse,
   SlackNotificationResultCallback,
   SlackNotificationStatus,
@@ -343,10 +345,12 @@ export type {
 } from "./slack";
 export {
   N8nSlackNotificationDispatchPayloadSchema,
+  RetrySlackNotificationRequestSchema,
   SlackMessageBlockSchema,
   SlackNotificationDeliveryOutcomeSchema,
   SlackNotificationErrorCodeSchema,
   SlackNotificationEventTypeSchema,
+  SlackNotificationListEnvelopeSchema,
   SlackNotificationResponseSchema,
   SlackNotificationResultCallbackSchema,
   SlackNotificationStatusSchema,

@@ -67,34 +67,77 @@ export function AnalysisSummaryTab({
             </strong>
           </div>
         </div>
-        <p className="leading-7 break-words">{result.comparison.summary}</p>
+        <section>
+          <h3 className="mb-2 font-semibold">분석 핵심 결론</h3>
+          <p className="leading-7 break-words whitespace-pre-wrap">
+            {result.comparison.summary}
+          </p>
+        </section>
         <p className="text-muted-foreground text-xs">
           적합도는 채용 합격 확률이 아니라 공고 요구사항과 현재 자료의 일치
           정도입니다. unknown은 경험이 없다는 뜻이 아니라 현재 자료에서 근거를
           확인하지 못했다는 뜻입니다.
         </p>
-        <section className="border-border rounded-md border p-4">
-          <h3 className="font-semibold">지원 전략 초안</h3>
-          <p className="text-muted-foreground mt-2 text-sm leading-6 break-words whitespace-pre-wrap">
-            {result.comparison.applicationStrategy.motivationDraft ??
-              "지원동기 초안이 없습니다."}
-          </p>
-          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
+        <section className="border-border rounded-md border p-5">
+          <h3 className="font-semibold">지원 시 전달할 핵심 메시지</h3>
+          <ul className="mt-3 list-disc space-y-3 pl-5 text-sm leading-7">
             {result.comparison.applicationStrategy.keyMessages.map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>
-          <div className="text-muted-foreground mt-3 grid gap-2 text-sm sm:grid-cols-2">
-            <p>
-              <strong className="text-foreground">이력서 강조점:</strong>{" "}
-              {result.comparison.applicationStrategy.resumeFocus ?? "없음"}
-            </p>
-            <p>
-              <strong className="text-foreground">포트폴리오 강조점:</strong>{" "}
-              {result.comparison.applicationStrategy.portfolioFocus ?? "없음"}
-            </p>
-          </div>
         </section>
+        <section className="grid gap-4" aria-label="문서별 수정 제안">
+          {(
+            [
+              [
+                "이력서에 반영할 내용",
+                result.comparison.applicationStrategy.resumeSuggestions,
+                result.comparison.applicationStrategy.resumeFocus,
+              ],
+              [
+                "포트폴리오에 반영할 내용",
+                result.comparison.applicationStrategy.portfolioSuggestions,
+                result.comparison.applicationStrategy.portfolioFocus,
+              ],
+            ] as const
+          ).map(([title, suggestions, legacy]) => (
+            <article
+              className="border-border rounded-md border p-5"
+              key={title}
+            >
+              <h3 className="font-semibold">{title}</h3>
+              {suggestions?.length ? (
+                <ol className="mt-4 grid list-decimal gap-4 pl-5">
+                  {suggestions.map((item, index) => (
+                    <li key={index} className="pl-1 text-sm leading-7">
+                      <p className="font-medium">{item.title}</p>
+                      <p className="text-muted-foreground mt-1 whitespace-pre-wrap">
+                        {item.reason}
+                      </p>
+                      <p className="mt-2 whitespace-pre-wrap">
+                        <span className="font-medium">수정 제안: </span>
+                        {item.action}
+                      </p>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-muted-foreground mt-3 text-sm leading-7 whitespace-pre-wrap">
+                  {legacy ?? "제안된 내용이 없습니다."}
+                </p>
+              )}
+            </article>
+          ))}
+        </section>
+        <details className="border-border rounded-md border p-5">
+          <summary className="cursor-pointer font-semibold">
+            지원동기 초안
+          </summary>
+          <p className="text-muted-foreground mt-3 text-sm leading-7 break-words whitespace-pre-wrap">
+            {result.comparison.applicationStrategy.motivationDraft ??
+              "지원동기 초안이 없습니다."}
+          </p>
+        </details>
         <ul className="flex flex-wrap gap-2 text-xs">
           {Object.entries(MATCH_LABELS).map(([status, label]) => (
             <li className="bg-muted rounded-full px-3 py-1" key={status}>
