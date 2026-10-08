@@ -46,15 +46,34 @@ ADMIN_USER_ID=<관리자 UUID> pnpm db:reset:career-ops --apply \
 - `GET /v1/deletion-operations/:id`로 관리자 소유 작업의 정리 상태를 확인한다.
 - 삭제된 대상의 늦은 콜백은 404이며 이전 추출 이벤트는 최신 결과를 덮어쓰지 않는다.
 
+## 문서·OCR를 보존하는 공고 데이터 초기화
+
+공고·수집·지원·적합도 분석·면접·관련 알림 DB 기록만 관리자 단위로 초기화한다.
+문서·PDF 원본·OCR 텍스트·문서 프로필·확인 근거·기본 버전·공개 설정, AI 사용량과 잔액,
+문서 알림, 문서 작업의 멱등성 기록은 유지한다. 실제 Slack 메시지와 n8n 실행 이력도 유지한다.
+
+```bash
+ADMIN_USER_ID=<관리자 UUID> pnpm db:reset:career-jobs
+ADMIN_USER_ID=<관리자 UUID> pnpm db:reset:career-jobs --prepare-backup
+# 최신 삭제 대상과 검증된 백업을 보고 별도 승인한 경우에만 실행
+ADMIN_USER_ID=<관리자 UUID> pnpm db:reset:career-jobs --apply \
+  --backup <검증된 백업 디렉터리> --confirm <연결 프로젝트 ref:관리자 UUID>
+```
+
+기본은 dry-run이며 `--include-documents`와 함께 사용할 수 없다. 전체 리셋 백업을 이 모드에
+재사용하지 않는다. 유지보수 잠금·실행 중 작업 차단·백업 복원 시험·최신 대상 대조를 모두 적용한다.
+삭제 트랜잭션 전후 보존 대상의 fingerprint와 모든 PDF 원본의 크기·해시를 대조하며 PDF 정리 큐를
+생성하지 않는다. 삭제 후 보존 대상이 달라졌다면 완료로 보고하지 않고 백업을 유지해 점검한다.
+
 ## PDF 추출·OCR
 
-텍스트 레이어 추출 결과가 비었을 때만 기존 OpenAI Credential의 Responses API로
-자동 OCR을 호출한다. 20MB·30페이지 이내, 요청별 180초, 일시적 오류 최대 한 번 재시도다.
+모든 PDF를 기존 OpenAI Credential의 Responses API로 AI OCR 처리한다. 텍스트 레이어 추출과
+fallback은 사용하지 않는다. 20MB·30페이지 이내, 요청별 180초, 일시적 오류 최대 한 번 재시도다.
 모델은 `gpt-5.6-luna`이며 PDF 전체 페이지를 PNG로 렌더링해 페이지 번호와 함께
 `input_image`로 전달하고 `store: false`를 사용한다. 텍스트가 벡터 윤곽선으로 저장된
 PDF도 페이지 전체를 읽도록 하며, PDF 안의 삽화만 추출해 OCR하지 않는다.
 렌더링 모듈은 `Dockerfile.ocr`의 격리된 pnpm 런타임에 고정한다. 기본 n8n 이미지의
-미설치 native canvas binding에 의존하지 않는다. 일반 텍스트 PDF는 렌더링과 OCR을 생략한다.
+미설치 native canvas binding에 의존하지 않는다. 일반 텍스트 PDF도 같은 렌더링·OCR 경로를 사용한다.
 페이지 이미지는 최대 너비 1,600px·높이 2,600px, 이미지별 data URL 4MiB·전체 24MiB로
 제한하고 렌더링 종료 시 parser를 정리한다. 지나치게 긴 페이지는 자동 추출 대신 수동 입력을 안내한다.
 페이지 누락·불완전 응답·빈 결과·제한 초과는 실패로 표시한다. OCR 결과는 사용자 검토가
@@ -69,11 +88,14 @@ PDF도 페이지 전체를 읽도록 하며, PDF 안의 삽화만 추출해 OCR�
 - JWKS 연결 장애의 503은 계정이나 비밀번호를 변경하지 않고 서비스 회복 후 다시 시도한다.
 - 관리자 UUID를 변경했다면 Blog와 Worker를 함께 갱신하고 기존 세션을 종료한다.
 
-### Wanted 수집 실패
+### 공고 수집·AI 구조화 실패
 
-- `ACCESS_BLOCKED`, `JOB_EXPIRED`, `PARSER_STRUCTURE_CHANGED`, `URL_MISMATCH`를 구분한다.
-- 차단·만료·구조 변경은 반복 수집하지 않고 관리자 화면의 수동 원문으로 전환한다.
-- timeout·429·5xx도 자동 반복하지 않고 원문과 Wanted 상태를 확인한 뒤 새 수집 실행을 만든다.
+- `ACCESS_BLOCKED`, `JOB_EXPIRED`, `AUTOMATIC_COLLECTION_UNSUPPORTED`, `AI_STRUCTURING_FAILED`를 구분한다.
+- 자동 수집은 원티드 상세 URL만 허용한다. 다른 플랫폼도 등록·공통 분석할 수 있으나 원문은 수동 입력한다.
+- HTML 정리는 전송용 텍스트 정규화일 뿐 자격요건 등을 해석하는 플랫폼별 파서는 아니다. 메타데이터·섹션·사실은 한 번의 AI 구조화로 저장하고 적합도 비교에 재사용한다.
+- 차단·만료·불완전 원문은 반복 수집하지 않고 관리자 화면의 수동 원문으로 전환한다.
+- `job_structure_required`는 새 버전의 공고 사실이 없는 기존 스냅샷이다. 재수집하거나 원문을 수동 입력한 뒤 분석한다.
+- timeout·429·5xx는 제한된 재시도 후 원문과 플랫폼 상태를 확인하고 새 수집 실행을 만든다.
 - CAPTCHA 우회, 비공개 API 사용과 redirect 허용은 복구 수단으로 사용하지 않는다.
 
 ### n8n 중단 또는 dispatch 실패

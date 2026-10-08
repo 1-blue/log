@@ -24,6 +24,7 @@ export function getJobPostingMetadataStatus(
   posting: JobPostingRow,
 ): "pending" | "confirmed" {
   return posting.company_name === "확인 중" ||
+    posting.title === "공고 확인 중" ||
     posting.title === `Wanted 공고 ${posting.external_id}`
     ? "pending"
     : "confirmed";

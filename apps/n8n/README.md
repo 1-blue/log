@@ -88,11 +88,11 @@ debug 로그에는 n8n 노드가 HTTP 오류의 요청 정보를 함께 기록�
 공유하지 않는다. 운영 배포 전에는 `N8N_LOG_LEVEL=info`와 필요한 실행 저장 수준으로
 낮추고, 개인 원문·토큰·서명·Webhook URL이 포함된 로그를 보관하지 않는다.
 
-브라우저에서 `http://localhost:5678`을 열어 owner 계정을 한 번 생성한다. OpenAI API Key는 `OpenAI Career Analysis`라는 OpenAI Credential로 등록하고, Workflow의 원문 보완 1개와 공고 사실·프로필 비교 최초 및 재시도 노드 4개, 총 5개 노드에 같은 Credential을 연결한다. API Key는 `.env`나 Workflow JSON에 넣지 않는다. Slack Bot Token은 16단계 외부 연동에서 n8n Slack API Credential로 등록한다.
+브라우저에서 `http://localhost:5678`을 열어 owner 계정을 한 번 생성한다. OpenAI API Key는 `OpenAI Career Analysis`라는 OpenAI Credential로 등록하고 공고 구조화·개인 자료 비교·OCR의 최초 및 재시도 호출 6개 노드에 같은 Credential을 연결한다. API Key는 `.env`나 Workflow JSON에 넣지 않는다. Slack Bot Token은 n8n Slack API Credential로 등록한다.
 
 ## 채용공고 수집 및 지원 분석 Workflow
 
-owner 계정과 OpenAI Credential을 만든 다음 버전 관리 중인 Workflow를 import한다. 5개 OpenAI 노드에 Credential이 연결됐는지 확인한 후 publish한다. n8n 2.x의 CLI publish 결과는 서버 재시작 뒤 적용된다. 기존 smoke Workflow는 비활성 상태로 보존하며 동일한 Webhook 경로를 동시에 게시하지 않는다.
+owner 계정과 OpenAI Credential을 만든 다음 버전 관리 중인 Workflow를 import한다. 6개 유료 호출 노드에 Credential이 연결됐는지 확인한 후 publish한다. n8n 2.x의 CLI publish 결과는 서버 재시작 뒤 적용된다. 기존 smoke Workflow는 비활성 상태로 보존하며 동일한 Webhook 경로를 동시에 게시하지 않는다.
 
 ```bash
 docker compose exec -T n8n n8n unpublish:workflow --id=careerAnalysisSmoke
@@ -106,13 +106,13 @@ Workflow는 다음 순서로 동작한다.
 - Worker가 보낸 원문 body와 요청 식별자를 HMAC-SHA256으로 검증한다.
 - 유효한 요청에 즉시 `202 Accepted`, 잘못된 서명에 `401`을 반환한다.
 - 자동 모드는 Wanted HTML을 리다이렉트 없이 최대 10초 동안 요청한다.
-- Worker의 JSON-LD·HTML 결정론적 파서가 핵심 필드를 찾지 못한 경우에만 `job_posting_extraction` 요청으로 OpenAI 원문 구조화를 수행한다. AI가 반환한 제목·회사명·본문·근거는 Worker가 원문과 재검증한다.
-- 수동 모드는 전달받은 원문을 그대로 사용한다.
-- `document_extraction` 요청은 Worker가 발급한 짧은 만료의 Supabase signed URL에서 PDF를 받아 `Extract From File`의 PDF 작업으로 텍스트를 추출하고, 결과를 Worker callback으로 반환한다. 이력서·포트폴리오 업로드 완료 후 자동 실행되며, 실패하면 관리자 화면의 `PDF 다시 추출` 또는 수동 텍스트 보정으로 복구한다.
+- 자동 수집과 수동 입력 모두 `job_posting_extraction`으로 공통 AI 구조화를 수행한다. HTML의 script·style·태그를 정리하는 전송 처리는 남기되, 플랫폼별 의미 분석 파서는 사용하지 않는다. Worker가 제목·회사명·본문·사실·근거와 원문 완전성을 검증해 함께 저장한다.
+- 원티드 외 플랫폼도 URL과 플랫폼을 등록하고 원문을 수동 입력해 같은 AI 분석을 이용한다. 자동 fetch는 안전성과 이용 조건 검토 전까지 원티드 상세 URL로 제한한다.
+- `document_extraction`은 짧은 만료의 Supabase signed URL에서 PDF를 받아 크기·해시·페이지 수 확인 후 전체 페이지를 렌더링해 AI OCR한다. 텍스트 레이어 추출은 사용하지 않는다. 업로드 완료 후 자동 실행되며 실패하면 재추출 또는 수동 보정으로 복구한다.
 - 최대 600KB 정책을 적용하고 결과를 다시 HMAC 서명해 Worker 내부 API로 전달한다.
-- `application_analysis` 요청은 먼저 공고 사실을 구조화하고, 다음 호출에서 이력서·포트폴리오와 비교한다.
-- 두 단계 모두 `gpt-5.6-luna`, Responses API Structured Outputs, `store: false`를 사용한다.
-- 공고 원문 보완과 공고 사실 구조화는 reasoning `medium`, 최대 4,000·6,000 출력 토큰을 사용한다. 프로필 비교와 지원 전략 생성은 `high`, 최대 10,000 출력 토큰을 사용한다.
+- `application_analysis`는 저장된 공고 사실을 이력서·포트폴리오와 비교한다. 별도 공고 사실 AI 호출은 없으며 동일 원문·모델·프롬프트 버전의 수집 캐시도 추가 비용 없이 재사용한다.
+- 공고 구조화와 비교는 `gpt-5.6-luna`, Responses API Structured Outputs, `store: false`를 사용한다.
+- 공고 구조화는 reasoning `medium`, 최대 16,000 출력 토큰, 개인 자료 비교는 `high`, 최대 10,000 출력 토큰을 사용한다.
 - 분석 payload에는 등록된 이력서·포트폴리오·공고의 fixture 또는 AI 프로필이 함께 전달된다. PDF는 짧은 만료의 signed URL 메타데이터로 전달하며 실제 OpenAI 파일 입력 연결은 16단계 Credential 연동에서 검증한다.
 - 각 OpenAI 단계 전후에 실행 회차·단계 회차가 포함된 heartbeat를 보내며 네트워크·timeout·일반 429·5xx만 한 번 재시도한다.
 - `Retry-After`가 60초 이하면 따르고 없으면 2초와 결정적 jitter를 사용한다. 인증·결제·quota·입력·미완료·스키마 오류는 자동 재시도하지 않는다.

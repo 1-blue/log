@@ -22,7 +22,7 @@ const usd = (value: number | null) =>
   value === null ? "집계 불가" : `$${value.toFixed(4)}`;
 const OPERATIONS = {
   document_ocr: "문서 AI OCR",
-  job_posting_extraction: "공고 원문 보완",
+  job_posting_extraction: "공고 AI 구조화",
   job_facts: "공고 요구사항 추출",
   profile_comparison: "지원 적합도 분석",
 };

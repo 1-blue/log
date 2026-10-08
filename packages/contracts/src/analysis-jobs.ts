@@ -1,11 +1,15 @@
 import * as z from "zod";
 
-import { AnalysisResultSchema } from "./analysis-results";
+import {
+  AnalysisResultSchema,
+  JobPostingFactsSchema,
+} from "./analysis-results";
 import {
   AnalysisJobStageSchema,
   AnalysisJobStatusSchema,
   ApiErrorInfoSchema,
 } from "./common";
+import { JobPostingUrlSchema } from "./job-platforms";
 import {
   ANALYSIS_DISPATCH_DOCUMENT_TEXT_MAX_LENGTH,
   ANALYSIS_DISPATCH_JOB_POSTING_TEXT_MAX_LENGTH,
@@ -16,7 +20,6 @@ import {
   JobPostingSourceSchema,
   Rfc3339TimestampSchema,
   UuidSchema,
-  WantedJobPostingUrlSchema,
 } from "./job-postings";
 
 export const CreateAnalysisJobRequestSchema = z.strictObject({});
@@ -263,7 +266,7 @@ export const N8nDispatchPayloadSchema = z.strictObject({
     id: UuidSchema,
     snapshotId: UuidSchema,
     source: JobPostingSourceSchema,
-    url: WantedJobPostingUrlSchema,
+    url: JobPostingUrlSchema,
     title: z.string().min(1).max(500),
     companyName: z.string().min(1).max(500),
     contentHash: z.string().regex(/^[0-9a-f]{64}$/),
@@ -274,6 +277,8 @@ export const N8nDispatchPayloadSchema = z.strictObject({
     profileId: UuidSchema.nullable(),
     profileSource: AnalysisSourceSchema.nullable(),
     profile: JobPostingAnalysisProfileSchema.nullable(),
+    facts: JobPostingFactsSchema.nullable().default(null),
+    structureVersion: z.string().max(100).nullable().default(null),
   }),
   profile: z.strictObject({
     resume: AnalysisInputDocumentSchema,

@@ -93,12 +93,19 @@ try {
         "-d",
         "postgres",
         "-Atc",
-        `select public.preview_career_deletion('${manifest.ownerId}'::uuid,'reset',null)::text`,
+        manifest.targetType === "job_reset"
+          ? `select public.preview_career_job_reset('${manifest.ownerId}'::uuid)::text`
+          : `select public.preview_career_deletion('${manifest.ownerId}'::uuid,'reset',null)::text`,
       ],
       { encoding: "utf8" },
     );
     if (JSON.parse(raw).fingerprint !== manifest.fingerprint)
       throw new Error("복원 데이터가 백업 전 데이터와 다릅니다.");
+    if (
+      manifest.targetType === "job_reset" &&
+      JSON.parse(raw).preservedFingerprint !== manifest.preservedFingerprint
+    )
+      throw new Error("복원한 보존 대상 데이터가 백업과 다릅니다.");
     console.log(
       "[career-db] DB 백업 복원과 전체 삭제 대상 fingerprint 대조 완료",
     );

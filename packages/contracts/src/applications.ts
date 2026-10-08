@@ -5,17 +5,17 @@ import {
   applicationStatusRequiresDocuments,
   ApplicationStatusSchema,
 } from "./common";
+import { JobPostingUrlSchema } from "./job-platforms";
 import {
   DocumentTypeSchema,
   JobPostingSourceSchema,
   Rfc3339TimestampSchema,
   UuidSchema,
-  WantedJobPostingUrlSchema,
 } from "./job-postings";
 
 export const CreateJobPostingRequestSchema = z.strictObject({
   source: JobPostingSourceSchema,
-  url: WantedJobPostingUrlSchema,
+  url: JobPostingUrlSchema,
   manualContent: z.string().max(100_000).nullable(),
 });
 
@@ -26,7 +26,7 @@ export type CreateJobPostingRequest = z.infer<
 export const JobPostingResponseSchema = z.strictObject({
   id: UuidSchema,
   source: JobPostingSourceSchema,
-  url: WantedJobPostingUrlSchema,
+  url: JobPostingUrlSchema,
   title: z.string().max(500).nullable(),
   companyName: z.string().max(500).nullable(),
   createdAt: Rfc3339TimestampSchema,
@@ -110,7 +110,7 @@ export type ApplicationStateInput = z.infer<typeof ApplicationStateInputSchema>;
 export const CreateApplicationRequestSchema = z
   .strictObject({
     source: JobPostingSourceSchema,
-    url: WantedJobPostingUrlSchema,
+    url: JobPostingUrlSchema,
     companyName: ApplicationCompanyNameSchema.nullable().optional(),
     title: ApplicationTitleSchema.nullable().optional(),
     ...ApplicationStateShape,
@@ -150,9 +150,13 @@ export const PatchJobPostingRequestSchema = z
   .strictObject({
     companyName: ApplicationCompanyNameSchema.optional(),
     title: ApplicationTitleSchema.optional(),
+    source: JobPostingSourceSchema.optional(),
   })
   .refine(
-    (value) => value.companyName !== undefined || value.title !== undefined,
+    (value) =>
+      value.companyName !== undefined ||
+      value.title !== undefined ||
+      value.source !== undefined,
     "At least one job posting field is required",
   );
 
@@ -176,8 +180,8 @@ export const ApplicationJobPostingSchema = z.strictObject({
   id: UuidSchema,
   metadataStatus: z.enum(["pending", "confirmed"]),
   source: JobPostingSourceSchema,
-  externalId: z.string().regex(/^\d+$/),
-  url: WantedJobPostingUrlSchema,
+  externalId: z.string().min(1).max(200),
+  url: JobPostingUrlSchema,
   companyName: ApplicationCompanyNameSchema,
   title: ApplicationTitleSchema,
   createdAt: Rfc3339TimestampSchema,

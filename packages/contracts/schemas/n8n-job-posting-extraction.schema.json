@@ -35,23 +35,24 @@
         },
         "source": {
           "type": "string",
-          "const": "wanted"
+          "pattern": "^[a-z][a-z0-9_]{0,39}$"
         },
         "url": {
           "type": "string",
+          "maxLength": 2000,
           "format": "uri"
         },
-        "html": {
+        "sourceText": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 600000
+          "maxLength": 100000
         }
       },
       "required": [
         "id",
         "source",
         "url",
-        "html"
+        "sourceText"
       ],
       "additionalProperties": false
     },

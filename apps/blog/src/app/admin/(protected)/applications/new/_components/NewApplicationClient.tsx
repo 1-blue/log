@@ -7,7 +7,10 @@ import { useRouter } from "next/navigation";
 import {
   type ApplicationStatus,
   applicationStatusRequiresDocuments,
+  canAutomaticallyCollectJobUrl,
+  detectJobPlatform,
   type DocumentVersion,
+  jobPlatformLabel,
 } from "@workspace/contracts";
 import { Button } from "@workspace/ui/components/Button";
 import { Input } from "@workspace/ui/components/Input";
@@ -48,6 +51,9 @@ export default function NewApplicationClient() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [duplicateId, setDuplicateId] = useState<string | null>(null);
+  const [url, setUrl] = useState("");
+  const [unknownPlatform, setUnknownPlatform] = useState("other");
+  const platform = detectJobPlatform(url);
 
   useEffect(() => {
     void listDocumentVersions({ archived: "exclude" })
@@ -86,7 +92,7 @@ export default function NewApplicationClient() {
           resumeVersionId && resumeVersionId !== "none"
             ? resumeVersionId
             : null,
-        source: "wanted",
+        source: platform === "other" ? unknownPlatform : platform,
         status,
         title: String(data.get("title") ?? "").trim() || null,
         url: String(data.get("url") ?? "").trim(),
@@ -94,7 +100,10 @@ export default function NewApplicationClient() {
       try {
         const collection = await createJobPostingCollection(
           response.data.jobPosting.id,
-          { manualContent: null },
+          {
+            manualContent:
+              String(data.get("manualContent") ?? "").trim() || null,
+          },
         );
         router.push(
           `/admin/applications/${response.data.id}?collectionRunId=${collection.data.id}`,
@@ -133,7 +142,8 @@ export default function NewApplicationClient() {
       <div>
         <h2 className="text-2xl font-bold">채용공고 등록</h2>
         <p className="text-muted-foreground mt-2 text-sm">
-          Wanted URL을 먼저 등록합니다. 공고 수집이 끝나면 회사명과 공고명을
+          공고 URL을 등록하면 플랫폼을 확인합니다. 수집한 원문 또는 직접 입력한
+          원문을 AI가 공통 형식으로 구조화하며, 결과의 회사명과 공고명을
           확인·수정할 수 있습니다.
         </p>
       </div>
@@ -160,14 +170,54 @@ export default function NewApplicationClient() {
         onSubmit={handleSubmit}
       >
         <div className="grid gap-2 text-sm font-medium sm:col-span-2">
-          <Label htmlFor="application-url">Wanted 공고 URL</Label>
+          <Label htmlFor="application-url">채용공고 URL</Label>
           <Input
             id="application-url"
             name="url"
             placeholder="https://www.wanted.co.kr/wd/384409"
             required
             type="url"
+            value={url}
+            onChange={(event) => setUrl(event.target.value)}
           />
+          {url ? (
+            <p className="text-muted-foreground text-xs">
+              플랫폼:{" "}
+              {jobPlatformLabel(
+                platform === "other" ? unknownPlatform : platform,
+                url,
+              )}
+            </p>
+          ) : null}
+          {platform === "other" ? (
+            <Select value={unknownPlatform} onValueChange={setUnknownPlatform}>
+              <SelectTrigger aria-label="알 수 없는 사이트 분류">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="other">기타 사이트</SelectItem>
+                <SelectItem value="company">자사 채용 홈페이지</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : null}
+        </div>
+        <div className="grid gap-2 sm:col-span-2">
+          <Label htmlFor="application-manual-content">
+            공고 원문 (자동 수집이 어려운 경우)
+          </Label>
+          <Textarea
+            id="application-manual-content"
+            name="manualContent"
+            minLength={100}
+            maxLength={100_000}
+            placeholder="회사·직무 소개, 주요 업무, 자격요건과 우대사항 등 공고 본문을 붙여 넣어 주세요."
+            rows={7}
+          />
+          <p className="text-muted-foreground text-xs">
+            {canAutomaticallyCollectJobUrl(url)
+              ? "원문을 입력하지 않으면 자동 수집을 시도합니다."
+              : "이 링크는 직접 입력한 원문으로 분석합니다. 로그인·접근 차단을 우회해 수집하지 않습니다."}
+          </p>
         </div>
         <div className="grid gap-2 text-sm font-medium">
           <Label htmlFor="application-company">회사명 (선택)</Label>

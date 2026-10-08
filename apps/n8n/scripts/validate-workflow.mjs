@@ -68,13 +68,13 @@ for (const name of [
   "AI 원문 보완 실패 구성",
   "수동 원문 여부",
   "Wanted HTML 수집",
-  "OpenAI 공고 사실 분석",
-  "OpenAI 공고 사실 분석 재시도",
+  "OpenAI 공고 원문 보완 재시도",
+  "공고 사실 결과 확정",
   "OpenAI 프로필 비교",
   "OpenAI 프로필 비교 재시도",
-  "공고 사실 오류 분류",
-  "공고 사실 자동 재시도 여부",
-  "공고 재시도 대기",
+  "공고 구조화 오류 분류",
+  "공고 구조화 재시도 여부",
+  "공고 구조화 재시도 대기",
   "프로필 비교 오류 분류",
   "프로필 비교 자동 재시도 여부",
   "프로필 재시도 대기",
@@ -136,9 +136,8 @@ assert(
 );
 
 const expectedOpenAi = [
-  ["OpenAI 공고 원문 보완", 4000, "medium", "job_posting_ai_extraction"],
-  ["OpenAI 공고 사실 분석", 6000, "medium", "job_posting_facts"],
-  ["OpenAI 공고 사실 분석 재시도", 6000, "medium", "job_posting_facts"],
+  ["OpenAI 공고 원문 보완", 16000, "medium", "job_posting_structure"],
+  ["OpenAI 공고 원문 보완 재시도", 16000, "medium", "job_posting_structure"],
   ["OpenAI 프로필 비교", 32000, "high", "profile_comparison"],
   ["OpenAI 프로필 비교 재시도", 32000, "high", "profile_comparison"],
 ];
@@ -183,7 +182,7 @@ for (const [name, maxTokens, effort, schemaName] of expectedOpenAi) {
   );
 }
 
-for (const name of ["공고 재시도 대기", "프로필 재시도 대기"]) {
+for (const name of ["공고 구조화 재시도 대기", "프로필 재시도 대기"]) {
   const node = nodes.get(name);
   assert(
     node.type === "n8n-nodes-base.wait",
@@ -194,7 +193,6 @@ for (const name of ["공고 재시도 대기", "프로필 재시도 대기"]) {
 for (const name of [
   "분석 시작 이벤트 구성",
   "프로필 분석 Heartbeat 구성",
-  "공고 재시도 Heartbeat 구성",
   "프로필 재시도 Heartbeat 구성",
 ]) {
   const code = nodes.get(name).parameters.jsCode;
@@ -211,7 +209,7 @@ for (const name of ["분석 결과 구성", "프로필 재시도 결과 구성"]
 }
 for (const name of [
   "공고 사실 결과 확정",
-  "공고 사실 재시도 결과 확정",
+  "AI 원문 보완 결과 구성",
   "분석 결과 구성",
   "프로필 재시도 결과 구성",
 ]) {

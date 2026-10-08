@@ -31,6 +31,33 @@ test("dry-run is the default, and malformed/combined apply arguments are rejecte
   assert.throws(() => assertResetArguments(["--apply", "--prepare-backup"]));
   assert.throws(() => assertResetArguments(["--confirm"]));
   assert.throws(() => assertResetArguments(["--force"]));
+  assert.doesNotThrow(() => assertResetArguments(["--preserve-documents"]));
+  assert.throws(() =>
+    assertResetArguments(["--preserve-documents", "--include-documents"]),
+  );
+});
+test("a full-reset backup cannot authorize a document-preserving reset or vice versa", () => {
+  assert.throws(() =>
+    assertVerifiedBackup(manifest(), "fixture", owner, read, "job_reset"),
+  );
+  const m = {
+    ...manifest(),
+    targetType: "job_reset",
+    preservedFingerprint: "b".repeat(64),
+  };
+  assert.doesNotThrow(() =>
+    assertVerifiedBackup(m, "fixture", owner, read, "job_reset"),
+  );
+  assert.throws(() => assertVerifiedBackup(m, "fixture", owner, read));
+  assert.throws(() =>
+    assertVerifiedBackup(
+      { ...m, preservedFingerprint: null },
+      "fixture",
+      owner,
+      read,
+      "job_reset",
+    ),
+  );
 });
 test("verified backup binds the exact project, owner and byte hashes", () => {
   assert.doesNotThrow(() =>

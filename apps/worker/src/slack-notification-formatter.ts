@@ -1,4 +1,5 @@
 import {
+  jobPlatformLabel,
   type N8nSlackNotificationDispatchPayload,
   type SlackMessageBlock,
   type SlackNotificationEventType,
@@ -273,8 +274,8 @@ export function formatSlackNotification(input: {
   const link = adminUrl(input.appBaseUrl, input.notification);
   const heading = `*${eventTitle}* · [${formatEnvironment(input.appBaseUrl)}]`;
   const sourceLink =
-    input.notification.target === "job_root"
-      ? `<${input.posting!.canonical_url}|Wanted 공고 보기>`
+    input.notification.target === "job_root" && input.posting
+      ? `<${escapeSlackMrkdwn(input.posting.canonical_url)}|${escapeSlackMrkdwn(jobPlatformLabel(input.posting.source, input.posting.canonical_url))} 공고 보기>`
       : null;
   const body = [`*${companyName}* — ${title}`, sourceLink, ...details]
     .filter(Boolean)

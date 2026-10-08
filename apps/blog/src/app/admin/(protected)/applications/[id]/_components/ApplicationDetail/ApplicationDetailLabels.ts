@@ -7,19 +7,24 @@ export const COLLECTION_ERROR_LABELS: Record<
   JobPostingCollectionErrorCode,
   string
 > = {
-  ACCESS_BLOCKED: "Wanted가 자동 접근을 차단했습니다.",
+  ACCESS_BLOCKED:
+    "채용 사이트가 자동 접근을 차단했습니다. 원문을 직접 입력해 주세요.",
+  AUTOMATIC_COLLECTION_UNSUPPORTED:
+    "자동 수집을 지원하지 않는 링크입니다. 공고 원문을 직접 입력해 주세요.",
+  AI_STRUCTURING_FAILED:
+    "AI 공고 구조화에 실패했습니다. 잠시 후 다시 시도하거나 원문을 확인해 주세요.",
   CONTENT_TOO_LARGE: "공고 원문이 허용된 크기를 초과했습니다.",
   DISPATCH_FAILED: "수집 Workflow에 요청을 전달하지 못했습니다.",
-  INVALID_CONTENT_TYPE: "Wanted가 HTML이 아닌 응답을 반환했습니다.",
+  INVALID_CONTENT_TYPE: "채용 사이트가 HTML이 아닌 응답을 반환했습니다.",
   INVALID_JOB_POSTING: "유효한 채용공고 내용을 확인하지 못했습니다.",
   JOB_EXPIRED: "삭제되었거나 만료된 공고입니다.",
-  NETWORK_ERROR: "Wanted 연결 중 네트워크 오류가 발생했습니다.",
+  NETWORK_ERROR: "채용 사이트 연결 중 네트워크 오류가 발생했습니다.",
   PARSER_STRUCTURE_CHANGED:
-    "Wanted 공고 구조가 변경되어 자동으로 읽지 못했습니다.",
-  RATE_LIMITED: "Wanted 요청 제한에 도달했습니다.",
+    "공고 내용을 자동으로 확인하지 못했습니다. 원문을 직접 입력해 주세요.",
+  RATE_LIMITED: "채용 사이트 요청 제한에 도달했습니다.",
   REDIRECT_NOT_ALLOWED: "공고가 다른 주소로 이동되었습니다.",
-  TIMEOUT: "Wanted 응답 시간이 초과되었습니다.",
-  UPSTREAM_ERROR: "Wanted 서버에서 오류를 반환했습니다.",
+  TIMEOUT: "채용 사이트 응답 시간이 초과되었습니다.",
+  UPSTREAM_ERROR: "채용 사이트 서버에서 오류를 반환했습니다.",
   URL_MISMATCH: "응답 공고와 등록한 URL이 일치하지 않습니다.",
 };
 

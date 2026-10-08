@@ -6,7 +6,9 @@ import {
   type ApplicationStateInput,
   ApplicationStateInputSchema,
   type ApplicationSummary,
+  canonicalJobPostingUrl,
   type CreateApplicationRequest,
+  detectJobPlatform,
   type PatchApplicationRequest,
   type PatchJobPostingRequest,
 } from "@workspace/contracts";
@@ -19,6 +21,7 @@ import {
   mapApplicationDocument,
   mapApplicationSummary,
 } from "./application-mappers.js";
+import { sha256Hex } from "./idempotency.js";
 
 type StatusHistoryRow =
   Database["public"]["Tables"]["application_status_history"]["Row"];
@@ -78,14 +81,12 @@ function createSupabaseAdminClient(env: CloudflareBindings) {
   });
 }
 
-function normalizeWantedUrl(value: string) {
-  const url = new URL(value);
-  const externalId = url.pathname.match(/^\/wd\/(\d+)$/)?.[1];
-  if (!externalId) throw new ApplicationServiceError("validation");
-  return {
-    externalId,
-    canonicalUrl: `https://www.wanted.co.kr/wd/${externalId}`,
-  };
+function resolvePlatform(url: string, requested: string) {
+  const detected = detectJobPlatform(url);
+  if (detected !== "other") return detected;
+  if (requested !== "other" && requested !== "company")
+    throw new ApplicationServiceError("validation");
+  return requested;
 }
 
 function mapDatabaseError(error: { code?: string; message?: string }) {
@@ -197,13 +198,18 @@ class SupabaseApplicationService implements ApplicationService {
   }
 
   async create(ownerId: string, input: CreateApplicationRequest) {
-    const { externalId, canonicalUrl } = normalizeWantedUrl(input.url);
+    const canonicalUrl = canonicalJobPostingUrl(input.url);
+    const source = resolvePlatform(canonicalUrl, input.source);
+    const externalId =
+      source === "wanted"
+        ? (new URL(canonicalUrl).pathname.match(/^\/wd\/(\d+)$/)?.[1] ??
+          (await sha256Hex(canonicalUrl)))
+        : await sha256Hex(canonicalUrl);
     const { data: duplicate, error: duplicateError } = await this.supabase
       .from("job_postings")
       .select("id")
       .eq("owner_id", ownerId)
-      .eq("source", input.source)
-      .eq("external_id", externalId)
+      .eq("canonical_url", canonicalUrl)
       .maybeSingle();
     if (duplicateError) throw new ApplicationServiceError("unavailable");
     if (duplicate) {
@@ -225,7 +231,7 @@ class SupabaseApplicationService implements ApplicationService {
     }
 
     const { data, error } = await this.supabase.rpc(
-      "create_application_with_posting",
+      "create_application_with_posting_v2",
       {
         p_applied_on: input.appliedOn,
         p_canonical_url: canonicalUrl,
@@ -236,9 +242,9 @@ class SupabaseApplicationService implements ApplicationService {
         p_owner_id: ownerId,
         p_portfolio_version_id: input.portfolioVersionId,
         p_resume_version_id: input.resumeVersionId,
-        p_source: input.source,
+        p_source: source,
         p_status: input.status,
-        p_title: input.title ?? `Wanted 공고 ${externalId}`,
+        p_title: input.title ?? "공고 확인 중",
       } as never,
     );
     if (error) throw mapDatabaseError(error);
@@ -429,12 +435,16 @@ class SupabaseApplicationService implements ApplicationService {
     if (!current) throw new ApplicationServiceError("not_found");
 
     const { data, error } = await this.supabase.rpc(
-      "update_job_posting_details",
+      "update_job_posting_details_v2",
       {
         p_company_name: input.companyName ?? current.company_name,
         p_job_posting_id: jobPostingId,
         p_owner_id: ownerId,
         p_title: input.title ?? current.title,
+        p_source: resolvePlatform(
+          current.canonical_url,
+          input.source ?? current.source,
+        ),
       },
     );
     if (error) throw mapDatabaseError(error);

@@ -6,10 +6,10 @@ import {
   DOCUMENT_EXTRACTED_TEXT_MAX_LENGTH,
   DocumentExtractionErrorCodeSchema,
   DocumentExtractionOutcomeSchema,
-  JobPostingAiExtractionSchema,
   Rfc3339TimestampSchema,
   UuidSchema,
 } from "./job-postings";
+import { JobPostingStructuredExtractionSchema } from "./job-structure";
 
 export const JobPostingCollectionCallbackOutcomeSchema = z.enum([
   "response",
@@ -17,6 +17,7 @@ export const JobPostingCollectionCallbackOutcomeSchema = z.enum([
   "ai_extraction",
   "network_error",
   "timeout",
+  "ai_failed",
 ]);
 
 export const JobPostingCollectionCallbackSchema = z
@@ -27,7 +28,7 @@ export const JobPostingCollectionCallbackSchema = z
     collectionRunId: UuidSchema,
     outcome: JobPostingCollectionCallbackOutcomeSchema,
     occurredAt: Rfc3339TimestampSchema,
-    extraction: JobPostingAiExtractionSchema.nullable().optional(),
+    extraction: JobPostingStructuredExtractionSchema.nullable().optional(),
     response: z
       .strictObject({
         status: z.int().min(100).max(599),

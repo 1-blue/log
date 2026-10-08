@@ -273,6 +273,14 @@ export {
   SaveInterviewAnswerRequestSchema,
   UpdateAnalysisReviewRequestSchema,
 } from "./interview";
+export {
+  canAutomaticallyCollectJobUrl,
+  canonicalJobPostingUrl,
+  detectJobPlatform,
+  JOB_PLATFORM_LABELS,
+  jobPlatformLabel,
+  JobPostingUrlSchema,
+} from "./job-platforms";
 export type {
   CreateJobPostingCollectionRequest,
   DocumentExtractionErrorCode,
@@ -331,6 +339,13 @@ export {
   N8nJobPostingExtractionDispatchPayloadSchema,
   WantedJobPostingUrlSchema,
 } from "./job-postings";
+export type { JobPostingStructuredExtraction } from "./job-structure";
+export {
+  JOB_STRUCTURE_MODEL,
+  JOB_STRUCTURE_PROMPT_VERSION,
+  JOB_STRUCTURE_VERSION,
+  JobPostingStructuredExtractionSchema,
+} from "./job-structure";
 export type {
   N8nSlackNotificationDispatchPayload,
   SlackMessageBlock,

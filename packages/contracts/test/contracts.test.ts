@@ -227,9 +227,15 @@ describe("career operations contracts", () => {
     ).toBe(true);
   });
 
-  it("requires a canonical Wanted URL without URL decorations", () => {
+  it("rejects unsafe URL decorations while preserving posting identity queries", () => {
+    expect(
+      CreateJobPostingRequestSchema.safeParse({
+        source: "saramin",
+        url: "https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=123",
+        manualContent: null,
+      }).success,
+    ).toBe(true);
     for (const url of [
-      `${validWantedUrl}?from=search`,
       `${validWantedUrl}#details`,
       "https://user@www.wanted.co.kr/wd/384409",
       "https://www.wanted.co.kr:444/wd/384409",
@@ -292,11 +298,19 @@ describe("career operations contracts", () => {
     const aiExtractionCallback = {
       ...callback,
       extraction: {
-        companyName: "미리디",
-        description: "공고 본문 구조화 결과",
+        sourceComplete: true,
+        metadata: {
+          title: "AX Engineer - Infra",
+          companyName: "미리디",
+          datePosted: null,
+          validThrough: null,
+          employmentType: null,
+          location: null,
+          industry: null,
+          occupationalCategory: null,
+        },
+        facts: validAnalysisResult.job,
         evidence: [{ excerpt: "공고 본문", section: "자격요건" }],
-        title: "AX Engineer - Infra",
-        warnings: [],
       },
       outcome: "ai_extraction",
       response: {
@@ -672,7 +686,7 @@ describe("career operations contracts", () => {
     ).toBe(false);
   });
 
-  it("rejects unsupported job URLs and unknown fields", () => {
+  it("accepts public platform URLs but rejects unknown fields", () => {
     expect(
       CreateApplicationRequestSchema.safeParse({
         source: "wanted",
@@ -689,11 +703,11 @@ describe("career operations contracts", () => {
     ).toBe(true);
     expect(
       CreateJobPostingRequestSchema.safeParse({
-        source: "wanted",
+        source: "other",
         url: "https://example.com/jobs/384409",
         manualContent: null,
       }).success,
-    ).toBe(false);
+    ).toBe(true);
 
     expect(
       CreateJobPostingRequestSchema.safeParse({
@@ -1027,6 +1041,8 @@ describe("career operations contracts", () => {
           interviewAt: timestamp,
           status: "preparing",
           title: "AX Engineer - Infra",
+          source: "wanted",
+          url: validWantedUrl,
         },
         checklist: [],
         comparison: null,

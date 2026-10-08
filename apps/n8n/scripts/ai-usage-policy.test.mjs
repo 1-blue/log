@@ -94,7 +94,7 @@ test("every AI node has accounting before and after both outcomes, without doubl
       node.type === "@n8n/n8n-nodes-langchain.openAi" ||
       ["문서 자동 OCR", "문서 자동 OCR 재시도"].includes(node.name),
   );
-  assert.equal(aiNodes.length, 7);
+  assert.equal(aiNodes.length, 6);
   for (const ai of aiNodes) {
     const prefix = `${ai.name} 사용량`;
     assert.ok(nodes.has(`${prefix} 시작`));

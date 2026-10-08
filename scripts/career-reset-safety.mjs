@@ -4,6 +4,7 @@ export const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 export function assertResetArguments(args) {
   const switches = new Set([
     "--include-documents",
+    "--preserve-documents",
     "--apply",
     "--prepare-backup",
   ]);
@@ -22,12 +23,20 @@ export function assertResetArguments(args) {
   }
   if (args.includes("--apply") && args.includes("--prepare-backup"))
     throw new Error("백업 준비와 실제 삭제는 별도 명령으로 실행하세요.");
+  if (
+    args.includes("--include-documents") &&
+    args.includes("--preserve-documents")
+  )
+    throw new Error(
+      "문서 포함 초기화와 문서 보존 초기화는 함께 지정할 수 없습니다.",
+    );
 }
 export function assertVerifiedBackup(
   manifest,
   projectRef,
   ownerId,
   readBackup,
+  targetType = "reset",
 ) {
   const sha = /^[0-9a-f]{64}$/;
   if (
@@ -37,7 +46,9 @@ export function assertVerifiedBackup(
     manifest.restoreVerified !== true ||
     !sha.test(manifest.fingerprint) ||
     !sha.test(manifest.databaseHash) ||
-    !Array.isArray(manifest.files)
+    !Array.isArray(manifest.files) ||
+    (manifest.targetType ?? "reset") !== targetType ||
+    (targetType === "job_reset" && !sha.test(manifest.preservedFingerprint))
   )
     throw new Error("대상 프로젝트의 검증된 백업이 아닙니다.");
   if (hash(readBackup("public-data.sql")) !== manifest.databaseHash)

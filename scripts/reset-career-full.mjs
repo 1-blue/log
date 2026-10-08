@@ -20,6 +20,8 @@ const args = process.argv.slice(2);
 assertResetArguments(args);
 const apply = args.includes("--apply"),
   prepare = args.includes("--prepare-backup");
+const preserveDocuments = args.includes("--preserve-documents");
+const targetType = preserveDocuments ? "job_reset" : "reset";
 const value = (name) =>
   args.includes(name) ? args[args.indexOf(name) + 1] : null;
 const ownerId = process.env.ADMIN_USER_ID;
@@ -61,7 +63,9 @@ const query = (sql) => {
 };
 const preview = () =>
   query(
-    `select public.preview_career_deletion('${ownerId}'::uuid,'reset',null) as preview`,
+    preserveDocuments
+      ? `select public.preview_career_job_reset('${ownerId}'::uuid) as preview`
+      : `select public.preview_career_deletion('${ownerId}'::uuid,'reset',null) as preview`,
   )[0].preview;
 const protectedWrite = (path, content) => {
   writeFileSync(path, content, { mode: 0o600 });
@@ -73,7 +77,10 @@ console.log(
     {
       projectRef,
       ownerId,
-      scope: "Career Ops 기록·문서·공개 설정·PDF",
+      scope: preserveDocuments
+        ? "공고·지원·적합도 분석 초기화 (문서·OCR·비용 보존)"
+        : "Career Ops 기록·문서·공개 설정·PDF",
+      preserves: current.preserves,
       counts: current.counts,
       blockers: current.blockers,
     },
@@ -157,8 +164,12 @@ if (apply) {
     throw new Error("검증된 백업 디렉터리를 --backup으로 지정하세요.");
   backupDir = resolve(value("--backup"));
   manifest = JSON.parse(readFileSync(join(backupDir, "manifest.json"), "utf8"));
-  assertVerifiedBackup(manifest, projectRef, ownerId, (path) =>
-    readFileSync(join(backupDir, path)),
+  assertVerifiedBackup(
+    manifest,
+    projectRef,
+    ownerId,
+    (path) => readFileSync(join(backupDir, path)),
+    targetType,
   );
 }
 let deletionStarted = false,
@@ -166,7 +177,7 @@ let deletionStarted = false,
 const existingReset = () =>
   apply
     ? query(
-        `select id,status from public.career_deletion_operations where owner_id='${ownerId}'::uuid and target_type='reset' and fingerprint='${manifest.fingerprint}'`,
+        `select id,status from public.career_deletion_operations where owner_id='${ownerId}'::uuid and target_type='${targetType}' and fingerprint='${manifest.fingerprint}'`,
       )[0]
     : null;
 const priorOperation = existingReset();
@@ -243,6 +254,8 @@ try {
     }
     manifest = {
       version: 1,
+      targetType,
+      preservedFingerprint: frozen.preservedFingerprint ?? null,
       projectRef,
       ownerId,
       fingerprint: frozen.fingerprint,
@@ -311,24 +324,30 @@ try {
     }
     const operation =
       existing ??
-      (await rpc("delete_career_resource", {
-        p_owner_id: ownerId,
-        p_target_type: "reset",
-        p_target_id: null,
-        p_fingerprint: manifest.fingerprint,
-      }));
+      (preserveDocuments
+        ? await rpc("reset_career_job_data", {
+            p_owner_id: ownerId,
+            p_fingerprint: manifest.fingerprint,
+          })
+        : await rpc("delete_career_resource", {
+            p_owner_id: ownerId,
+            p_target_type: "reset",
+            p_target_id: null,
+            p_fingerprint: manifest.fingerprint,
+          }));
     deletionStarted = true;
     manifest.operationId = operation.id;
     protectedWrite(
       join(backupDir, "manifest.json"),
       JSON.stringify(manifest, null, 2),
     );
-    await rpc("enqueue_career_reset_objects", {
-      p_owner_id: ownerId,
-      p_operation_id: operation.id,
-      p_paths: manifest.files.map((file) => file.storagePath),
-    });
-    for (let pass = 0; pass < 10; pass++) {
+    if (!preserveDocuments)
+      await rpc("enqueue_career_reset_objects", {
+        p_owner_id: ownerId,
+        p_operation_id: operation.id,
+        p_paths: manifest.files.map((file) => file.storagePath),
+      });
+    for (let pass = 0; !preserveDocuments && pass < 10; pass++) {
       const tasks = await rpc("claim_career_storage_cleanup", {
         p_owner_id: ownerId,
         p_limit: 100,
@@ -348,6 +367,20 @@ try {
     }
     const remaining = preview(),
       pdfs = await listObjects();
+    if (preserveDocuments) {
+      for (const file of manifest.files) {
+        const { data, error } = await bucket.download(file.storagePath);
+        if (
+          error ||
+          !data ||
+          data.size !== file.size ||
+          hash(Buffer.from(await data.arrayBuffer())) !== file.hash
+        )
+          throw new Error(
+            "문서 보존 검증에 실패했습니다. 유지보수 잠금과 백업을 보존합니다.",
+          );
+      }
+    }
     const admin = query(
       `select count(*)::integer as count from auth.users where id='${ownerId}'::uuid`,
     )[0].count;
@@ -356,8 +389,13 @@ try {
     )[0].count;
     if (
       admin !== 1 ||
-      pdfs.length ||
-      pending ||
+      (preserveDocuments
+        ? JSON.stringify(pdfs) !==
+          JSON.stringify(manifest.files.map((file) => file.storagePath).sort())
+        : pdfs.length) ||
+      (!preserveDocuments && pending) ||
+      (preserveDocuments &&
+        remaining.preservedFingerprint !== manifest.preservedFingerprint) ||
       Object.values(remaining.counts).some((count) => count !== 0)
     )
       throw new Error(
@@ -369,7 +407,9 @@ try {
           resetCompleted: true,
           adminPreserved: true,
           remaining: remaining.counts,
-          pdfsRemaining: 0,
+          targetType,
+          documentsPreserved: preserveDocuments,
+          pdfsRemaining: pdfs.length,
           backupDir,
         },
         null,

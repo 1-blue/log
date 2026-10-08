@@ -9,6 +9,7 @@ import type {
   ApplicationStatus,
   ApplicationSummary,
 } from "@workspace/contracts";
+import { jobPlatformLabel } from "@workspace/contracts";
 import { Button } from "@workspace/ui/components/Button";
 import { Input } from "@workspace/ui/components/Input";
 import {
@@ -108,7 +109,7 @@ export default function ApplicationsClient() {
           className="min-w-52 flex-1"
           maxLength={100}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="회사명, 공고명, Wanted 공고 ID"
+          placeholder="회사명 또는 공고명"
           value={search}
         />
         <Select
@@ -199,6 +200,11 @@ export default function ApplicationsClient() {
                 <div className="min-w-0">
                   <p className="text-muted-foreground text-xs">
                     {item.jobPosting.companyName} · {item.attemptNumber}차 지원
+                    ·{" "}
+                    {jobPlatformLabel(
+                      item.jobPosting.source,
+                      item.jobPosting.url,
+                    )}
                   </p>
                   <h3 className="mt-1 truncate font-semibold">
                     {item.jobPosting.title}

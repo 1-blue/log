@@ -222,6 +222,8 @@ export async function getInterviewWorkspace(
       interviewAt: application.interview_at,
       status: application.status,
       title: posting.title,
+      source: posting.source,
+      url: posting.canonical_url,
     },
     checklist: (checklistQuery.data ?? []).map(mapChecklist),
     comparison,

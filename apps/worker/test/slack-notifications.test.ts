@@ -167,6 +167,24 @@ describe("Slack notification formatting", () => {
     expect(formatted.threadTs).toBeNull();
   });
 
+  it("labels other platforms and escapes URL query values in root notifications", () => {
+    const formatted = formatSlackNotification({
+      appBaseUrl: "https://blog.example.com",
+      notification: { ...notification, target: "job_root" },
+      posting: {
+        ...posting,
+        source: "saramin",
+        canonical_url:
+          "https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=123&view_type=list",
+      },
+      thread: null,
+    });
+    const serialized = JSON.stringify(formatted.blocks);
+    expect(serialized).toContain("사람인 공고 보기");
+    expect(serialized).toContain("rec_idx=123&amp;view_type=list");
+    expect(serialized).not.toContain("Wanted 공고 보기");
+  });
+
   it("escapes Slack mrkdwn control characters", () => {
     expect(escapeSlackMrkdwn("A & <B>")).toBe("A &amp; &lt;B&gt;");
   });

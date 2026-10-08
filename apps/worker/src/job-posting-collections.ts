@@ -1,13 +1,21 @@
 import {
+  canAutomaticallyCollectJobUrl,
   CONTRACT_VERSION,
   type CreateJobPostingCollectionRequest,
   JOB_POSTING_FETCH_MAX_BYTES,
-  JobPostingAiExtractionSchema,
+  JOB_POSTING_MANUAL_CONTENT_MAX_LENGTH,
+  JOB_POSTING_MANUAL_CONTENT_MIN_LENGTH,
+  JOB_STRUCTURE_MODEL,
+  JOB_STRUCTURE_PROMPT_VERSION,
+  JOB_STRUCTURE_VERSION,
   type JobPostingBodySections,
   type JobPostingCollectionCallback,
   type JobPostingCollectionErrorCode,
   type JobPostingCollectionRun,
+  type JobPostingFacts,
+  JobPostingFactsSchema,
   type JobPostingSourceMetadata,
+  JobPostingStructuredExtractionSchema,
   type N8nJobPostingCollectionDispatchPayload,
   type N8nJobPostingExtractionDispatchPayload,
 } from "@workspace/contracts";
@@ -22,18 +30,15 @@ import {
   type SnapshotRow,
   terminalForHttpStatus,
 } from "./job-posting-collection-mappers.js";
+import { jobSourceText } from "./job-source-text.js";
+import {
+  bindJobFactsToSnapshot,
+  JobStructureError,
+  validateJobStructure,
+} from "./job-structure.js";
 import { logInfo } from "./logger.js";
 import { dispatchToN8n, N8nDispatchError } from "./n8n.js";
-import {
-  findOpenAiUnsupportedSchemaKeys,
-  toOpenAiStructuredOutputSchema,
-} from "./openai-schema.js";
-import {
-  JobPostingParseError,
-  parseAiExtractedJobPosting,
-  parseManualJobPosting,
-  parseWantedJobPosting,
-} from "./wanted-parser.js";
+import { toOpenAiStructuredOutputSchema } from "./openai-schema.js";
 
 type PostingRow = Database["public"]["Tables"]["job_postings"]["Row"];
 
@@ -84,7 +89,7 @@ function createSupabaseAdminClient(env: CloudflareBindings) {
   });
 }
 
-class SupabaseJobPostingCollectionService
+export class SupabaseJobPostingCollectionService
   implements JobPostingCollectionService
 {
   constructor(
@@ -134,13 +139,19 @@ class SupabaseJobPostingCollectionService
     parserVersion?: string;
     rawContent?: string;
     retryable?: boolean;
-    snapshotSource?: "wanted_json_ld" | "wanted_html" | "wanted_ai" | "manual";
+    snapshotSource?:
+      | "wanted_json_ld"
+      | "wanted_html"
+      | "wanted_ai"
+      | "manual"
+      | "ai";
     sourceMetadata?: JobPostingSourceMetadata;
     sections?: JobPostingBodySections;
+    facts?: JobPostingFacts;
     status: "failed" | "needs_input" | "succeeded";
   }): Promise<JobPostingCollectionRun> {
     const { data, error } = await this.supabase.rpc(
-      "complete_job_posting_collection_v2",
+      "complete_job_posting_collection_v3",
       {
         p_collection_run_id: input.collectionRunId,
         p_content_hash: input.contentHash,
@@ -157,6 +168,12 @@ class SupabaseJobPostingCollectionService
         p_source_metadata: input.sourceMetadata as Json | undefined,
         p_sections: input.sections as Json | undefined,
         p_status: input.status,
+        p_structured_facts: input.facts as Json | undefined,
+        p_structure_version: input.facts ? JOB_STRUCTURE_VERSION : undefined,
+        p_structure_model: input.facts ? JOB_STRUCTURE_MODEL : undefined,
+        p_structure_prompt_version: input.facts
+          ? JOB_STRUCTURE_PROMPT_VERSION
+          : undefined,
       },
     );
     if (error || !data) {
@@ -217,6 +234,18 @@ class SupabaseJobPostingCollectionService
       throw new JobPostingCollectionServiceError("unavailable");
     }
 
+    if (
+      !input.manualContent &&
+      !canAutomaticallyCollectJobUrl(posting.canonical_url)
+    ) {
+      return this.completeTerminal({
+        collectionRunId: run.id,
+        ownerId,
+        eventId,
+        status: "needs_input",
+        errorCode: "AUTOMATIC_COLLECTION_UNSUPPORTED",
+      });
+    }
     const payload: N8nJobPostingCollectionDispatchPayload = {
       callbackPath: `/v1/internal/job-posting-collections/${run.id}/complete`,
       collectionRunId: run.id,
@@ -224,7 +253,7 @@ class SupabaseJobPostingCollectionService
       jobPosting: {
         id: posting.id,
         manualContent: input.manualContent,
-        source: "wanted",
+        source: posting.source,
         url: posting.canonical_url,
       },
       kind: "job_posting_collection",
@@ -314,6 +343,20 @@ class SupabaseJobPostingCollectionService
         reason: "request_id_mismatch",
       });
     }
+    if (run.final_event_id === input.eventId)
+      return this.get(run.owner_id, run.id);
+    if (!["queued", "running"].includes(run.status))
+      throw new JobPostingCollectionServiceError("conflict", {
+        reason: "collection_already_completed",
+      });
+    if (
+      (input.outcome === "ai_extraction" || input.outcome === "ai_failed") &&
+      run.structure_event_id !== input.eventId
+    ) {
+      throw new JobPostingCollectionServiceError("conflict", {
+        reason: "structure_event_mismatch",
+      });
+    }
 
     if (input.outcome === "timeout" || input.outcome === "network_error") {
       return this.completeTerminal({
@@ -325,6 +368,14 @@ class SupabaseJobPostingCollectionService
         status: "failed",
       });
     }
+    if (input.outcome === "ai_failed")
+      return this.completeTerminal({
+        collectionRunId: run.id,
+        eventId: input.eventId,
+        ownerId: run.owner_id,
+        status: "needs_input",
+        errorCode: "AI_STRUCTURING_FAILED",
+      });
 
     const response = input.response;
     if (!response) throw new JobPostingCollectionServiceError("validation");
@@ -385,19 +436,126 @@ class SupabaseJobPostingCollectionService
       if (input.outcome === "ai_extraction" && !input.extraction) {
         throw new JobPostingCollectionServiceError("validation");
       }
-      const parsed =
-        input.outcome === "manual"
-          ? parseManualJobPosting(response.body)
-          : input.outcome === "ai_extraction"
-            ? parseAiExtractedJobPosting({
-                expectedUrl: posting.canonical_url,
-                extraction: input.extraction!,
-                html: response.body,
-              })
-            : parseWantedJobPosting({
-                expectedUrl: posting.canonical_url,
-                html: response.body,
-              });
+      // HTML/manual input always follows the same AI structuring path. There is
+      // no platform-specific semantic parser and no fallback-only AI branch.
+      if (input.outcome !== "ai_extraction") {
+        const sourceText = jobSourceText(
+          response.body,
+          input.outcome === "response",
+        );
+        if (sourceText.length > JOB_POSTING_MANUAL_CONTENT_MAX_LENGTH)
+          throw new JobStructureError("CONTENT_TOO_LARGE");
+        if (sourceText.length < JOB_POSTING_MANUAL_CONTENT_MIN_LENGTH)
+          throw new JobStructureError("INVALID_JOB_POSTING");
+        const extractionPayload: N8nJobPostingExtractionDispatchPayload = {
+          callbackPath: `/v1/internal/job-posting-collections/${run.id}/complete`,
+          collectionRunId: run.id,
+          eventId: crypto.randomUUID(),
+          jobPosting: {
+            sourceText,
+            id: posting.id,
+            source: posting.source,
+            url: posting.canonical_url,
+          },
+          kind: "job_posting_extraction",
+          outputSchema: toOpenAiStructuredOutputSchema(
+            z.toJSONSchema(JobPostingStructuredExtractionSchema, {
+              target: "draft-07",
+            }),
+          ),
+          requestId: run.request_id,
+          schemaVersion: CONTRACT_VERSION,
+        };
+        const contentHash = await sha256Hex(
+          JSON.stringify({
+            sourceText,
+            version: JOB_STRUCTURE_VERSION,
+            prompt: JOB_STRUCTURE_PROMPT_VERSION,
+            model: JOB_STRUCTURE_MODEL,
+          }),
+        );
+        const { data: cached, error: cacheError } = await this.supabase
+          .from("job_posting_snapshots")
+          .select("*")
+          .eq("owner_id", run.owner_id)
+          .eq("job_posting_id", run.job_posting_id)
+          .eq("content_hash", contentHash)
+          .maybeSingle();
+        if (cacheError)
+          throw new JobPostingCollectionServiceError("unavailable");
+        // Read the cache before claiming this run. A transient DB read failure
+        // must leave the source callback replayable instead of stranding a claim
+        // for an AI request that was never dispatched.
+        const { data: claimed, error: claimError } = await this.supabase.rpc(
+          "claim_job_structuring",
+          {
+            p_owner_id: run.owner_id,
+            p_collection_run_id: run.id,
+            p_request_id: run.request_id,
+            p_event_id: extractionPayload.eventId,
+            p_source_hash: await sha256Hex(sourceText),
+          },
+        );
+        if (claimError)
+          throw new JobPostingCollectionServiceError("unavailable");
+        if (!claimed) return this.get(run.owner_id, run.id);
+        const facts = cached
+          ? JobPostingFactsSchema.safeParse(cached.structured_facts)
+          : null;
+        if (
+          cached &&
+          facts?.success &&
+          cached.structure_version === JOB_STRUCTURE_VERSION &&
+          cached.structure_model === JOB_STRUCTURE_MODEL &&
+          cached.structure_prompt_version === JOB_STRUCTURE_PROMPT_VERSION
+        ) {
+          return this.completeTerminal({
+            collectionRunId: run.id,
+            ownerId: run.owner_id,
+            eventId: extractionPayload.eventId,
+            contentHash,
+            fetchedAt: input.occurredAt,
+            httpStatus: response.status,
+            status: "succeeded",
+            parserVersion: JOB_STRUCTURE_VERSION,
+            snapshotSource: "ai",
+            rawContent: cached.raw_content,
+            normalizedContent: cached.normalized_content,
+            sourceMetadata: cached.source_metadata as JobPostingSourceMetadata,
+            sections: cached.sections as JobPostingBodySections,
+            facts: bindJobFactsToSnapshot(facts.data, run.id),
+          });
+        }
+        try {
+          await this.dispatch(extractionPayload, this.env);
+          return this.get(run.owner_id, run.id);
+        } catch (dispatchError) {
+          return this.completeTerminal({
+            collectionRunId: run.id,
+            ownerId: run.owner_id,
+            errorCode: "DISPATCH_FAILED",
+            eventId: extractionPayload.eventId,
+            status: "failed",
+            retryable:
+              dispatchError instanceof N8nDispatchError
+                ? dispatchError.retryable
+                : true,
+          });
+        }
+      }
+      if (
+        run.structure_event_id !== input.eventId ||
+        run.source_text_hash !== (await sha256Hex(jobSourceText(response.body)))
+      ) {
+        throw new JobPostingCollectionServiceError("conflict", {
+          reason: "structure_source_mismatch",
+        });
+      }
+      const parsed = validateJobStructure({
+        extraction: input.extraction!,
+        sourceText: response.body,
+        collectionRunId: run.id,
+      });
       return this.completeTerminal({
         collectionRunId: run.id,
         contentHash: await sha256Hex(parsed.contentHashInput),
@@ -406,15 +564,16 @@ class SupabaseJobPostingCollectionService
         httpStatus: response.status,
         normalizedContent: parsed.normalizedContent,
         ownerId: run.owner_id,
-        parserVersion: parsed.parserVersion,
-        rawContent: parsed.rawContent,
-        snapshotSource: parsed.source,
-        sourceMetadata: parsed.sourceMetadata,
+        parserVersion: JOB_STRUCTURE_VERSION,
+        rawContent: parsed.sourceText,
+        snapshotSource: "ai",
+        sourceMetadata: parsed.metadata,
         sections: parsed.sections,
+        facts: parsed.facts,
         status: "succeeded",
       });
     } catch (parseError) {
-      if (!(parseError instanceof JobPostingParseError)) throw parseError;
+      if (!(parseError instanceof JobStructureError)) throw parseError;
 
       logInfo({
         callbackOutcome: input.outcome,
@@ -425,62 +584,6 @@ class SupabaseJobPostingCollectionService
         requestId: input.requestId,
         stage: "parse",
       });
-
-      if (
-        input.outcome === "response" &&
-        parseError.code === "PARSER_STRUCTURE_CHANGED"
-      ) {
-        const extractionPayload: N8nJobPostingExtractionDispatchPayload = {
-          callbackPath: `/v1/internal/job-posting-collections/${run.id}/complete`,
-          collectionRunId: run.id,
-          eventId: crypto.randomUUID(),
-          jobPosting: {
-            html: response.body,
-            id: posting.id,
-            source: "wanted",
-            url: posting.canonical_url,
-          },
-          kind: "job_posting_extraction",
-          outputSchema: toOpenAiStructuredOutputSchema(
-            z.toJSONSchema(JobPostingAiExtractionSchema, {
-              target: "draft-07",
-            }),
-          ),
-          requestId: run.request_id,
-          schemaVersion: CONTRACT_VERSION,
-        };
-
-        const unsupportedSchemaKeys = findOpenAiUnsupportedSchemaKeys(
-          z.toJSONSchema(JobPostingAiExtractionSchema, {
-            target: "draft-07",
-          }),
-        );
-        logInfo({
-          collectionRunId: run.id,
-          event: "job_posting_ai_extraction_dispatched",
-          requestId: run.request_id,
-          schemaIssue: unsupportedSchemaKeys.join(",") || undefined,
-          stage: "ai_dispatch",
-        });
-
-        try {
-          await this.dispatch(extractionPayload, this.env);
-          return this.get(run.owner_id, run.id);
-        } catch (dispatchError) {
-          const retryable =
-            dispatchError instanceof N8nDispatchError
-              ? dispatchError.retryable
-              : true;
-          return this.completeTerminal({
-            collectionRunId: run.id,
-            errorCode: "DISPATCH_FAILED",
-            eventId: extractionPayload.eventId,
-            ownerId: run.owner_id,
-            retryable,
-            status: "failed",
-          });
-        }
-      }
 
       return this.completeTerminal({
         collectionRunId: run.id,

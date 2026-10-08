@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import type { ApplicationDetail } from "@workspace/contracts";
+import { jobPlatformLabel } from "@workspace/contracts";
 import { Button } from "@workspace/ui/components/Button";
 import {
   Dialog,
@@ -66,7 +67,11 @@ export function ApplicationDetailHeader({
             rel="noreferrer"
             target="_blank"
           >
-            Wanted 공고 보기 <ExternalLinkIcon className="size-3.5" />
+            {jobPlatformLabel(
+              application.jobPosting.source,
+              application.jobPosting.url,
+            )}{" "}
+            공고 보기 <ExternalLinkIcon className="size-3.5" />
           </a>
         </div>
         <div className="flex flex-wrap gap-2">

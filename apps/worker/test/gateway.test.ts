@@ -511,6 +511,8 @@ describe("n8n dispatch client", () => {
       inputTextLength: 7,
       inputTextTruncated: false,
       profile: null,
+      facts: null,
+      structureVersion: null,
     },
     kind: "application_analysis",
     outputSchemas: {

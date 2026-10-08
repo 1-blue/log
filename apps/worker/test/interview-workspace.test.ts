@@ -109,6 +109,8 @@ const workspace: AnalysisWorkspace = {
     interviewAt: NOW,
     status: "interview",
     title: "AX Engineer - Infra",
+    source: "wanted",
+    url: "https://www.wanted.co.kr/wd/384409",
   },
   checklist: [checklist],
   comparison: null,

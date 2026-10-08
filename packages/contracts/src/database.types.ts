@@ -1280,8 +1280,10 @@ export type Database = {
           request_id: string;
           retryable: boolean;
           snapshot_id: string | null;
+          source_text_hash: string | null;
           started_at: string | null;
           status: Database["public"]["Enums"]["job_posting_collection_status"];
+          structure_event_id: string | null;
           updated_at: string;
         };
         Insert: {
@@ -1299,8 +1301,10 @@ export type Database = {
           request_id: string;
           retryable?: boolean;
           snapshot_id?: string | null;
+          source_text_hash?: string | null;
           started_at?: string | null;
           status?: Database["public"]["Enums"]["job_posting_collection_status"];
+          structure_event_id?: string | null;
           updated_at?: string;
         };
         Update: {
@@ -1318,8 +1322,10 @@ export type Database = {
           request_id?: string;
           retryable?: boolean;
           snapshot_id?: string | null;
+          source_text_hash?: string | null;
           started_at?: string | null;
           status?: Database["public"]["Enums"]["job_posting_collection_status"];
+          structure_event_id?: string | null;
           updated_at?: string;
         };
         Relationships: [
@@ -1353,6 +1359,10 @@ export type Database = {
           sections: Json;
           source: Database["public"]["Enums"]["job_posting_snapshot_source"];
           source_metadata: Json;
+          structure_model: string | null;
+          structure_prompt_version: string | null;
+          structure_version: string | null;
+          structured_facts: Json | null;
         };
         Insert: {
           content_hash: string;
@@ -1367,6 +1377,10 @@ export type Database = {
           sections?: Json;
           source: Database["public"]["Enums"]["job_posting_snapshot_source"];
           source_metadata: Json;
+          structure_model?: string | null;
+          structure_prompt_version?: string | null;
+          structure_version?: string | null;
+          structured_facts?: Json | null;
         };
         Update: {
           content_hash?: string;
@@ -1381,6 +1395,10 @@ export type Database = {
           sections?: Json;
           source?: Database["public"]["Enums"]["job_posting_snapshot_source"];
           source_metadata?: Json;
+          structure_model?: string | null;
+          structure_prompt_version?: string | null;
+          structure_version?: string | null;
+          structured_facts?: Json | null;
         };
         Relationships: [
           {
@@ -1401,7 +1419,7 @@ export type Database = {
           id: string;
           owner_id: string;
           search_text: string | null;
-          source: Database["public"]["Enums"]["job_posting_source"];
+          source: string;
           title: string;
           updated_at: string;
         };
@@ -1413,7 +1431,7 @@ export type Database = {
           id?: string;
           owner_id: string;
           search_text?: string | null;
-          source: Database["public"]["Enums"]["job_posting_source"];
+          source: string;
           title: string;
           updated_at?: string;
         };
@@ -1425,7 +1443,7 @@ export type Database = {
           id?: string;
           owner_id?: string;
           search_text?: string | null;
-          source?: Database["public"]["Enums"]["job_posting_source"];
+          source?: string;
           title?: string;
           updated_at?: string;
         };
@@ -1762,6 +1780,16 @@ export type Database = {
           isSetofReturn: true;
         };
       };
+      claim_job_structuring: {
+        Args: {
+          p_collection_run_id: string;
+          p_event_id: string;
+          p_owner_id: string;
+          p_request_id: string;
+          p_source_hash: string;
+        };
+        Returns: boolean;
+      };
       claim_slack_notifications: {
         Args: { p_limit?: number };
         Returns: {
@@ -1902,8 +1930,10 @@ export type Database = {
           request_id: string;
           retryable: boolean;
           snapshot_id: string | null;
+          source_text_hash: string | null;
           started_at: string | null;
           status: Database["public"]["Enums"]["job_posting_collection_status"];
+          structure_event_id: string | null;
           updated_at: string;
         };
         SetofOptions: {
@@ -1946,8 +1976,60 @@ export type Database = {
           request_id: string;
           retryable: boolean;
           snapshot_id: string | null;
+          source_text_hash: string | null;
           started_at: string | null;
           status: Database["public"]["Enums"]["job_posting_collection_status"];
+          structure_event_id: string | null;
+          updated_at: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "job_posting_collection_runs";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      complete_job_posting_collection_v3: {
+        Args: {
+          p_collection_run_id: string;
+          p_content_hash?: string;
+          p_error_code?: Database["public"]["Enums"]["job_posting_collection_error_code"];
+          p_event_id: string;
+          p_fetched_at?: string;
+          p_http_status?: number;
+          p_normalized_content?: string;
+          p_owner_id: string;
+          p_parser_version?: string;
+          p_raw_content?: string;
+          p_retryable?: boolean;
+          p_sections?: Json;
+          p_snapshot_source?: Database["public"]["Enums"]["job_posting_snapshot_source"];
+          p_source_metadata?: Json;
+          p_status: Database["public"]["Enums"]["job_posting_collection_status"];
+          p_structure_model?: string;
+          p_structure_prompt_version?: string;
+          p_structure_version?: string;
+          p_structured_facts?: Json;
+        };
+        Returns: {
+          created_at: string;
+          error_code:
+            | Database["public"]["Enums"]["job_posting_collection_error_code"]
+            | null;
+          final_event_id: string | null;
+          finished_at: string | null;
+          http_status: number | null;
+          id: string;
+          job_posting_id: string;
+          mode: Database["public"]["Enums"]["job_posting_collection_mode"];
+          owner_id: string;
+          request_id: string;
+          retryable: boolean;
+          snapshot_id: string | null;
+          source_text_hash: string | null;
+          started_at: string | null;
+          status: Database["public"]["Enums"]["job_posting_collection_status"];
+          structure_event_id: string | null;
           updated_at: string;
         };
         SetofOptions: {
@@ -2052,6 +2134,42 @@ export type Database = {
           p_portfolio_version_id: string;
           p_resume_version_id: string;
           p_source: Database["public"]["Enums"]["job_posting_source"];
+          p_status: Database["public"]["Enums"]["application_status"];
+          p_title: string;
+        };
+        Returns: {
+          applied_on: string | null;
+          archived_at: string | null;
+          attempt_number: number;
+          created_at: string;
+          documents_locked_at: string | null;
+          id: string;
+          interview_at: string | null;
+          job_posting_id: string;
+          note: string | null;
+          owner_id: string;
+          status: Database["public"]["Enums"]["application_status"];
+          updated_at: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "applications";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      create_application_with_posting_v2: {
+        Args: {
+          p_applied_on: string;
+          p_canonical_url: string;
+          p_company_name: string;
+          p_external_id: string;
+          p_interview_at: string;
+          p_note: string;
+          p_owner_id: string;
+          p_portfolio_version_id: string;
+          p_resume_version_id: string;
+          p_source: string;
           p_status: Database["public"]["Enums"]["application_status"];
           p_title: string;
         };
@@ -2226,6 +2344,7 @@ export type Database = {
         };
         Returns: Json;
       };
+      preview_career_job_reset: { Args: { p_owner_id: string }; Returns: Json };
       record_ai_usage: {
         Args: { p_call: Json; p_owner_id: string };
         Returns: {
@@ -2481,6 +2600,26 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      reset_career_job_data: {
+        Args: { p_fingerprint: string; p_owner_id: string };
+        Returns: {
+          completed_at: string | null;
+          created_at: string;
+          error: string | null;
+          fingerprint: string;
+          id: string;
+          owner_id: string;
+          status: string;
+          target_id: string | null;
+          target_type: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "career_deletion_operations";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       retry_slack_notification: {
         Args: {
           p_confirm_unknown?: boolean;
@@ -2616,7 +2755,34 @@ export type Database = {
           id: string;
           owner_id: string;
           search_text: string | null;
-          source: Database["public"]["Enums"]["job_posting_source"];
+          source: string;
+          title: string;
+          updated_at: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "job_postings";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      update_job_posting_details_v2: {
+        Args: {
+          p_company_name: string;
+          p_job_posting_id: string;
+          p_owner_id: string;
+          p_source: string;
+          p_title: string;
+        };
+        Returns: {
+          canonical_url: string;
+          company_name: string;
+          created_at: string;
+          external_id: string;
+          id: string;
+          owner_id: string;
+          search_text: string | null;
+          source: string;
           title: string;
           updated_at: string;
         };
@@ -2677,7 +2843,9 @@ export type Database = {
         | "NETWORK_ERROR"
         | "RATE_LIMITED"
         | "UPSTREAM_ERROR"
-        | "DISPATCH_FAILED";
+        | "DISPATCH_FAILED"
+        | "AUTOMATIC_COLLECTION_UNSUPPORTED"
+        | "AI_STRUCTURING_FAILED";
       job_posting_collection_mode: "automatic" | "manual";
       job_posting_collection_status:
         | "queued"
@@ -2689,7 +2857,8 @@ export type Database = {
         | "wanted_json_ld"
         | "manual"
         | "wanted_html"
-        | "wanted_ai";
+        | "wanted_ai"
+        | "ai";
       job_posting_source: "wanted";
       slack_notification_event_type:
         | "job_posting_registered"
@@ -2901,6 +3070,8 @@ export const Constants = {
         "RATE_LIMITED",
         "UPSTREAM_ERROR",
         "DISPATCH_FAILED",
+        "AUTOMATIC_COLLECTION_UNSUPPORTED",
+        "AI_STRUCTURING_FAILED",
       ],
       job_posting_collection_mode: ["automatic", "manual"],
       job_posting_collection_status: [
@@ -2915,6 +3086,7 @@ export const Constants = {
         "manual",
         "wanted_html",
         "wanted_ai",
+        "ai",
       ],
       job_posting_source: ["wanted"],
       slack_notification_event_type: [

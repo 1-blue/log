@@ -303,13 +303,18 @@ export function useApplicationDetail(applicationId: string) {
     try {
       const companyName = String(data.get("companyName") ?? "").trim();
       const title = String(data.get("title") ?? "").trim();
+      const source = String(
+        data.get("source") ?? application.jobPosting.source,
+      );
       if (
         companyName !== application.jobPosting.companyName ||
-        title !== application.jobPosting.title
+        title !== application.jobPosting.title ||
+        source !== application.jobPosting.source
       ) {
         await updateJobPosting(application.jobPosting.id, {
           companyName,
           title,
+          source,
         });
       }
       const response = await updateApplication(application.id, {

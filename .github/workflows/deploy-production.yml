@@ -102,7 +102,7 @@ jobs:
           set -euo pipefail
           : "${DEPLOY_HOST:?Set N8N_DEPLOY_HOST}"
           : "${DEPLOY_USER:?Set N8N_DEPLOY_USER}"
-          ssh -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" 'mkdir -p /opt/career-ops-n8n/scripts /opt/career-ops-n8n/workflows /opt/career-ops-n8n/ocr-runtime /opt/career-ops-n8n/custom-nodes'
+          ssh -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" 'umask 077; mkdir -p /opt/career-ops-n8n/scripts /opt/career-ops-n8n/workflows /opt/career-ops-n8n/ocr-runtime /opt/career-ops-n8n/custom-nodes /opt/career-ops-n8n/.deployment-state; if test ! -f /opt/career-ops-n8n/.deployment-state/career-analysis-baseline.json && test -f /opt/career-ops-n8n/workflows/career-analysis.json; then cp /opt/career-ops-n8n/workflows/career-analysis.json /opt/career-ops-n8n/.deployment-state/career-analysis-baseline.json; chmod 600 /opt/career-ops-n8n/.deployment-state/career-analysis-baseline.json; fi'
           rsync -av -e 'ssh -o StrictHostKeyChecking=yes' \
             apps/n8n/compose.prod.yml apps/n8n/Caddyfile apps/n8n/Dockerfile.ocr apps/n8n/.dockerignore \
             "$DEPLOY_USER@$DEPLOY_HOST:/opt/career-ops-n8n/"

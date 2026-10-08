@@ -169,6 +169,8 @@ export function analysisServiceErrorResponse(
       analysis_not_active: "진행 중인 분석 작업만 취소할 수 있습니다.",
       analysis_not_failed: "실패한 분석 작업만 재시도할 수 있습니다.",
       collection_required: "먼저 채용공고 원문 수집을 완료해 주세요.",
+      job_structure_required:
+        "공고의 AI 구조화가 필요합니다. 채용공고 탭에서 다시 수집하거나 원문을 입력해 주세요.",
       document_selection_required: "이력서와 포트폴리오를 모두 선택해 주세요.",
       document_text_required:
         "선택한 문서의 분석용 텍스트를 먼저 등록해 주세요.",

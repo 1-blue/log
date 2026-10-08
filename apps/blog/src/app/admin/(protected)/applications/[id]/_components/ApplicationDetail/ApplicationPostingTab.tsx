@@ -52,8 +52,8 @@ export function ApplicationPostingTab({
         <div>
           <h3 className="font-semibold">채용공고 원문 수집</h3>
           <p className="text-muted-foreground mt-1 text-sm">
-            Wanted의 공식 JobPosting 데이터 또는 직접 입력한 원문을 버전으로
-            보관합니다.
+            수집하거나 직접 입력한 원문을 AI가 공통 형식으로 구조화하고, 원문과
+            구조화 결과를 버전으로 보관합니다.
           </p>
         </div>
         <Button
@@ -105,7 +105,7 @@ export function ApplicationPostingTab({
           {metadataDiffers ? (
             <div className="border-primary/20 bg-primary/5 rounded-md border p-3 text-sm">
               <p className="font-medium">
-                입력 정보와 Wanted 추출 정보가 다릅니다.
+                입력 정보와 AI가 확인한 공고 정보가 다릅니다.
               </p>
               <p className="text-muted-foreground mt-1 text-xs">
                 추출 회사명:{" "}
@@ -119,17 +119,19 @@ export function ApplicationPostingTab({
             <div>
               <dt className="inline font-medium">출처 </dt>
               <dd className="inline">
-                {latestSnapshot.source === "manual"
-                  ? "직접 입력"
-                  : latestSnapshot.source === "wanted_html"
-                    ? "Wanted 본문 HTML"
-                    : latestSnapshot.source === "wanted_ai"
-                      ? "AI 보완 본문"
-                      : "Wanted JSON-LD"}
+                {latestSnapshot.source === "ai"
+                  ? "AI 구조화"
+                  : latestSnapshot.source === "manual"
+                    ? "직접 입력"
+                    : latestSnapshot.source === "wanted_html"
+                      ? "Wanted 본문 HTML"
+                      : latestSnapshot.source === "wanted_ai"
+                        ? "AI 보완 본문"
+                        : "Wanted JSON-LD"}
               </dd>
             </div>
             <div>
-              <dt className="inline font-medium">파서 </dt>
+              <dt className="inline font-medium">구조화 버전 </dt>
               <dd className="inline">{latestSnapshot.parserVersion}</dd>
             </div>
             <div>
@@ -202,7 +204,7 @@ export function ApplicationPostingTab({
               maxLength={100_000}
               minLength={100}
               onChange={(event) => setManualContent(event.target.value)}
-              placeholder="자동 수집이 불가능하면 Wanted 공고 본문을 붙여 넣어 주세요."
+              placeholder="자동 수집이 불가능하면 채용공고 본문을 붙여 넣어 주세요."
               value={manualContent}
             />
           </div>

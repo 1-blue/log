@@ -5,6 +5,7 @@ import type {
   ApplicationStatus,
   DocumentVersion,
 } from "@workspace/contracts";
+import { detectJobPlatform, jobPlatformLabel } from "@workspace/contracts";
 import { Button } from "@workspace/ui/components/Button";
 import { Input } from "@workspace/ui/components/Input";
 import { Label } from "@workspace/ui/components/Label";
@@ -99,6 +100,35 @@ export function ApplicationInfoTab({
               ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="grid gap-2 text-sm font-medium">
+          <Label htmlFor="detail-platform">채용 플랫폼</Label>
+          {detectJobPlatform(application.jobPosting.url) === "other" ? (
+            <Select
+              defaultValue={
+                application.jobPosting.source === "company"
+                  ? "company"
+                  : "other"
+              }
+              disabled={archived}
+              name="source"
+            >
+              <SelectTrigger id="detail-platform">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="other">기타</SelectItem>
+                <SelectItem value="company">자사 홈페이지</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : (
+            <p className="py-2">
+              {jobPlatformLabel(
+                application.jobPosting.source,
+                application.jobPosting.url,
+              )}
+            </p>
+          )}
         </div>
         <div className="grid gap-2 text-sm font-medium">
           <Label htmlFor="detail-applied-on">지원일</Label>

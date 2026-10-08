@@ -13,8 +13,10 @@ import {
   InterviewNoteSchema,
   InterviewQuestionSchema,
 } from "./interview";
+import { JobPostingUrlSchema } from "./job-platforms";
 import {
   JobPostingSnapshotSourceSchema,
+  JobPostingSourceSchema,
   Rfc3339TimestampSchema,
   UuidSchema,
 } from "./job-postings";
@@ -83,6 +85,8 @@ export const AnalysisWorkspaceSchema = z.strictObject({
     attemptNumber: z.int().positive(),
     companyName: z.string().min(1).max(200),
     title: z.string().min(1).max(300),
+    source: JobPostingSourceSchema,
+    url: JobPostingUrlSchema,
     status: ApplicationStatusSchema,
     interviewAt: Rfc3339TimestampSchema.nullable(),
   }),

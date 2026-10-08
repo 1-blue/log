@@ -1,5 +1,7 @@
 import * as z from "zod";
 
+import { JobPostingUrlSchema } from "./job-platforms";
+
 export const CONTRACT_VERSION = "1.0.0" as const;
 
 export const ANALYSIS_JOB_MAX_RUN_ATTEMPTS = 2;
@@ -23,7 +25,9 @@ export const Rfc3339TimestampSchema = z
 
 const UrlSchema = z.url();
 
-export const JobPostingSourceSchema = z.enum(["wanted"]);
+export const JobPostingSourceSchema = z
+  .string()
+  .regex(/^[a-z][a-z0-9_]{0,39}$/);
 
 export type JobPostingSource = z.infer<typeof JobPostingSourceSchema>;
 
@@ -126,6 +130,8 @@ export const JobPostingCollectionErrorCodeSchema = z.enum([
   "RATE_LIMITED",
   "UPSTREAM_ERROR",
   "DISPATCH_FAILED",
+  "AUTOMATIC_COLLECTION_UNSUPPORTED",
+  "AI_STRUCTURING_FAILED",
 ]);
 
 export type JobPostingCollectionErrorCode = z.infer<
@@ -137,6 +143,7 @@ export const JobPostingSnapshotSourceSchema = z.enum([
   "wanted_html",
   "wanted_ai",
   "manual",
+  "ai",
 ]);
 
 export type JobPostingSnapshotSource = z.infer<
@@ -277,8 +284,8 @@ export const N8nJobPostingCollectionDispatchPayloadSchema = z.strictObject({
   collectionRunId: UuidSchema,
   jobPosting: z.strictObject({
     id: UuidSchema,
-    source: z.literal("wanted"),
-    url: WantedJobPostingUrlSchema,
+    source: JobPostingSourceSchema,
+    url: JobPostingUrlSchema,
     manualContent: JobPostingManualContentSchema.nullable(),
   }),
   callbackPath: z
@@ -298,9 +305,9 @@ export const N8nJobPostingExtractionDispatchPayloadSchema = z.strictObject({
   collectionRunId: UuidSchema,
   jobPosting: z.strictObject({
     id: UuidSchema,
-    source: z.literal("wanted"),
-    url: WantedJobPostingUrlSchema,
-    html: z.string().min(1).max(JOB_POSTING_FETCH_MAX_BYTES),
+    source: JobPostingSourceSchema,
+    url: JobPostingUrlSchema,
+    sourceText: z.string().min(1).max(JOB_POSTING_MANUAL_CONTENT_MAX_LENGTH),
   }),
   callbackPath: z
     .string()

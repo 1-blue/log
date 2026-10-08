@@ -501,6 +501,8 @@ const base: AnalysisWorkspace = {
     interviewAt: null,
     status: "preparing",
     title: "AX Engineer - Infra",
+    source: "wanted",
+    url: "https://www.wanted.co.kr/wd/384409",
   },
   checklist: [
     {

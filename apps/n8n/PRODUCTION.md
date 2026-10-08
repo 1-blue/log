@@ -37,6 +37,22 @@ Lightsail 인스턴스, 정적 IP, 스냅샷은 비용에 영향을 줄 수 있�
 
 문제가 생기면 이전 Git commit의 `compose.prod.yml`, `Caddyfile`, Workflow JSON을 다시 배포한다. n8n이 DB schema를 변경했다면 이전 이미지만으로 되돌리지 말고 해당 배포 직전의 DB dump와 n8n 데이터 아카이브를 아래 절차로 복구한다. 복구 전 현재 데이터를 별도 보존하고 Worker의 n8n dispatch를 잠시 중단한다.
 
+### 원격 Workflow 수정 보존
+
+배포는 `N8N_WORKFLOW_ID` 하나만 갱신한다. 원격에만 있는 테스트·면접 스터디 Workflow나 다른
+미게시 Workflow를 자동 삭제하지 않는다. 중복 정리는 ID·참조·게시 상태와 백업을 확인한 뒤 별도로 수행한다.
+
+GitHub Actions는 서버 파일을 덮어쓰기 전에 이전 소스 JSON을 제한 권한의
+`.deployment-state/career-analysis-baseline.json`에 보관한다. 게시 helper는 이 기준 버전,
+새 로컬 소스, 현재 원격 export를 3-way 비교한다. 원격 Credential과 충돌하지 않는 설정은 유지하고,
+양쪽이 같은 설정을 다르게 수정했거나 원격에만 노드를 추가했다면 import 전 중단한다.
+노드 위치·영역 배치는 새 로컬 소스를 적용한다. 성공적으로 게시하고 readiness 확인 후에만 기준 버전을 갱신한다.
+
+직접 파일을 복사해 배포한다면 **파일 교체 전** 마지막 배포에 사용한 소스를 기준 버전에 보존해야 한다.
+기준 파일이 없으면 게시 스크립트는 중단한다. 새 소스를 임의로 기준 파일로 넣어 충돌 검사를 우회하지 않는다.
+원격 export는 편집 버전이므로 게시 전 미게시 원격 변경이 함께 반영되는지 검토하고, 기존 게시 버전과
+DB 백업도 별도로 보존한다. 충돌은 원격 수정 의도를 확인한 뒤 해결하며 자동으로 한쪽을 덮어쓰지 않는다.
+
 ## 백업과 복구
 
 `scripts/backup-production.sh`는 UTC 타임스탬프가 붙은 PostgreSQL custom dump와 n8n 데이터 volume 아카이브를 `backups/`에 만들고 파일 형식을 검사한다. 배포 직전에 자동 실행된다. 정기 백업은 배포 계정의 crontab에 다음 항목을 추가한다.

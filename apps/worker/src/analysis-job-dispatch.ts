@@ -6,6 +6,9 @@ import {
   AnalysisInputPolicySchema,
   CONTRACT_VERSION,
   DocumentAnalysisProfileSchema,
+  JOB_STRUCTURE_MODEL,
+  JOB_STRUCTURE_PROMPT_VERSION,
+  JOB_STRUCTURE_VERSION,
   JobPostingAnalysisProfileSchema,
   JobPostingFactsSchema,
   type N8nDispatchPayload,
@@ -28,6 +31,7 @@ import {
   AnalysisJobServiceError,
   type PostingRow,
 } from "./analysis-job-types.js";
+import { bindJobFactsToSnapshot } from "./job-structure.js";
 import { toOpenAiStructuredOutputSchema } from "./openai-schema.js";
 
 function outputSchemas() {
@@ -48,6 +52,28 @@ export async function buildAnalysisDispatchPayload(input: {
   supabase: SupabaseClient<Database>;
 }): Promise<N8nDispatchPayload> {
   const { eventId, posting, row, supabase } = input;
+  const { data: structuredSnapshot, error: structureError } = await supabase
+    .from("job_posting_snapshots")
+    .select(
+      "structured_facts, structure_version, structure_model, structure_prompt_version",
+    )
+    .eq("id", row.job_posting_snapshot_id)
+    .eq("owner_id", row.owner_id)
+    .maybeSingle();
+  if (structureError) throw new AnalysisJobServiceError("unavailable");
+  const structuredFacts = JobPostingFactsSchema.safeParse(
+    structuredSnapshot?.structured_facts,
+  );
+  if (
+    !structuredFacts.success ||
+    structuredSnapshot?.structure_version !== JOB_STRUCTURE_VERSION ||
+    structuredSnapshot.structure_model !== JOB_STRUCTURE_MODEL ||
+    structuredSnapshot.structure_prompt_version !== JOB_STRUCTURE_PROMPT_VERSION
+  ) {
+    throw new AnalysisJobServiceError("conflict", {
+      reason: "job_structure_required",
+    });
+  }
   const [
     resumeProfileResult,
     portfolioProfileResult,
@@ -202,6 +228,11 @@ export async function buildAnalysisDispatchPayload(input: {
       profileId: row.job_posting_profile_id,
       profileSource: postingProfileResult.data?.source ?? null,
       profile: postingProfile?.success ? postingProfile.data : null,
+      facts: bindJobFactsToSnapshot(
+        structuredFacts.data,
+        row.job_posting_snapshot_id,
+      ),
+      structureVersion: structuredSnapshot.structure_version,
     },
     kind: "application_analysis",
     outputSchemas: outputSchemas(),

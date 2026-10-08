@@ -1,3 +1,9 @@
+import {
+  JOB_STRUCTURE_MODEL,
+  JOB_STRUCTURE_PROMPT_VERSION,
+  JOB_STRUCTURE_VERSION,
+  JobPostingFactsSchema,
+} from "@workspace/contracts";
 import type { Database } from "@workspace/contracts/database";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -58,6 +64,16 @@ export async function resolveAnalysisInputs(
   if (!snapshot) {
     throw new AnalysisJobServiceError("conflict", {
       reason: "collection_required",
+    });
+  }
+  if (
+    snapshot.structure_version !== JOB_STRUCTURE_VERSION ||
+    snapshot.structure_model !== JOB_STRUCTURE_MODEL ||
+    snapshot.structure_prompt_version !== JOB_STRUCTURE_PROMPT_VERSION ||
+    !JobPostingFactsSchema.safeParse(snapshot.structured_facts).success
+  ) {
+    throw new AnalysisJobServiceError("conflict", {
+      reason: "job_structure_required",
     });
   }
 

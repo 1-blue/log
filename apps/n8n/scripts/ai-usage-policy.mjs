@@ -51,8 +51,7 @@ return [{json:{...item,body,callbackUrl:base.endsWith('/v1/internal')?base+'/ai-
 export function instrumentAiCalls(workflow) {
   const specs = [
     ["OpenAI 공고 원문 보완", "job_posting_extraction", 1],
-    ["OpenAI 공고 사실 분석", "job_facts", 1],
-    ["OpenAI 공고 사실 분석 재시도", "job_facts", 2],
+    ["OpenAI 공고 원문 보완 재시도", "job_posting_extraction", 2],
     ["OpenAI 프로필 비교", "profile_comparison", 1],
     ["OpenAI 프로필 비교 재시도", "profile_comparison", 2],
     ["문서 자동 OCR", "document_ocr", 1],

@@ -198,7 +198,7 @@ describe("worker application API", () => {
 
   it("rejects malformed URLs and submitted states without documents", async () => {
     const malformed = await request("/v1/applications", {
-      body: JSON.stringify({ ...creation, url: "https://example.com/job/1" }),
+      body: JSON.stringify({ ...creation, url: "https://127.0.0.1/job/1" }),
       method: "POST",
     });
     const submitted = await request("/v1/applications", {

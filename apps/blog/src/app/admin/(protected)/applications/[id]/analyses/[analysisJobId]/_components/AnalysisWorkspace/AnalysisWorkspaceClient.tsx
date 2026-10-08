@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import type { AnalysisWorkspace } from "@workspace/contracts";
+import { jobPlatformLabel } from "@workspace/contracts";
 import { Button } from "@workspace/ui/components/Button";
 import {
   Tabs,
@@ -182,6 +183,11 @@ export default function AnalysisWorkspaceClient({
         <p className="text-primary text-sm font-semibold">
           {workspace.application.companyName} ·{" "}
           {workspace.application.attemptNumber}차 지원
+          {" · "}
+          {jobPlatformLabel(
+            workspace.application.source,
+            workspace.application.url,
+          )}
         </p>
         <h2 className="text-2xl font-bold">{workspace.application.title}</h2>
       </header>
