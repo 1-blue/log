@@ -1,4 +1,15 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { preparePublication } from "./prepare-workflow-publication.mjs";
 
@@ -158,4 +169,79 @@ test("removed obsolete nodes permit n8n default pruning but not remote code edit
       ),
     /제거 예정/,
   );
+});
+
+test("publication transfers private copied files to the runtime owner before reading", () => {
+  const dir = mkdtempSync(join(tmpdir(), "career-publication-permissions-"));
+  try {
+    mkdirSync(join(dir, "workflows"));
+    mkdirSync(join(dir, "scripts"));
+    mkdirSync(join(dir, ".deployment-state"));
+    const workflowFile = join(dir, "workflows/career-analysis.json");
+    writeFileSync(workflowFile, "{}", { mode: 0o600 });
+    writeFileSync(
+      join(dir, ".deployment-state/career-analysis-baseline.json"),
+      "{}",
+      { mode: 0o600 },
+    );
+    writeFileSync(join(dir, "scripts/prepare-workflow-publication.mjs"), "", {
+      mode: 0o600,
+    });
+    const logFile = join(dir, "calls.jsonl");
+    const ownerMarker = join(dir, "ownership-ready");
+    writeFileSync(
+      join(dir, "docker"),
+      `#!${process.execPath} --
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.PUBLICATION_TEST_LOG, JSON.stringify(args) + "\\n");
+if (args.includes("id")) {
+  console.log(args.at(-1) === "-u" ? "1012" : "1013");
+} else if (args.includes("chown")) {
+  if (!args.includes("--user") || !args.includes("1012:1013")) process.exit(22);
+  fs.writeFileSync(process.env.PUBLICATION_TEST_MARKER, "ready");
+} else if (args.includes("node")) {
+  if (!fs.existsSync(process.env.PUBLICATION_TEST_MARKER)) process.exit(23);
+} else if (args.includes("ps")) console.log("n8n running");
+`,
+      { mode: 0o700 },
+    );
+    execFileSync(
+      "bash",
+      [
+        fileURLToPath(
+          new URL("./publish-workflow-production.sh", import.meta.url),
+        ),
+        "production",
+        workflowFile,
+      ],
+      {
+        cwd: dir,
+        env: {
+          ...process.env,
+          PATH: `${dir}:${process.env.PATH}`,
+          PUBLICATION_TEST_LOG: logFile,
+          PUBLICATION_TEST_MARKER: ownerMarker,
+        },
+        stdio: "pipe",
+      },
+    );
+    const calls = readFileSync(logFile, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    const ownership = calls.findIndex((args) => args.includes("chown"));
+    const helper = calls.findIndex((args) => args.includes("node"));
+    assert.ok(ownership >= 0 && ownership < helper);
+    assert.ok(calls[ownership].includes("/tmp/career-analysis-baseline.json"));
+    assert.equal(
+      readFileSync(
+        join(dir, ".deployment-state/career-analysis-baseline.json"),
+        "utf8",
+      ),
+      "{}",
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

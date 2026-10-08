@@ -23,6 +23,16 @@ fi
   --id="$workflow_id" --output="$existing_file"
 "${compose[@]}" cp scripts/prepare-workflow-publication.mjs "$service:$helper_file"
 "${compose[@]}" cp "$baseline_file" "$service:/tmp/career-analysis-baseline.json"
+# compose cp creates root-owned files. Keep the baseline private while allowing
+# the service's non-root runtime user to read it; never broaden file permissions.
+runtime_uid="$("${compose[@]}" exec -T "$service" id -u)"
+runtime_gid="$("${compose[@]}" exec -T "$service" id -g)"
+if [[ ! "$runtime_uid" =~ ^[0-9]+$ || ! "$runtime_gid" =~ ^[0-9]+$ ]]; then
+  echo 'Could not identify the n8n runtime owner' >&2
+  exit 1
+fi
+"${compose[@]}" exec -T --user 0 "$service" chown \
+  "$runtime_uid:$runtime_gid" "$helper_file" /tmp/career-analysis-baseline.json
 "${compose[@]}" exec -T "$service" node "$helper_file" \
   "$workflow_container_file" "$existing_file" "$prepared_file" "$workflow_id" /tmp/career-analysis-baseline.json
 "${compose[@]}" exec -T "$service" n8n import:workflow \
