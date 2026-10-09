@@ -36,9 +36,33 @@ export async function verifyWebhook(url, fetcher = fetch) {
   // Unsigned requests must reach the workflow and stop before any AI/DB action.
   const body = await response.json().catch(() => null);
   if (response.status !== 401 || body?.error?.code !== "INVALID_SIGNATURE") {
-    throw new Error(
+    const error = new Error(
       `Webhook authentication probe failed (HTTP ${response.status})`,
     );
+    error.status = response.status;
+    throw error;
+  }
+}
+
+export async function waitForWebhook(
+  url,
+  {
+    fetcher = fetch,
+    wait = (ms) => new Promise((resolveWait) => setTimeout(resolveWait, ms)),
+    attempts = 15,
+  } = {},
+) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await verifyWebhook(url, fetcher);
+      return;
+    } catch (error) {
+      // Readiness becomes healthy before startup workflow activation finishes.
+      // Never retry an accepting endpoint or an unexpected authentication result.
+      if (attempt >= attempts || ![404, 502, 503, 504].includes(error.status))
+        throw error;
+      await wait(2000);
+    }
   }
 }
 
@@ -47,7 +71,7 @@ if (
   resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
   if (process.argv[2] === "--probe") {
-    await verifyWebhook(process.argv[3]);
+    await waitForWebhook(process.argv[3]);
     console.log(
       "Workflow webhook registration and unsigned-request rejection verified",
     );

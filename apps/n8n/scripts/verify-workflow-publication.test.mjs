@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   verifyPublishedWorkflow,
   verifyWebhook,
+  waitForWebhook,
 } from "./verify-workflow-publication.mjs";
 
 const prepared = {
@@ -34,6 +35,42 @@ test("publication must refer to the imported version and its authentication code
         prepared,
       ),
     );
+});
+test("startup registration is awaited, but unexpected acceptance never passes or retries", async () => {
+  let calls = 0,
+    waits = 0;
+  await waitForWebhook("https://example.test", {
+    fetcher: async () =>
+      ++calls === 1
+        ? Response.json({}, { status: 404 })
+        : Response.json(
+            { error: { code: "INVALID_SIGNATURE" } },
+            { status: 401 },
+          ),
+    wait: async () => {
+      waits++;
+    },
+  });
+  assert.equal(calls, 2);
+  assert.equal(waits, 1);
+  calls = 0;
+  await assert.rejects(
+    waitForWebhook("https://example.test", {
+      fetcher: async () => {
+        calls++;
+        return Response.json({}, { status: 200 });
+      },
+      wait: async () => assert.fail("must not retry an accepting endpoint"),
+    }),
+  );
+  assert.equal(calls, 1);
+  await assert.rejects(
+    waitForWebhook("https://example.test", {
+      fetcher: async () => Response.json({}, { status: 404 }),
+      wait: async () => {},
+      attempts: 2,
+    }),
+  );
 });
 test("only the registered webhook rejecting unsigned input passes, without AI work", async () => {
   await verifyWebhook(
