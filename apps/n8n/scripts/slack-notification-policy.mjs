@@ -60,13 +60,28 @@ export function classifySlackDelivery(input) {
   const retryAfter = retryAfterSeconds(input.headers);
   const botTarget = input.target !== "error_channel";
   const rateLimited = status === 429 || knownError === "ratelimited";
+  // The native n8n Slack node renames Slack's `ts` to `message_timestamp`.
+  // Keep both response shapes, including direct HTTP responses, supported.
+  const channelId = botTarget ? String(body.channel ?? "") || null : null;
+  const messageTs = botTarget
+    ? String(body.ts ?? body.message_timestamp ?? "") || null
+    : null;
+  const receiptComplete =
+    !botTarget ||
+    (/^[A-Z0-9]{1,80}$/.test(channelId ?? "") &&
+      /^\d{10,20}\.\d{6}$/.test(messageTs ?? ""));
 
-  if (status >= 200 && status < 300 && (!botTarget || body.ok === true)) {
+  if (
+    status >= 200 &&
+    status < 300 &&
+    (!botTarget || body.ok === true) &&
+    receiptComplete
+  ) {
     return {
-      channelId: botTarget ? String(body.channel ?? "") || null : null,
+      channelId,
       error: null,
       httpStatus: status,
-      messageTs: botTarget ? String(body.ts ?? "") || null : null,
+      messageTs,
       outcome: "sent",
       retryAfterSeconds: null,
       shouldRetry: false,
@@ -89,7 +104,10 @@ export function classifySlackDelivery(input) {
     !knownError &&
     body.ok !== false &&
     !rateLimited &&
-    (input.networkError || status === 0 || status >= 500)
+    (input.networkError ||
+      status === 0 ||
+      status >= 500 ||
+      (body.ok === true && !receiptComplete))
   ) {
     return {
       channelId: null,

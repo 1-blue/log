@@ -6,6 +6,69 @@ import {
   classifySlackDelivery,
   slackClassifierCode,
 } from "./slack-notification-policy.mjs";
+test("native and HTTP Slack success responses retain the delivery receipt", () => {
+  for (const field of ["ts", "message_timestamp"]) {
+    for (const wrapped of [false, true]) {
+      const body = {
+        ok: true,
+        channel: "C0C1XE47XL0",
+        [field]: "1791547946.897599",
+      };
+      const result = classifySlackDelivery({
+        ...(wrapped ? { body, statusCode: 200 } : body),
+        target: "document",
+      });
+      assert.equal(result.outcome, "sent");
+      assert.equal(result.channelId, "C0C1XE47XL0");
+      assert.equal(result.messageTs, "1791547946.897599");
+      assert.equal(result.httpStatus, 200);
+    }
+  }
+});
+test("incomplete bot delivery receipts are unknown, not invalid sent callbacks", () => {
+  for (const body of [
+    { ok: true },
+    { ok: true, channel: "C0C1XE47XL0" },
+    { ok: true, channel: "C0C1XE47XL0", message_timestamp: "invalid" },
+  ]) {
+    const result = classifySlackDelivery({ ...body, target: "job_root" });
+    assert.equal(result.outcome, "delivery_unknown");
+    assert.equal(result.error.code, "SLACK_DELIVERY_UNKNOWN");
+    assert.equal(result.messageTs, null);
+    assert.equal(result.shouldRetry, false);
+  }
+  assert.equal(
+    classifySlackDelivery({ statusCode: 200, target: "error_channel" }).outcome,
+    "sent",
+  );
+});
+test("embedded classifier supports native Slack delivery receipts", () => {
+  const workflow = JSON.parse(
+    readFileSync(
+      new URL("../workflows/career-analysis.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  for (const name of ["Slack 결과 분류", "Slack 재시도 결과 분류"]) {
+    const code = workflow.nodes.find((node) => node.name === name).parameters
+      .jsCode;
+    const run = new Function("$input", "$", code);
+    const [item] = run(
+      {
+        first: () => ({
+          json: {
+            ok: true,
+            channel: "C0C1XE47XL0",
+            message_timestamp: "1791547946.897599",
+          },
+        }),
+      },
+      () => ({ first: () => ({ json: { payload: { target: "document" } } }) }),
+    );
+    assert.equal(item.json.outcome, "sent");
+    assert.equal(item.json.messageTs, "1791547946.897599");
+  }
+});
 test("native Slack errors are definite failures and never leak the original message", () => {
   for (const [error, code] of [
     ["invalid_auth", "SLACK_AUTHENTICATION_FAILED"],
