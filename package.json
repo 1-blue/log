@@ -7,7 +7,7 @@
     "check-types": "turbo check-types",
     "dev": "turbo dev",
     "lint": "turbo lint",
-    "test": "turbo test && node apps/n8n/scripts/validate-workflow.mjs && node --test apps/n8n/scripts/document-ocr.test.mjs apps/n8n/scripts/ai-usage-policy.test.mjs apps/n8n/scripts/slack-notification-policy.test.mjs apps/n8n/scripts/prepare-workflow-publication.test.mjs apps/n8n/scripts/job-structure.test.mjs scripts/career-reset-safety.test.mjs",
+    "test": "turbo test && node apps/n8n/scripts/validate-workflow.mjs && node --test apps/n8n/scripts/document-ocr.test.mjs apps/n8n/scripts/ai-usage-policy.test.mjs apps/n8n/scripts/slack-notification-policy.test.mjs apps/n8n/scripts/prepare-workflow-publication.test.mjs apps/n8n/scripts/verify-workflow-publication.test.mjs apps/n8n/scripts/job-structure.test.mjs scripts/career-reset-safety.test.mjs",
     "check:security": "node scripts/check-repository-security.mjs",
     "verify:offline": "node scripts/verify-offline.mjs",
     "db:reset:career-ops:dry-run": "node scripts/reset-career-ops-data.mjs",

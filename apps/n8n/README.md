@@ -219,6 +219,12 @@ DB 백업과 추가 migration은 먼저 반영하고 Blog는 n8n 이후 별도�
 Workflow를 export해 실제 ID와 Credential 참조를 유지한다. 신규 OCR 노드도 기존
 `OpenAI 프로필 비교` 노드의 Credential을 재사용하며, 운영 ID나 참조가 없거나
 현재 게시되지 않은 Workflow를 지정하면 import를 중단한다.
+게시 후에는 export한 `versionId`와 `activeVersionId`, 준비된 HMAC 검증 코드가
+일치하는지 확인한다. 재시작 후 내부·외부 운영 Webhook에 서명 없는 `{}` 요청을
+보내 `401 / INVALID_SIGNATURE`를 확인한다. 이 검증은 AI나 DB 작업을 시작하지
+않으며, readiness가 정상이어도 게시나 Webhook 등록이 실패하면 배포를 실패 처리한다.
+Code 노드의 보안 실행 환경에는 `URL` 전역 객체가 없으므로 자동 수집 URL은
+Worker가 정규화한 원티드 상세 주소와 정확히 일치하는 형식만 허용한다.
 `N8N_WORKFLOW_ID`에는 로컬 JSON의 ID가 아니라 실제 운영 Webhook을 처리하는 ID를 지정한다.
 동일 Webhook을 처리하는 Workflow를 중복 게시하지 않는다. Credential 값은 export,
 GitHub, Workflow payload에 포함하지 않는다. 배포 이력에는 Git SHA, n8n 이미지
