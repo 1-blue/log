@@ -113,7 +113,7 @@ jobs:
             apps/n8n/custom-nodes/CareerPdfPages.node.js \
             "$DEPLOY_USER@$DEPLOY_HOST:/opt/career-ops-n8n/custom-nodes/"
           rsync -av -e 'ssh -o StrictHostKeyChecking=yes' \
-            apps/n8n/scripts/backup-production.sh apps/n8n/scripts/deploy-production.sh apps/n8n/scripts/publish-workflow-production.sh apps/n8n/scripts/prepare-workflow-publication.mjs apps/n8n/scripts/document-ocr.mjs \
+            apps/n8n/scripts/backup-production.sh apps/n8n/scripts/deploy-production.sh apps/n8n/scripts/publish-workflow-production.sh apps/n8n/scripts/prepare-workflow-publication.mjs apps/n8n/scripts/verify-workflow-publication.mjs apps/n8n/scripts/document-ocr.mjs \
             "$DEPLOY_USER@$DEPLOY_HOST:/opt/career-ops-n8n/scripts/"
           rsync -av -e 'ssh -o StrictHostKeyChecking=yes' \
             apps/n8n/workflows/*.json \
@@ -136,3 +136,4 @@ jobs:
             exit 1
           fi
           echo "n8n readiness verified for SHA $GITHUB_SHA"
+          node apps/n8n/scripts/verify-workflow-publication.mjs --probe "$N8N_PUBLIC_URL/webhook/career-analysis"

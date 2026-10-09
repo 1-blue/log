@@ -63,7 +63,7 @@ export function updateJobStructure(workflow) {
     hmac.parameters.jsCode = hmac.parameters.jsCode.replace(
       "const collectionValid =",
       `const automaticJobUrlAllowed = value => {
-try { const url=new URL(value); return url.protocol==='https:' && url.hostname==='www.wanted.co.kr' && !url.username && !url.password && !url.port && !url.search && !url.hash && /^\\/wd\\/\\d+$/.test(url.pathname); } catch { return false; }
+return typeof value==='string' && /^https:\\/\\/www\\.wanted\\.co\\.kr\\/wd\\/[0-9]+$/.test(value) && !/\\s/.test(value);
 };
 const collectionValid =`,
     );
@@ -72,6 +72,14 @@ const collectionValid =`,
       "payload?.kind === 'job_posting_collection' && (typeof payload?.jobPosting?.manualContent === 'string' || automaticJobUrlAllowed(payload?.jobPosting?.url)) &&",
     );
   }
+  // n8n's secure Code runner does not expose the URL global. The Worker already
+  // canonicalizes this URL; accept only its exact allowlisted representation.
+  hmac.parameters.jsCode = hmac.parameters.jsCode.replace(
+    /const automaticJobUrlAllowed = value => \{[\s\S]*?\n\};/,
+    String.raw`const automaticJobUrlAllowed = value => {
+return typeof value==='string' && /^https:\/\/www\.wanted\.co\.kr\/wd\/[0-9]+$/.test(value) && !/\s/.test(value);
+};`,
+  );
   code(
     "AI 원문 보완 준비",
     `const payload=$('HMAC 요청 검증').first().json.payload;

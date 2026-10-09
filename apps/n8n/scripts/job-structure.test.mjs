@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import { createHmac, createHash } from "node:crypto";
 import { createRequire } from "node:module";
+import { runInNewContext } from "node:vm";
 import { updateJobStructure } from "./update-job-structure.mjs";
 import { layoutWorkflow } from "./layout-workflow.mjs";
 
@@ -99,28 +100,28 @@ test("signed automatic collection still rejects non-allowlisted and private URLs
       createHash("sha256").update(rawBody).digest("hex"),
     ].join("\n");
     const signature = `v1=${createHmac("sha256", "fixture-secret").update(canonical).digest("hex")}`;
-    return new Function(
-      "$input",
-      "$env",
-      "require",
-      node("HMAC 요청 검증").parameters.jsCode,
-    )(
+    // Match the secure n8n runner: Buffer/crypto exist, URL is not injected.
+    return runInNewContext(
+      `(function(){${node("HMAC 요청 검증").parameters.jsCode}\n})()`,
       {
-        first: () => ({
-          json: {
-            body: payload,
-            rawBody,
-            headers: {
-              "x-signature-timestamp": timestamp,
-              "x-event-id": "event",
-              "x-request-id": "request",
-              "x-signature": signature,
+        Buffer,
+        require,
+        $env: { WORKER_TO_N8N_SECRET: "fixture-secret" },
+        $input: {
+          first: () => ({
+            json: {
+              body: payload,
+              rawBody,
+              headers: {
+                "x-signature-timestamp": timestamp,
+                "x-event-id": "event",
+                "x-request-id": "request",
+                "x-signature": signature,
+              },
             },
-          },
-        }),
+          }),
+        },
       },
-      { WORKER_TO_N8N_SECRET: "fixture-secret" },
-      require,
     )[0].json.valid;
   };
   assert.equal(evaluate("https://www.wanted.co.kr/wd/123"), true);
@@ -129,6 +130,10 @@ test("signed automatic collection still rejects non-allowlisted and private URLs
     "https://www.wanted.co.kr.evil.test/wd/123",
     "https://www.wanted.co.kr/wd/123?redirect=private",
     "https://www.saramin.co.kr/jobs/123",
+    "https://www.wanted.co.kr/wd/123\n",
+    "https://user@www.wanted.co.kr/wd/123",
+    "https://www.wanted.co.kr:443/wd/123",
+    "https://www.wanted.co.kr/wd/123#fragment",
   ])
     assert.equal(evaluate(url), false);
   assert.equal(
