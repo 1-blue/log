@@ -238,6 +238,54 @@ describe("analysis input and evidence validation", () => {
     );
   });
 
+  it("accepts an unscorable sparse result without manufacturing a zero score", () => {
+    const sparse: AnalysisResult = {
+      ...result,
+      fitScore: null,
+      job: { ...result.job, requirements: [] },
+      comparison: {
+        ...result.comparison,
+        matches: [],
+        gaps: [],
+        interviewQuestions: [],
+      },
+    };
+    expect(validateAnalysisSemantics(sparse, row)).toEqual({ ok: true });
+    expect(sanitizeAnalysisResult(sparse, row).fitScore).toBeNull();
+    const unsupported = sanitizeAnalysisResult(
+      {
+        ...sparse,
+        comparison: {
+          ...result.comparison,
+          gaps: [
+            {
+              title: "Invented missing skill",
+              description: "No posting evidence",
+              requirementIds: [],
+              priority: "high",
+              evidence: [],
+              actions: [],
+            },
+          ],
+        },
+      },
+      row,
+    );
+    expect(unsupported.comparison.matches).toEqual([]);
+    expect(unsupported.comparison.gaps).toEqual([]);
+    expect(unsupported.fitScore).toBeNull();
+    expect(validateAnalysisSemantics({ ...sparse, fitScore: 0 }, row)).toEqual({
+      ok: false,
+      reason: "invalid_fit_score",
+    });
+    expect(
+      validateAnalysisSemantics(
+        { ...sparse, comparison: result.comparison },
+        row,
+      ),
+    ).toEqual({ ok: false, reason: "invalid_requirement_match" });
+  });
+
   it("does not accept an AI answer draft without personal evidence", () => {
     expect(
       validateAnalysisSemantics(

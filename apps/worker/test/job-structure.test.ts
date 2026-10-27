@@ -231,6 +231,117 @@ function collectionFixture(cached = false) {
 }
 
 describe("unified collection service", () => {
+  it("requires source input only for empty or unusable source, not missing optional sections", async () => {
+    const empty = collectionFixture();
+    await empty.service.complete({
+      ...empty.callback,
+      response: { ...empty.callback.response, body: " \n ", contentLength: 3 },
+    });
+    expect(empty.dispatch).not.toHaveBeenCalled();
+    expect(empty.rpc).toHaveBeenLastCalledWith(
+      "complete_job_posting_collection_v3",
+      expect.objectContaining({
+        p_status: "needs_input",
+        p_error_code: "SOURCE_TEXT_EMPTY",
+      }),
+    );
+    const unusable = collectionFixture();
+    await unusable.service.complete(unusable.callback);
+    await unusable.service.complete({
+      ...unusable.callback,
+      outcome: "ai_extraction",
+      eventId: unusable.state.row.structure_event_id!,
+      extraction: { ...extraction, sourceComplete: false },
+    });
+    expect(unusable.rpc).toHaveBeenLastCalledWith(
+      "complete_job_posting_collection_v3",
+      expect.objectContaining({
+        p_status: "needs_input",
+        p_error_code: "SOURCE_NOT_JOB_POSTING",
+      }),
+    );
+  });
+  it("persists missing sections and warnings rather than rejecting a sparse job", async () => {
+    const fixture = collectionFixture();
+    const text = "테스트 회사 프론트엔드 개발자 채용. 급여는 면접 후 결정.";
+    const sparse = structuredClone(extraction);
+    sparse.facts.bodySections.mainResponsibilities = null;
+    sparse.facts.bodySections.requirements = null;
+    sparse.facts.requirements = [];
+    sparse.evidence = [{ section: "공고", excerpt: "프론트엔드 개발자 채용" }];
+    const callback = {
+      ...fixture.callback,
+      response: {
+        ...fixture.callback.response,
+        body: text,
+        contentLength: text.length,
+      },
+    };
+    await fixture.service.complete(callback);
+    await fixture.service.complete({
+      ...callback,
+      eventId: fixture.state.row.structure_event_id!,
+      outcome: "ai_extraction",
+      extraction: sparse,
+    });
+    expect(fixture.rpc).toHaveBeenLastCalledWith(
+      "complete_job_posting_collection_v3",
+      expect.objectContaining({
+        p_status: "succeeded",
+        p_raw_content: text,
+        p_sections: expect.objectContaining({
+          mainResponsibilities: null,
+          requirements: null,
+        }),
+        p_structured_facts: expect.objectContaining({
+          requirements: [],
+          warnings: expect.arrayContaining([
+            expect.stringContaining("산정할 수 없습니다"),
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it("settles malformed AI output and provider failures with durable specific codes", async () => {
+    for (const [outcome, payload, code, retryable] of [
+      [
+        "ai_extraction",
+        { extraction: { invalid: "private-value" } },
+        "AI_RESPONSE_INVALID",
+        false,
+      ],
+      ["ai_failed", {}, "AI_STRUCTURING_FAILED", false],
+      ["ai_failed", { errorCode: "AI_TIMEOUT" }, "AI_TIMEOUT", true],
+      [
+        "ai_failed",
+        { errorCode: "AI_AUTHENTICATION_FAILED" },
+        "AI_AUTHENTICATION_FAILED",
+        false,
+      ],
+    ] as const) {
+      const fixture = collectionFixture();
+      await fixture.service.complete(fixture.callback);
+      await fixture.service.complete({
+        ...fixture.callback,
+        ...payload,
+        response: outcome === "ai_failed" ? null : fixture.callback.response,
+        eventId: fixture.state.row.structure_event_id!,
+        outcome,
+      });
+      expect(fixture.rpc).toHaveBeenLastCalledWith(
+        "complete_job_posting_collection_v3",
+        expect.objectContaining({
+          p_status: "failed",
+          p_error_code: code,
+          p_retryable: retryable,
+        }),
+      );
+      expect(JSON.stringify(fixture.rpc.mock.calls)).not.toContain(
+        "private-value",
+      );
+    }
+  });
   it("dispatches AI exactly once for manual source and validates the matching callback", async () => {
     const fixture = collectionFixture();
     await fixture.service.complete(fixture.callback);
@@ -387,6 +498,81 @@ describe("matching dispatch reuses persisted job facts", () => {
 });
 
 describe("one AI job structure", () => {
+  it("accepts a short posting without duties or qualifications and never invents them", () => {
+    const partial = structuredClone(extraction);
+    const text = "테스트 회사 프론트엔드 개발자 채용. 급여는 면접 후 결정.";
+    partial.facts.bodySections.mainResponsibilities = null;
+    partial.facts.bodySections.requirements = null;
+    partial.facts.requirements = [];
+    partial.facts.summary =
+      "프론트엔드 개발자를 채용하며 급여는 면접 후 결정합니다.";
+    partial.evidence = [{ section: "공고", excerpt: "프론트엔드 개발자 채용" }];
+    const parsed = validateJobStructure({
+      extraction: partial,
+      sourceText: text,
+      collectionRunId: run,
+    });
+    expect(parsed.sections.mainResponsibilities).toBeNull();
+    expect(parsed.sections.requirements).toBeNull();
+    expect(parsed.facts.requirements).toEqual([]);
+    expect(parsed.facts.warnings.join(" ")).toContain("주요 업무");
+    expect(parsed.facts.warnings.join(" ")).toContain("산정할 수 없습니다");
+    expect(partial.facts.warnings).toEqual([]);
+  });
+  it("allows absent identity fields without writing the word null into the source", () => {
+    const partial = structuredClone(extraction);
+    partial.metadata.title = partial.facts.title = null;
+    partial.metadata.companyName = partial.facts.companyName = null;
+    const parsed = validateJobStructure({
+      extraction: partial,
+      sourceText: source,
+      collectionRunId: run,
+    });
+    expect(parsed.metadata.title).toBeNull();
+    expect(parsed.normalizedContent).not.toContain("공고명: null");
+    expect(parsed.facts.warnings.join(" ")).toContain("회사명");
+  });
+  it("returns distinct safe causes for empty, blocked, malformed, invented and mismatched results", () => {
+    const sourceMismatch = structuredClone(extraction);
+    sourceMismatch.facts.requirements[0]!.evidence[0]!.sourceVersionId = owner;
+    const metadataMismatch = structuredClone(extraction);
+    metadataMismatch.metadata.companyName = "불일치";
+    const duplicate = structuredClone(extraction);
+    duplicate.facts.requirements.push(duplicate.facts.requirements[0]!);
+    for (const [value, text, code] of [
+      [extraction, " \n ", "SOURCE_TEXT_EMPTY"],
+      [
+        { ...extraction, sourceComplete: false },
+        source,
+        "SOURCE_NOT_JOB_POSTING",
+      ],
+      [{}, source, "AI_RESPONSE_INVALID"],
+      [
+        {
+          ...extraction,
+          evidence: [{ section: "공고", excerpt: "원문에 없는 private-data" }],
+        },
+        source,
+        "AI_EVIDENCE_MISMATCH",
+      ],
+      [sourceMismatch, source, "AI_SOURCE_MISMATCH"],
+      [metadataMismatch, source, "AI_METADATA_MISMATCH"],
+      [duplicate, source, "AI_RESPONSE_INVALID"],
+    ] as const) {
+      try {
+        validateJobStructure({
+          extraction: value,
+          sourceText: text,
+          collectionRunId: run,
+        });
+        throw new Error("Expected validation failure");
+      } catch (error) {
+        expect(error).toBeInstanceOf(JobStructureError);
+        expect((error as JobStructureError).code).toBe(code);
+        expect((error as Error).message).not.toContain("private-data");
+      }
+    }
+  });
   it("accepts complete sources with absent optional fields and retains raw source", () => {
     const result = validateJobStructure({
       extraction,

@@ -208,7 +208,7 @@ export default function NewApplicationClient() {
           <Textarea
             id="application-manual-content"
             name="manualContent"
-            minLength={100}
+            minLength={1}
             maxLength={100_000}
             placeholder="회사·직무 소개, 주요 업무, 자격요건과 우대사항 등 공고 본문을 붙여 넣어 주세요."
             rows={7}

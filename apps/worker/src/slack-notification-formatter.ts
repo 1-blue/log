@@ -1,5 +1,7 @@
 import {
+  JOB_POSTING_COLLECTION_ERROR_MESSAGES,
   jobPlatformLabel,
+  JobPostingCollectionErrorCodeSchema,
   type N8nSlackNotificationDispatchPayload,
   type SlackMessageBlock,
   type SlackNotificationEventType,
@@ -35,7 +37,7 @@ const EVENT_TITLES: Record<SlackNotificationEventType, string> = {
   analysis_retrying: "분석 재시도",
   analysis_succeeded: "분석 완료",
   application_status_changed: "지원 상태 변경",
-  collection_failed: "공고 수집 실패",
+  collection_failed: "공고 수집·구조화 실패",
   collection_needs_input: "공고 원문 입력 필요",
   collection_succeeded: "공고 수집 완료",
   interview_scheduled: "면접 일정 등록",
@@ -212,7 +214,9 @@ function formatEventDetails(
             .filter((gap): gap is string => Boolean(gap))
         : [];
       return [
-        ...(fitScore === null ? [] : [`적합도: ${Math.round(fitScore)}점`]),
+        fitScore === null
+          ? "적합도: 산정 불가 · 비교할 요구사항을 확인해 주세요."
+          : `적합도: ${Math.round(fitScore)}점`,
         ...(summary ? [`요약: ${truncateSlackText(summary, 400)}`] : []),
         ...(gaps.length ? [`핵심 보완: ${gaps.join(", ")}`] : []),
         ...(elapsed ? [`경과 시간: ${elapsed}`] : []),
@@ -237,6 +241,15 @@ function formatEventDetails(
     case "collection_needs_input":
       return [
         `오류 코드: ${stringValue(context.errorCode) ?? "UNKNOWN"}`,
+        ...((notification.event_type === "collection_failed" ||
+          notification.event_type === "collection_needs_input") &&
+        JobPostingCollectionErrorCodeSchema.safeParse(context.errorCode).success
+          ? [
+              JOB_POSTING_COLLECTION_ERROR_MESSAGES[
+                JobPostingCollectionErrorCodeSchema.parse(context.errorCode)
+              ],
+            ]
+          : []),
         ...(stringValue(context.stage)
           ? [`실패 단계: ${stringValue(context.stage)}`]
           : []),

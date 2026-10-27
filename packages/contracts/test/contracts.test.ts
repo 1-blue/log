@@ -150,6 +150,29 @@ const validAnalysisResult: AnalysisResult = {
 };
 
 describe("career operations contracts", () => {
+  it("keeps a missing score distinct from zero and normalizes legacy empty-denominator scores", () => {
+    const sparse = structuredClone(validAnalysisResult);
+    sparse.job.requirements = [];
+    sparse.comparison.matches = [];
+    sparse.fitScore = 0;
+    expect(AnalysisResultSchema.parse(sparse).fitScore).toBeNull();
+    expect(calculateAnalysisFitScore([], [])).toBeNull();
+    expect(
+      AnalysisResultSchema.parse({ ...sparse, fitScore: null }).fitScore,
+    ).toBeNull();
+  });
+  it("accepts short nonempty manual input without implying that it is a complete posting", () => {
+    expect(
+      CreateJobPostingCollectionRequestSchema.safeParse({
+        manualContent: "개발자 채용, 경력 무관",
+      }).success,
+    ).toBe(true);
+    expect(
+      CreateJobPostingCollectionRequestSchema.safeParse({
+        manualContent: " \n ",
+      }).success,
+    ).toBe(false);
+  });
   it("keeps legacy analysis results readable with defaults for new display fields", () => {
     const legacy = structuredClone(validAnalysisResult) as unknown as {
       comparison: {
@@ -235,8 +258,14 @@ describe("career operations contracts", () => {
         manualContent: null,
       }).success,
     ).toBe(true);
+    expect(
+      CreateJobPostingRequestSchema.parse({
+        source: "wanted",
+        url: `${validWantedUrl}#details`,
+        manualContent: null,
+      }).url,
+    ).toBe(validWantedUrl);
     for (const url of [
-      `${validWantedUrl}#details`,
       "https://user@www.wanted.co.kr/wd/384409",
       "https://www.wanted.co.kr:444/wd/384409",
       "http://www.wanted.co.kr/wd/384409",
@@ -263,7 +292,7 @@ describe("career operations contracts", () => {
     ).toBe(true);
     expect(
       CreateJobPostingCollectionRequestSchema.safeParse({
-        manualContent: "너무 짧음",
+        manualContent: "   ",
       }).success,
     ).toBe(false);
 
@@ -324,6 +353,28 @@ describe("career operations contracts", () => {
       JobPostingCollectionCallbackSchema.safeParse(aiExtractionCallback)
         .success,
     ).toBe(true);
+    // The service owns AI result validation so malformed output can settle the
+    // run with a durable diagnostic instead of leaving it running after a 400.
+    expect(
+      JobPostingCollectionCallbackSchema.safeParse({
+        ...aiExtractionCallback,
+        extraction: {},
+      }).success,
+    ).toBe(true);
+    expect(
+      JobPostingCollectionCallbackSchema.safeParse({
+        ...callback,
+        outcome: "ai_failed",
+        response: null,
+        errorCode: "AI_TIMEOUT",
+      }).success,
+    ).toBe(true);
+    expect(
+      JobPostingCollectionCallbackSchema.safeParse({
+        ...callback,
+        errorCode: "AI_TIMEOUT",
+      }).success,
+    ).toBe(false);
     expect(
       JobPostingCollectionCallbackSchema.safeParse({
         ...aiExtractionCallback,

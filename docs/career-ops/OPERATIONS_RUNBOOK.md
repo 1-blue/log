@@ -90,13 +90,24 @@ PDF도 페이지 전체를 읽도록 하며, PDF 안의 삽화만 추출해 OCR�
 
 ### 공고 수집·AI 구조화 실패
 
-- `ACCESS_BLOCKED`, `JOB_EXPIRED`, `AUTOMATIC_COLLECTION_UNSUPPORTED`, `AI_STRUCTURING_FAILED`를 구분한다.
+- URL의 `#…` fragment는 검증 후 제거해 저장·중복 판정한다. `rec_idx` 등 공고 식별 query와 `%23`은 유지한다. HTTPS·공개 호스트·Credential 및 내부망 제한은 그대로다.
 - 자동 수집은 원티드 상세 URL만 허용한다. 다른 플랫폼도 등록·공통 분석할 수 있으나 원문은 수동 입력한다.
 - HTML 정리는 전송용 텍스트 정규화일 뿐 자격요건 등을 해석하는 플랫폼별 파서는 아니다. 메타데이터·섹션·사실은 한 번의 AI 구조화로 저장하고 적합도 비교에 재사용한다.
-- 차단·만료·불완전 원문은 반복 수집하지 않고 관리자 화면의 수동 원문으로 전환한다.
+- 수동 원문은 1~100,000자를 허용하되 공백만 있는 입력은 거부한다. 주요 업무·자격요건·우대사항 등은 필수가 아니며 누락값을 null/빈 배열로 저장하고 미기재·복사 누락 가능성을 안내한다. 요구사항이 없으면 적합도·내 판정·근거 확인율은 0점/100%가 아닌 `산정 불가`다.
+- `SOURCE_TEXT_EMPTY`는 빈 원문, `SOURCE_NOT_JOB_POSTING`은 대상 채용 정보를 확인할 수 없는 원문이다. 이미지·iframe의 글자가 텍스트 복사에서 누락됐는지도 확인한다. `ACCESS_BLOCKED`, `JOB_EXPIRED`, `AUTOMATIC_COLLECTION_UNSUPPORTED`도 구분해 실제 공고 원문을 입력한다.
+- `AI_RESPONSE_INVALID`, `AI_EVIDENCE_MISMATCH`, `AI_SOURCE_MISMATCH`, `AI_METADATA_MISMATCH`는 원문 필수 항목 부족이 아닌 AI 결과 오류다. 잘못된 결과는 저장하지 않으며 같은 원문으로 새 요청을 만들 수 있다. 이때 지원자에게 없는 역량을 임의로 만들지 않는다.
+- `AI_TIMEOUT`, `AI_RATE_LIMITED`, `AI_SERVICE_UNAVAILABLE`만 일시적 AI 오류로 분류한다. `AI_AUTHENTICATION_FAILED`는 Credential·권한, `AI_BILLING_LIMIT`는 잔액·프로젝트 한도를 확인한다. 이 실패들은 `failed`로 저장해 Slack에 원문 입력 필요로 잘못 알리지 않는다. 이전 callback의 `AI_STRUCTURING_FAILED`도 계속 지원한다.
+- 화면과 Slack의 오류 설명은 `JOB_POSTING_COLLECTION_ERROR_MESSAGES`를 공유하며 원문·API Key·provider 원본 오류를 포함하지 않는다. Request ID로 같은 실행을 추적한다.
 - `job_structure_required`는 새 버전의 공고 사실이 없는 기존 스냅샷이다. 재수집하거나 원문을 수동 입력한 뒤 분석한다.
 - timeout·429·5xx는 제한된 재시도 후 원문과 플랫폼 상태를 확인하고 새 수집 실행을 만든다.
 - CAPTCHA 우회, 비공개 API 사용과 redirect 허용은 복구 수단으로 사용하지 않는다.
+
+### 지원 상태와 2026-10-27 변경 배포
+
+- 지원 상태는 상세 공통 상단과 분석 작업 화면에서 변경한다. 정보 폼은 상태를 전송하지 않으며 문서 선택·제출 후 잠금·보관 정책은 그대로 적용한다.
+- 배포 전 `pnpm --filter @workspace/contracts check-schemas`와 `pnpm verify:offline`을 실행한다. 후자는 운영 연결 없이 임시 DB에서 migration·pgTAP·DB 생성 타입을 검증한다.
+- nullable 점수와 snapshot warnings를 읽는 Blog를 먼저 배포하고, 새 enum migration `20261027010000_add_job_collection_diagnostics.sql` → Worker → n8n 순서로 반영한다. n8n의 새 오류 코드를 DB/Worker보다 먼저 배포하지 않는다.
+- 구조화 prompt는 `job-structure-v2-optional-fields-v1`, 비교 prompt는 `profile-match-v2-readability-sparse-v1`이다. 기존 기록을 삭제하거나 자동 재분석하지 않으며 새 요청에서 갱신된 prompt의 캐시를 사용한다.
 
 ### n8n 중단 또는 dispatch 실패
 

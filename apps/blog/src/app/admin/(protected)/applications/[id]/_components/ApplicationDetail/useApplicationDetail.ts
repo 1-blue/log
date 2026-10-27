@@ -75,7 +75,6 @@ export function useApplicationDetail(applicationId: string) {
     AnalysisDiagnosticsResponse["data"] | null
   >(null);
   const [manualContent, setManualContent] = useState("");
-  const [status, setStatus] = useState<ApplicationStatus>("interested");
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -105,7 +104,6 @@ export function useApplicationDetail(applicationId: string) {
         listDocumentVersions({ archived: "exclude" }),
       ]);
       setApplication(applicationResponse.data);
-      setStatus(applicationResponse.data.status);
       setDocuments(documentsResponse.data.items);
       try {
         const [collectionsResponse, analysisResponse] = await Promise.all([
@@ -296,7 +294,7 @@ export function useApplicationDetail(applicationId: string) {
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!application) return;
+    if (!application || pending !== null) return;
     const data = new FormData(event.currentTarget);
     setPending("save");
     setError(null);
@@ -327,12 +325,21 @@ export function useApplicationDetail(applicationId: string) {
         resumeVersionId: application.documentsLockedAt
           ? (application.documents.resume?.id ?? null)
           : normalizeOptionalDocumentId(data.get("resumeVersionId")),
-        status,
       });
       setApplication(response.data);
-      setStatus(response.data.status);
     } catch (caught) {
       setError(message(caught));
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function updateStatus(status: ApplicationStatus) {
+    // Share the busy state with the information form and archive controls.
+    // Concurrent responses must not restore an older application on screen.
+    setPending("status");
+    try {
+      return (await updateApplication(applicationId, { status })).data;
     } finally {
       setPending(null);
     }
@@ -405,7 +412,7 @@ export function useApplicationDetail(applicationId: string) {
     save,
     setArchived,
     setManualContent,
-    setStatus,
-    status,
+    setApplication,
+    updateStatus,
   };
 }

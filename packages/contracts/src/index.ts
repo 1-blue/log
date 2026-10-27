@@ -281,6 +281,7 @@ export {
   jobPlatformLabel,
   JobPostingUrlSchema,
 } from "./job-platforms";
+export { JOB_POSTING_COLLECTION_ERROR_MESSAGES } from "./job-posting-errors";
 export type {
   CreateJobPostingCollectionRequest,
   DocumentExtractionErrorCode,

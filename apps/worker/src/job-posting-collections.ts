@@ -373,8 +373,13 @@ export class SupabaseJobPostingCollectionService
         collectionRunId: run.id,
         eventId: input.eventId,
         ownerId: run.owner_id,
-        status: "needs_input",
-        errorCode: "AI_STRUCTURING_FAILED",
+        status: "failed",
+        errorCode: input.errorCode ?? "AI_STRUCTURING_FAILED",
+        retryable: [
+          "AI_TIMEOUT",
+          "AI_RATE_LIMITED",
+          "AI_SERVICE_UNAVAILABLE",
+        ].includes(input.errorCode ?? ""),
       });
 
     const response = input.response;
@@ -446,7 +451,7 @@ export class SupabaseJobPostingCollectionService
         if (sourceText.length > JOB_POSTING_MANUAL_CONTENT_MAX_LENGTH)
           throw new JobStructureError("CONTENT_TOO_LARGE");
         if (sourceText.length < JOB_POSTING_MANUAL_CONTENT_MIN_LENGTH)
-          throw new JobStructureError("INVALID_JOB_POSTING");
+          throw new JobStructureError("SOURCE_TEXT_EMPTY");
         const extractionPayload: N8nJobPostingExtractionDispatchPayload = {
           callbackPath: `/v1/internal/job-posting-collections/${run.id}/complete`,
           collectionRunId: run.id,
@@ -591,7 +596,7 @@ export class SupabaseJobPostingCollectionService
         eventId: input.eventId,
         httpStatus: response.status,
         ownerId: run.owner_id,
-        status: "needs_input",
+        status: parseError.code.startsWith("AI_") ? "failed" : "needs_input",
       });
     }
   }

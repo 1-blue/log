@@ -29,9 +29,10 @@ import {
 import {
   APPLICATION_STATUS_OPTIONS,
   formatApplicationDate,
-  getApplicationStatusLabel,
 } from "#/libs/application-ui";
 import { listApplications, WorkerApiError } from "#/libs/worker-client";
+
+import { ApplicationStatusBadge } from "../../_components/ApplicationStatusBadge";
 
 function errorMessage(error: unknown) {
   return error instanceof WorkerApiError
@@ -226,9 +227,7 @@ export default function ApplicationsClient() {
                     보관됨
                   </span>
                 ) : null}
-                <span className="bg-primary/10 text-primary rounded-full px-2.5 py-1 text-xs">
-                  {getApplicationStatusLabel(item.status)}
-                </span>
+                <ApplicationStatusBadge status={item.status} />
               </div>
             </Link>
           ))}

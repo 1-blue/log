@@ -1,6 +1,6 @@
 import type { AnalysisWorkspace, MatchStatus } from "@workspace/contracts";
 
-import { formatApplicationDate } from "#/libs/application-ui";
+import { formatApplicationDate, formatFitScore } from "#/libs/application-ui";
 
 import { JOB_SECTION_LABELS, MATCH_LABELS } from "./AnalysisWorkspaceLabels";
 import { InputAuditDetails } from "./AnalysisWorkspaceParts";
@@ -30,20 +30,20 @@ export function AnalysisSummaryTab({
           <div className="bg-muted/40 rounded-md p-4">
             <p className="text-muted-foreground text-xs">AI 적합도</p>
             <strong className="text-primary mt-1 block text-3xl">
-              {result.fitScore}점
+              {formatFitScore(result.fitScore)}
             </strong>
           </div>
           <div className="bg-muted/40 rounded-md p-4">
             <p className="text-muted-foreground text-xs">내 판정 점수</p>
             <strong className="mt-1 block text-3xl">
-              {liveReviewedScore ?? result.fitScore}점
+              {formatFitScore(liveReviewedScore ?? result.fitScore)}
             </strong>
           </div>
           <div className="bg-muted/40 rounded-md p-4">
             <p className="text-muted-foreground text-xs">근거 확인율</p>
             <strong className="mt-1 block text-3xl">
               {workspace.evidenceCoverage === null
-                ? "-"
+                ? "산정 불가"
                 : `${workspace.evidenceCoverage}%`}
             </strong>
             <p className="text-muted-foreground mt-1 text-xs">
@@ -67,9 +67,19 @@ export function AnalysisSummaryTab({
             </strong>
           </div>
         </div>
+        {result.fitScore === null ? (
+          <p
+            role="status"
+            className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-6"
+          >
+            공고에서 비교할 필수·우대 요구사항을 확인하지 못해 적합도 점수를
+            산정하지 않았습니다. 0점이나 불합격을 의미하지 않습니다. 원문 미기재
+            또는 복사 누락 여부를 확인해 주세요.
+          </p>
+        ) : null}
         <section>
           <h3 className="mb-2 font-semibold">분석 핵심 결론</h3>
-          <p className="leading-7 break-words whitespace-pre-wrap">
+          <p className="whitespace-pre-wrap break-words leading-7">
             {result.comparison.summary}
           </p>
         </section>
@@ -80,6 +90,12 @@ export function AnalysisSummaryTab({
         </p>
         <section className="border-border rounded-md border p-5">
           <h3 className="font-semibold">지원 시 전달할 핵심 메시지</h3>
+          {result.comparison.applicationStrategy.keyMessages.length === 0 ? (
+            <p className="text-muted-foreground mt-3 text-sm">
+              제안된 핵심 메시지가 없습니다. 공고 정보와 개인 자료의 확인된
+              근거를 먼저 점검해 주세요.
+            </p>
+          ) : null}
           <ul className="mt-3 list-disc space-y-3 pl-5 text-sm leading-7">
             {result.comparison.applicationStrategy.keyMessages.map((item) => (
               <li key={item}>{item}</li>
@@ -122,7 +138,7 @@ export function AnalysisSummaryTab({
                   ))}
                 </ol>
               ) : (
-                <p className="text-muted-foreground mt-3 text-sm leading-7 whitespace-pre-wrap">
+                <p className="text-muted-foreground mt-3 whitespace-pre-wrap text-sm leading-7">
                   {legacy ?? "제안된 내용이 없습니다."}
                 </p>
               )}
@@ -133,7 +149,7 @@ export function AnalysisSummaryTab({
           <summary className="cursor-pointer font-semibold">
             지원동기 초안
           </summary>
-          <p className="text-muted-foreground mt-3 text-sm leading-7 break-words whitespace-pre-wrap">
+          <p className="text-muted-foreground mt-3 whitespace-pre-wrap break-words text-sm leading-7">
             {result.comparison.applicationStrategy.motivationDraft ??
               "지원동기 초안이 없습니다."}
           </p>
@@ -251,7 +267,7 @@ export function AnalysisSummaryTab({
           공고 원문과 AI 분류
         </summary>
         <section className="mt-4 grid gap-4">
-          <p className="leading-7 break-words">{result.job.summary}</p>
+          <p className="break-words leading-7">{result.job.summary}</p>
           <div className="grid gap-3 sm:grid-cols-2">
             {Object.entries(JOB_SECTION_LABELS).map(([key, label]) => {
               const content =
@@ -264,7 +280,7 @@ export function AnalysisSummaryTab({
                   key={key}
                 >
                   <h4 className="font-medium">{label}</h4>
-                  <p className="text-muted-foreground mt-2 text-sm leading-6 break-words whitespace-pre-wrap">
+                  <p className="text-muted-foreground mt-2 whitespace-pre-wrap break-words text-sm leading-6">
                     {content}
                   </p>
                 </article>

@@ -108,11 +108,18 @@ export const JobPostingFactsSchema = z.strictObject({
 
 export type JobPostingFacts = z.infer<typeof JobPostingFactsSchema>;
 
-export const AnalysisResultSchema = z.strictObject({
-  job: JobPostingFactsSchema,
-  comparison: ProfileComparisonSchema,
-  fitScore: z.number().int().min(0).max(100),
-});
+export const AnalysisResultSchema = z
+  .strictObject({
+    job: JobPostingFactsSchema,
+    comparison: ProfileComparisonSchema,
+    fitScore: z.number().int().min(0).max(100).nullable(),
+  })
+  .overwrite((result) => ({
+    ...result,
+    // Old records used 0 for an empty denominator. Keep them readable without
+    // misrepresenting absence of posting requirements as a failed applicant.
+    fitScore: result.job.requirements.length === 0 ? null : result.fitScore,
+  }));
 
 export type AnalysisResult = z.infer<typeof AnalysisResultSchema>;
 
@@ -126,7 +133,7 @@ const MATCH_WEIGHTS: Record<z.infer<typeof MatchStatusSchema>, number> = {
 export function calculateAnalysisFitScore(
   requirements: JobPostingFacts["requirements"],
   matches: ProfileComparison["matches"],
-): number {
+): number | null {
   const matchByRequirement = new Map(
     matches.map((match) => [match.requirementId, match.status]),
   );
@@ -148,7 +155,7 @@ export function calculateAnalysisFitScore(
 
   const required = scoreKind("required");
   const preferred = scoreKind("preferred");
-  if (required === null && preferred === null) return 0;
+  if (required === null && preferred === null) return null;
   if (required === null) return Math.round((preferred ?? 0) * 100);
   if (preferred === null) return Math.round(required * 100);
   return Math.round(required * 70 + preferred * 30);

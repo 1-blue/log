@@ -18,7 +18,7 @@ import {
 
 import { LoaderCircleIcon, RotateCcwIcon, XIcon } from "lucide-react";
 
-import { formatApplicationDate } from "#/libs/application-ui";
+import { formatApplicationDate, formatFitScore } from "#/libs/application-ui";
 
 import {
   AnalysisDiagnostics,
@@ -226,7 +226,7 @@ function AnalysisResult({
     <div className="mt-4 grid gap-3">
       <div className="flex flex-wrap items-end gap-3">
         <strong className="text-primary text-3xl">
-          {analysis.result.fitScore}점
+          {formatFitScore(analysis.result.fitScore)}
         </strong>
         <span className="text-muted-foreground text-xs">
           요구사항 {analysis.result.job.requirements.length}개 · 부족 역량{" "}

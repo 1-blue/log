@@ -94,16 +94,45 @@ export async function parseJsonBody<T>(
   try {
     payload = JSON.parse(rawBody);
   } catch {
-    payload = undefined;
-  }
-  const parsed = schema.safeParse(payload);
-  if (!parsed.success) {
     return errorResponse(
       c,
       400,
       "VALIDATION_ERROR",
-      "요청 형식이 올바르지 않습니다.",
+      "요청 본문이 올바른 JSON 형식이 아닙니다.",
+      false,
+      { reason: "invalid_json" },
     );
+  }
+  const parsed = schema.safeParse(payload);
+  if (!parsed.success) {
+    const fields = [
+      ...new Set(
+        parsed.error.issues.map((issue) => String(issue.path[0] ?? "body")),
+      ),
+    ];
+    const labels: Record<string, string> = {
+      url: "채용공고 URL",
+      manualContent: "공고 원문",
+      resumeVersionId: "이력서 버전",
+      portfolioVersionId: "포트폴리오 버전",
+      status: "지원 상태",
+      companyName: "회사명",
+      title: "공고 제목",
+      appliedOn: "지원일",
+      interviewAt: "면접 일정",
+    };
+    const known = fields.filter((field) => Object.hasOwn(labels, field));
+    const message = fields.includes("url")
+      ? "채용공고 URL을 확인해 주세요. https://로 시작하는 공개 주소여야 하며 사용자 정보·별도 포트·내부망 주소는 사용할 수 없습니다."
+      : fields.includes("manualContent")
+        ? "공고 원문을 확인해 주세요. 공백이 아닌 텍스트를 1~100,000자 입력해야 합니다. 주요 업무·자격요건 미기재 자체는 오류가 아닙니다."
+        : known.length
+          ? `${known.map((field) => labels[field]).join("·")} 입력을 확인해 주세요.`
+          : "요청 필드가 누락됐거나 형식이 올바르지 않습니다.";
+    return errorResponse(c, 400, "VALIDATION_ERROR", message, false, {
+      reason: fields.includes("url") ? "invalid_job_url" : "invalid_fields",
+      fields: known.join(",") || "body",
+    });
   }
 
   return parsed.data;

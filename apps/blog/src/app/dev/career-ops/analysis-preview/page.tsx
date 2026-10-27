@@ -22,6 +22,7 @@ const LABELS: Record<AnalysisPreviewScenario, string> = {
   history: "이전 분석 비교",
   long: "긴 콘텐츠",
   mixed: "혼합 상태",
+  sparse: "요구사항 없음",
 };
 
 export default async function AnalysisPreviewPage({

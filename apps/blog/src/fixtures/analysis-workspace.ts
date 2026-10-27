@@ -6,6 +6,7 @@ export const ANALYSIS_PREVIEW_SCENARIOS = [
   "empty",
   "long",
   "history",
+  "sparse",
 ] as const;
 
 export type AnalysisPreviewScenario =
@@ -786,5 +787,40 @@ export function getAnalysisWorkspaceFixture(
     fixture.questions[0]!.question = longSentence.repeat(12);
   }
   if (scenario === "history") fixture.comparison = previous;
+  if (scenario === "sparse") {
+    fixture.job.result!.job.requirements = [];
+    fixture.job.result!.job.bodySections.mainResponsibilities = null;
+    fixture.job.result!.job.bodySections.requirements = null;
+    fixture.job.result!.job.bodySections.preferred = null;
+    fixture.job.result!.job.technologies = [];
+    fixture.job.result!.job.traits = [];
+    fixture.job.result!.fitScore = null;
+    fixture.job.result!.comparison.matches = [];
+    fixture.job.result!.comparison.gaps = [];
+    fixture.job.result!.comparison.interviewQuestions = [];
+    fixture.job.result!.comparison.warnings = [
+      "원문에 자격요건과 우대사항이 없어 적합도 판단 근거가 부족합니다.",
+    ];
+    fixture.job.result!.comparison.summary =
+      "고용 조건은 확인되지만 비교할 요구사항은 확인되지 않았습니다. 미기재를 지원자의 역량 부족으로 해석하지 않았습니다.";
+    fixture.job.result!.comparison.applicationStrategy = {
+      motivationDraft: null,
+      keyMessages: [],
+      resumeFocus: null,
+      portfolioFocus: null,
+      resumeSuggestions: [],
+      portfolioSuggestions: [],
+      warnings: [
+        "공고와 연결할 근거가 부족해 문서 수정 제안을 생성하지 않았습니다.",
+      ],
+    };
+    fixture.review = { overallNote: null, requirements: [], updatedAt: null };
+    fixture.reviewedFitScore = null;
+    fixture.evidenceCoverage = null;
+    fixture.history = [];
+    fixture.questions = [];
+    fixture.checklist = [];
+    fixture.interviewNotes = [];
+  }
   return fixture;
 }

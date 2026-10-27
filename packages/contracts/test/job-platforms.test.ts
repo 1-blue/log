@@ -51,6 +51,38 @@ describe("platform detection and safe job identities", () => {
       canonicalJobPostingUrl("https://wanted.co.kr/wd/12/?utm_medium=email"),
     ).toBe("https://www.wanted.co.kr/wd/12");
   });
+  it("ignores browser fragments before validation output, storage and duplicate identity", () => {
+    const base =
+      "https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=55273455";
+    expect(JobPostingUrlSchema.parse(`${base}#seq=0`)).toBe(base);
+    expect(canonicalJobPostingUrl(`${base}#seq=0`)).toBe(
+      canonicalJobPostingUrl(base),
+    );
+    expect(canonicalJobPostingUrl(`${base}#another-section`)).toBe(
+      canonicalJobPostingUrl(base),
+    );
+    expect(
+      canAutomaticallyCollectJobUrl("https://www.wanted.co.kr/wd/123#details"),
+    ).toBe(true);
+    expect(canAutomaticallyCollectJobUrl(`${base}#seq=0`)).toBe(false);
+  });
+  it("preserves encoded fragment characters and all posting identity parameters", () => {
+    const url =
+      "https://careers.company.com/jobs/front%23end?rec_idx=17&token=a%23b#details";
+    expect(JobPostingUrlSchema.parse(url)).toBe(
+      "https://careers.company.com/jobs/front%23end?rec_idx=17&token=a%23b",
+    );
+    expect(canonicalJobPostingUrl(url)).toBe(
+      "https://careers.company.com/jobs/front%23end?rec_idx=17&token=a%23b",
+    );
+    for (const unsafe of [
+      "http://www.saramin.co.kr/job#details",
+      "https://user:secret@www.saramin.co.kr/job#details",
+      "https://127.0.0.1/job#details",
+    ]) {
+      expect(JobPostingUrlSchema.safeParse(unsafe).success).toBe(false);
+    }
+  });
   it("accepting a URL does not authorize arbitrary outbound fetching", () => {
     expect(canAutomaticallyCollectJobUrl("https://www.wanted.co.kr/wd/1")).toBe(
       true,

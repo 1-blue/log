@@ -9,7 +9,6 @@ import {
   Rfc3339TimestampSchema,
   UuidSchema,
 } from "./job-postings";
-import { JobPostingStructuredExtractionSchema } from "./job-structure";
 
 export const JobPostingCollectionCallbackOutcomeSchema = z.enum([
   "response",
@@ -28,7 +27,20 @@ export const JobPostingCollectionCallbackSchema = z
     collectionRunId: UuidSchema,
     outcome: JobPostingCollectionCallbackOutcomeSchema,
     occurredAt: Rfc3339TimestampSchema,
-    extraction: JobPostingStructuredExtractionSchema.nullable().optional(),
+    // Validate the AI payload inside the collection service so a malformed
+    // response becomes a durable, precise failure instead of a stranded run.
+    extraction: z.unknown().optional(),
+    errorCode: z
+      .enum([
+        "AI_STRUCTURING_FAILED",
+        "AI_RESPONSE_INVALID",
+        "AI_TIMEOUT",
+        "AI_RATE_LIMITED",
+        "AI_AUTHENTICATION_FAILED",
+        "AI_BILLING_LIMIT",
+        "AI_SERVICE_UNAVAILABLE",
+      ])
+      .optional(),
     response: z
       .strictObject({
         status: z.int().min(100).max(599),
@@ -39,6 +51,12 @@ export const JobPostingCollectionCallbackSchema = z
       .nullable(),
   })
   .superRefine((value, context) => {
+    if (value.errorCode && value.outcome !== "ai_failed")
+      context.addIssue({
+        code: "custom",
+        message: "Error code is only valid for a failed AI callback",
+        path: ["errorCode"],
+      });
     const responseRequired =
       value.outcome === "response" ||
       value.outcome === "manual" ||

@@ -43,6 +43,16 @@ describe("analysis workspace fixtures", () => {
     expect(fixture.reviewedFitScore).toBe(reviewed);
   });
 
+  it("keeps sparse postings unscorable and does not create missing applicant skills", () => {
+    const fixture = getAnalysisWorkspaceFixture("sparse");
+    expect(fixture.job.result!.job.requirements).toEqual([]);
+    expect(fixture.job.result!.comparison.matches).toEqual([]);
+    expect(fixture.job.result!.comparison.gaps).toEqual([]);
+    expect(fixture.job.result!.fitScore).toBeNull();
+    expect(fixture.reviewedFitScore).toBeNull();
+    expect(fixture.evidenceCoverage).toBeNull();
+  });
+
   it("keeps current and previous execution usage available for comparison", () => {
     const fixture = getAnalysisWorkspaceFixture("history");
 

@@ -92,7 +92,7 @@ export const WantedJobPostingUrlSchema = UrlSchema.refine((value) => {
   );
 }, "A valid HTTPS Wanted job URL is required");
 
-export const JOB_POSTING_MANUAL_CONTENT_MIN_LENGTH = 100;
+export const JOB_POSTING_MANUAL_CONTENT_MIN_LENGTH = 1;
 
 export const JOB_POSTING_MANUAL_CONTENT_MAX_LENGTH = 100_000;
 
@@ -132,6 +132,17 @@ export const JobPostingCollectionErrorCodeSchema = z.enum([
   "DISPATCH_FAILED",
   "AUTOMATIC_COLLECTION_UNSUPPORTED",
   "AI_STRUCTURING_FAILED",
+  "SOURCE_TEXT_EMPTY",
+  "SOURCE_NOT_JOB_POSTING",
+  "AI_RESPONSE_INVALID",
+  "AI_EVIDENCE_MISMATCH",
+  "AI_SOURCE_MISMATCH",
+  "AI_METADATA_MISMATCH",
+  "AI_TIMEOUT",
+  "AI_RATE_LIMITED",
+  "AI_AUTHENTICATION_FAILED",
+  "AI_BILLING_LIMIT",
+  "AI_SERVICE_UNAVAILABLE",
 ]);
 
 export type JobPostingCollectionErrorCode = z.infer<
@@ -221,6 +232,7 @@ export const JobPostingSnapshotSchema = z.strictObject({
   id: UuidSchema,
   jobPostingId: UuidSchema,
   source: JobPostingSnapshotSourceSchema,
+  warnings: z.array(z.string().min(1).max(1_000)).max(20).default([]),
   rawContent: z.string().min(1).max(JOB_POSTING_MANUAL_CONTENT_MAX_LENGTH),
   normalizedContent: z
     .string()

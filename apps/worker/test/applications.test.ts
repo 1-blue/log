@@ -184,6 +184,54 @@ const creation: CreateApplicationRequest = {
 };
 
 describe("worker application API", () => {
+  it("passes fragment-free Saramin URLs to persistence and keeps the job query", async () => {
+    const { response, service } = await request("/v1/applications", {
+      body: JSON.stringify({
+        ...creation,
+        source: "saramin",
+        url: "https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=55273455#seq=0",
+      }),
+      method: "POST",
+    });
+    expect(response.status).toBe(201);
+    expect(service.create).toHaveBeenCalledWith(
+      ADMIN_USER_ID,
+      expect.objectContaining({
+        url: "https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=55273455",
+        source: "saramin",
+      }),
+    );
+  });
+
+  it("explains invalid URL and malformed JSON without exposing input values", async () => {
+    const unsafe = await request("/v1/applications", {
+      body: JSON.stringify({
+        ...creation,
+        url: "https://private-user:private-key@127.0.0.1/job#fragment",
+        privateField: "private-value",
+      }),
+      method: "POST",
+    });
+    const result = (await unsafe.response.json()) as {
+      error: { message: string; details: unknown };
+    };
+    expect(result.error.message).toContain("채용공고 URL");
+    expect(result.error.details).toEqual({
+      reason: "invalid_job_url",
+      fields: "url",
+    });
+    expect(JSON.stringify(result)).not.toMatch(
+      /private-user|private-key|privateField|private-value/,
+    );
+    const malformed = await request("/v1/applications", {
+      body: "{not-json",
+      method: "POST",
+    });
+    expect(malformed.response.status).toBe(400);
+    expect(JSON.stringify(await malformed.response.json())).toContain(
+      "올바른 JSON",
+    );
+  });
   it("creates a Wanted application through the authenticated service", async () => {
     const { response, service } = await request("/v1/applications", {
       body: JSON.stringify(creation),

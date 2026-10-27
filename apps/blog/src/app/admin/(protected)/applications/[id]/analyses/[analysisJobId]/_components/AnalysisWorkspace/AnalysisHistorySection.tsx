@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from "@workspace/ui/components/Select";
 
-import { formatApplicationDate } from "#/libs/application-ui";
+import { formatApplicationDate, formatFitScore } from "#/libs/application-ui";
 
 type AnalysisResult = NonNullable<AnalysisWorkspace["job"]["result"]>;
 
@@ -80,8 +80,8 @@ export function AnalysisHistorySection({
                     key={item.analysisJobId}
                     value={item.analysisJobId}
                   >
-                    {formatApplicationDate(item.completedAt)} · {item.fitScore}
-                    점
+                    {formatApplicationDate(item.completedAt)} ·{" "}
+                    {formatFitScore(item.fitScore)}
                   </SelectItem>
                 ))}
             </SelectContent>
@@ -92,7 +92,7 @@ export function AnalysisHistorySection({
             <div className="bg-muted/30 rounded-md p-4">
               <p className="text-xs font-medium">현재 분석</p>
               <strong className="mt-1 block text-2xl">
-                {result.fitScore}점
+                {formatFitScore(result.fitScore)}
               </strong>
               <p className="text-muted-foreground mt-2 text-xs leading-5">
                 부족 역량 {result.comparison.gaps.length} · 질문{" "}
@@ -121,14 +121,21 @@ export function AnalysisHistorySection({
             <div className="bg-muted/30 rounded-md p-4">
               <p className="text-xs font-medium">이전 분석</p>
               <strong className="mt-1 block text-2xl">
-                {workspace.comparison.fitScore}점{" "}
-                <span className="text-muted-foreground text-sm">
-                  (
-                  {result.fitScore - workspace.comparison.fitScore >= 0
-                    ? "+"
-                    : ""}
-                  {result.fitScore - workspace.comparison.fitScore})
-                </span>
+                {formatFitScore(workspace.comparison.fitScore)}{" "}
+                {result.fitScore !== null &&
+                workspace.comparison.fitScore !== null ? (
+                  <span className="text-muted-foreground text-sm">
+                    (
+                    {result.fitScore - workspace.comparison.fitScore >= 0
+                      ? "+"
+                      : ""}
+                    {result.fitScore - workspace.comparison.fitScore})
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground text-sm">
+                    점수 차이 산정 불가
+                  </span>
+                )}
               </strong>
               <p className="text-muted-foreground mt-2 text-xs leading-5">
                 부족 역량 {workspace.comparison.gapCount} · 질문{" "}

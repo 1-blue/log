@@ -121,6 +121,33 @@ const response: SlackNotificationResponse = {
 };
 
 describe("Slack notification formatting", () => {
+  it("does not represent an unscorable analysis as zero and shares safe collection diagnostics", () => {
+    const formatted = formatSlackNotification({
+      appBaseUrl: "http://localhost:3000",
+      notification: { ...notification, context: { fitScore: null } },
+      posting,
+      thread: null,
+    });
+    expect(JSON.stringify(formatted)).toContain("산정 불가");
+    expect(JSON.stringify(formatted)).not.toContain("0점");
+    const failed = formatSlackNotification({
+      appBaseUrl: "http://localhost:3000",
+      notification: {
+        ...notification,
+        event_type: "collection_failed",
+        context: {
+          errorCode: "AI_EVIDENCE_MISMATCH",
+          retryable: false,
+          privateProviderError: "private-value",
+        },
+      },
+      posting,
+      thread: null,
+    });
+    expect(JSON.stringify(failed)).toContain("AI_EVIDENCE_MISMATCH");
+    expect(JSON.stringify(failed)).toContain("원문에 없는 문장");
+    expect(JSON.stringify(failed)).not.toContain("private-value");
+  });
   it("escapes external values, caps details, and reuses the job thread", () => {
     const formatted = formatSlackNotification({
       appBaseUrl: "http://localhost:3000",

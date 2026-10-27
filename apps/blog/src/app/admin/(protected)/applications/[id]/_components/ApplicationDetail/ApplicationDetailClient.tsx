@@ -13,6 +13,7 @@ import {
 
 import { ArrowLeftIcon, LoaderCircleIcon } from "lucide-react";
 
+import { ApplicationStatusPanel } from "../../../../_components/ApplicationStatusPanel";
 import { ApplicationAnalysisTab } from "./ApplicationAnalysisTab";
 import { ApplicationDetailHeader } from "./ApplicationDetailHeader";
 import { ApplicationInfoTab } from "./ApplicationInfoTab";
@@ -48,8 +49,8 @@ export default function ApplicationDetailClient({
     save,
     setArchived,
     setManualContent,
-    setStatus,
-    status,
+    setApplication,
+    updateStatus,
   } = useApplicationDetail(applicationId);
 
   if (loading) {
@@ -78,7 +79,9 @@ export default function ApplicationDetailClient({
 
   const archived = Boolean(application.archivedAt);
   const locked = Boolean(application.documentsLockedAt);
-  const documentsRequired = applicationStatusRequiresDocuments(status);
+  const documentsRequired = applicationStatusRequiresDocuments(
+    application.status,
+  );
   const resumes = documents.filter((item) => item.documentType === "resume");
   const portfolios = documents.filter(
     (item) => item.documentType === "portfolio",
@@ -120,6 +123,16 @@ export default function ApplicationDetailClient({
         locked={locked}
         reapply={reapply}
         setArchived={setArchived}
+      />
+
+      <ApplicationStatusPanel
+        applicationId={application.id}
+        status={application.status}
+        application={application}
+        disabled={disabled}
+        onSaved={setApplication}
+        onRequireDocuments={() => changeTab("info")}
+        updateStatus={(_, status) => updateStatus(status)}
       />
 
       <Tabs value={activeTab} onValueChange={changeTab}>
@@ -178,8 +191,6 @@ export default function ApplicationDetailClient({
             portfolios={portfolios}
             resumes={resumes}
             save={save}
-            setStatus={setStatus}
-            status={status}
           />
         </TabsContent>
       </Tabs>

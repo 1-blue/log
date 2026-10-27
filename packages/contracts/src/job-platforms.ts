@@ -62,14 +62,20 @@ export const JobPostingUrlSchema = z
       !url.username &&
       !url.password &&
       !url.port &&
-      !url.hash &&
       host.includes(".") &&
       !host.endsWith(".") &&
       !/^\d+(?:\.\d+){3}$/.test(host) &&
       !host.includes(":") &&
       !/(?:^|\.)(?:localhost|local|internal|test|invalid|example)$/.test(host)
     );
-  }, "A public HTTPS job URL without credentials or fragment is required");
+  }, "A public HTTPS job URL without credentials is required")
+  .overwrite((value) => {
+    const url = new URL(value);
+    // A fragment is a browser-local location, not part of a posting's identity.
+    // Do not strip encoded %23 in the pathname or identity query parameters.
+    url.hash = "";
+    return url.href;
+  });
 
 export function canonicalJobPostingUrl(value: string): string {
   const url = new URL(JobPostingUrlSchema.parse(value));

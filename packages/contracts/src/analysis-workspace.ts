@@ -59,7 +59,7 @@ export const AnalysisHistoryItemSchema = z.strictObject({
   analysisJobId: UuidSchema,
   createdAt: Rfc3339TimestampSchema,
   completedAt: Rfc3339TimestampSchema,
-  fitScore: z.int().min(0).max(100),
+  fitScore: z.int().min(0).max(100).nullable(),
   matchCounts: AnalysisMatchCountsSchema,
   gapCount: z.int().nonnegative(),
   questionCount: z.int().nonnegative(),

@@ -14,6 +14,8 @@ import {
 
 import { ArrowLeftIcon, LoaderCircleIcon } from "lucide-react";
 
+import { ApplicationStatusPanel } from "#/app/admin/(protected)/_components/ApplicationStatusPanel";
+
 import { AnalysisInterviewTab } from "./AnalysisInterviewTab";
 import { AnalysisRequirementsTab } from "./AnalysisRequirementsTab";
 import { AnalysisSummaryTab } from "./AnalysisSummaryTab";
@@ -101,6 +103,11 @@ export default function AnalysisWorkspaceClient({
           </Link>
         </Button>
         <h2 className="text-2xl font-bold">분석 결과 준비 중</h2>
+        <ApplicationStatusPanel
+          applicationId={applicationId}
+          status={workspace.application.status}
+          preview={preview}
+        />
         <p className="text-muted-foreground">
           분석이 완료된 뒤 요구사항 검토와 면접 준비를 시작할 수 있습니다.
         </p>
@@ -191,6 +198,27 @@ export default function AnalysisWorkspaceClient({
         </p>
         <h2 className="text-2xl font-bold">{workspace.application.title}</h2>
       </header>
+
+      <ApplicationStatusPanel
+        applicationId={applicationId}
+        status={workspace.application.status}
+        disabled={disabled}
+        preview={preview}
+        onSaved={(updated) =>
+          setWorkspace((current) =>
+            current
+              ? {
+                  ...current,
+                  application: {
+                    ...current.application,
+                    status: updated.status,
+                    interviewAt: updated.interviewAt,
+                  },
+                }
+              : current,
+          )
+        }
+      />
 
       <Tabs value={activeTab} onValueChange={changeTab}>
         <TabsList aria-label="분석 작업 영역">

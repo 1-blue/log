@@ -1000,9 +1000,16 @@
       "additionalProperties": false
     },
     "fitScore": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 100
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "required": [

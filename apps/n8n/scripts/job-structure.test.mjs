@@ -77,6 +77,36 @@ test("provider retry is limited to transient errors", () => {
   ])
     assert.equal(run(error).retryable, false);
 });
+test("both attempts accept sparse jobs and comparison never fabricates requirements", () => {
+  for (const name of [
+    "OpenAI 공고 원문 보완",
+    "OpenAI 공고 원문 보완 재시도",
+  ]) {
+    const content = node(name).parameters.responses.values[0].content;
+    assert.ok(content.includes("필수 항목이 아닙니다"));
+    assert.ok(content.includes("빈 배열"));
+    assert.ok(content.includes("추측하지 마세요"));
+  }
+  for (const name of ["OpenAI 프로필 비교", "OpenAI 프로필 비교 재시도"]) {
+    assert.ok(
+      node(name).parameters.responses.values[0].content.includes(
+        "matches와 gaps는 빈 배열",
+      ),
+    );
+  }
+  for (const name of ["분석 결과 구성", "프로필 재시도 결과 구성"]) {
+    assert.ok(
+      node(name).parameters.jsCode.includes(
+        "required === null && preferred === null ? null",
+      ),
+    );
+    assert.ok(
+      node(name).parameters.jsCode.includes(
+        "profile-match-v2-readability-sparse-v1",
+      ),
+    );
+  }
+});
 test("signed automatic collection still rejects non-allowlisted and private URLs", () => {
   const evaluate = (url, manualContent = null) => {
     const payload = {
@@ -143,6 +173,11 @@ test("signed automatic collection still rejects non-allowlisted and private URLs
 });
 test("layout regions and nodes never overlap, and every node belongs to one region", () => {
   const result = layoutWorkflow(structuredClone(source));
+  assert.deepEqual(
+    result,
+    source,
+    "the checked-in workflow must keep its verified layout",
+  );
   const groups = result.nodes.filter(
     (item) => item.type === "n8n-nodes-base.stickyNote",
   );

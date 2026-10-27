@@ -93,6 +93,12 @@ export function ApplicationPostingTab({
               일시적인 오류일 수 있으므로 잠시 후 다시 시도할 수 있습니다.
             </p>
           ) : null}
+          {latestCollection.errorCode ? (
+            <p className="text-muted-foreground mt-2 text-xs break-all">
+              오류 코드: {latestCollection.errorCode} · Request ID:{" "}
+              {latestCollection.requestId}
+            </p>
+          ) : null}
         </div>
       ) : (
         <p className="text-muted-foreground mt-4 text-sm">
@@ -102,6 +108,19 @@ export function ApplicationPostingTab({
 
       {latestSnapshot ? (
         <div className="mt-5 grid gap-4">
+          {latestSnapshot.warnings.length ? (
+            <section
+              aria-label="공고 정보 확인 안내"
+              className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-6"
+            >
+              <h4 className="font-medium">공고 정보 확인 안내</h4>
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                {latestSnapshot.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
           {metadataDiffers ? (
             <div className="border-primary/20 bg-primary/5 rounded-md border p-3 text-sm">
               <p className="font-medium">
@@ -202,7 +221,7 @@ export function ApplicationPostingTab({
               className="min-h-44 resize-y"
               id="manual-job-content"
               maxLength={100_000}
-              minLength={100}
+              minLength={1}
               onChange={(event) => setManualContent(event.target.value)}
               placeholder="자동 수집이 불가능하면 채용공고 본문을 붙여 넣어 주세요."
               value={manualContent}
@@ -210,14 +229,14 @@ export function ApplicationPostingTab({
           </div>
           <div className="flex items-center justify-between gap-3">
             <span className="text-muted-foreground text-xs">
-              {manualContent.trim().length.toLocaleString()} / 100,000자 · 최소
-              100자
+              {manualContent.trim().length.toLocaleString()} / 100,000자 · 짧은
+              공고도 입력할 수 있습니다.
             </span>
             <Button
               disabled={
                 disabled ||
                 Boolean(activeCollection) ||
-                manualContent.trim().length < 100
+                manualContent.trim().length === 0
               }
               type="submit"
             >

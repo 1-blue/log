@@ -4,21 +4,21 @@ import {
   JOB_STRUCTURE_MODEL,
   JOB_STRUCTURE_PROMPT_VERSION,
   JOB_STRUCTURE_VERSION,
+  type JobPostingCollectionErrorCode,
   type JobPostingFacts,
-  type JobPostingStructuredExtraction,
   JobPostingStructuredExtractionSchema,
 } from "@workspace/contracts";
 
 import { jobSourceText } from "./job-source-text.js";
 
 export class JobStructureError extends Error {
-  constructor(readonly code: "INVALID_JOB_POSTING" | "CONTENT_TOO_LARGE") {
+  constructor(readonly code: JobPostingCollectionErrorCode) {
     super(code);
   }
 }
 
 export function validateJobStructure(input: {
-  extraction: JobPostingStructuredExtraction;
+  extraction: unknown;
   sourceText: string;
   collectionRunId: string;
 }) {
@@ -28,27 +28,19 @@ export function validateJobStructure(input: {
   const sourceText = jobSourceText(input.sourceText);
   if (sourceText.length > JOB_POSTING_MANUAL_CONTENT_MAX_LENGTH)
     throw new JobStructureError("CONTENT_TOO_LARGE");
-  if (
-    !result.success ||
-    sourceText.length < JOB_POSTING_MANUAL_CONTENT_MIN_LENGTH
-  )
-    throw new JobStructureError("INVALID_JOB_POSTING");
+  if (sourceText.length < JOB_POSTING_MANUAL_CONTENT_MIN_LENGTH)
+    throw new JobStructureError("SOURCE_TEXT_EMPTY");
+  if (!result.success) throw new JobStructureError("AI_RESPONSE_INVALID");
   const extraction = result.data;
   const searchable = sourceText.replace(/\s+/g, " ");
   const contains = (excerpt: string) =>
     searchable.includes(jobSourceText(excerpt).replace(/\s+/g, " "));
-  if (
-    !extraction.sourceComplete ||
-    !extraction.metadata.title?.trim() ||
-    !extraction.metadata.companyName?.trim() ||
-    !extraction.facts.bodySections.mainResponsibilities ||
-    !extraction.facts.bodySections.requirements ||
-    !extraction.facts.requirements.some(
-      (requirement) => requirement.kind === "required",
-    ) ||
-    !extraction.evidence.every((item) => contains(item.excerpt))
-  )
-    throw new JobStructureError("INVALID_JOB_POSTING");
+  // A usable posting need not describe duties, qualifications, benefits or a
+  // deadline. Missing fields must stay unknown instead of being invented.
+  if (!extraction.sourceComplete)
+    throw new JobStructureError("SOURCE_NOT_JOB_POSTING");
+  if (!extraction.evidence.every((item) => contains(item.excerpt)))
+    throw new JobStructureError("AI_EVIDENCE_MISMATCH");
   const evidence = [
     ...extraction.facts.requirements,
     ...extraction.facts.technologies,
@@ -58,20 +50,53 @@ export function validateJobStructure(input: {
     !evidence.every(
       (item) =>
         item.source === "job_posting" &&
-        item.sourceVersionId === input.collectionRunId &&
-        contains(item.excerpt),
+        item.sourceVersionId === input.collectionRunId,
     )
-  ) {
-    throw new JobStructureError("INVALID_JOB_POSTING");
-  }
+  )
+    throw new JobStructureError("AI_SOURCE_MISMATCH");
+  if (!evidence.every((item) => contains(item.excerpt)))
+    throw new JobStructureError("AI_EVIDENCE_MISMATCH");
+  if (
+    new Set(extraction.facts.requirements.map((item) => item.id)).size !==
+    extraction.facts.requirements.length
+  )
+    throw new JobStructureError("AI_RESPONSE_INVALID");
   if (
     extraction.facts.title !== extraction.metadata.title ||
     extraction.facts.companyName !== extraction.metadata.companyName
   )
-    throw new JobStructureError("INVALID_JOB_POSTING");
+    throw new JobStructureError("AI_METADATA_MISMATCH");
+  const missing = [
+    !extraction.metadata.title?.trim() && "공고 제목",
+    !extraction.metadata.companyName?.trim() && "회사명",
+    !extraction.facts.bodySections.mainResponsibilities?.trim() && "주요 업무",
+    !extraction.facts.bodySections.requirements?.trim() && "자격요건",
+    !extraction.facts.bodySections.preferred?.trim() && "우대사항",
+  ].filter(Boolean);
+  const warnings = [
+    ...(missing.length
+      ? [
+          `원문에서 ${missing.join("·")}을 확인하지 못했습니다. 미기재 또는 복사 누락일 수 있으니 원문을 확인해 주세요. 없는 정보는 추측하지 않았습니다.`,
+        ]
+      : []),
+    ...(extraction.facts.requirements.length === 0
+      ? [
+          "비교할 필수·우대 요구사항이 없어 적합도 점수를 산정할 수 없습니다. 0점이나 불합격을 의미하지 않습니다.",
+        ]
+      : []),
+    ...extraction.facts.warnings,
+  ];
+  const facts = {
+    ...extraction.facts,
+    warnings: [...new Set(warnings)].slice(0, 20),
+  };
   const normalizedContent = [
-    `회사명: ${extraction.metadata.companyName}`,
-    `공고명: ${extraction.metadata.title}`,
+    ...(extraction.metadata.companyName
+      ? [`회사명: ${extraction.metadata.companyName}`]
+      : []),
+    ...(extraction.metadata.title
+      ? [`공고명: ${extraction.metadata.title}`]
+      : []),
     "",
     sourceText,
   ].join("\n");
@@ -79,8 +104,8 @@ export function validateJobStructure(input: {
     sourceText,
     normalizedContent,
     metadata: extraction.metadata,
-    facts: extraction.facts,
-    sections: extraction.facts.bodySections,
+    facts,
+    sections: facts.bodySections,
     contentHashInput: JSON.stringify({
       sourceText,
       version: JOB_STRUCTURE_VERSION,

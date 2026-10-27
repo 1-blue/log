@@ -31,6 +31,18 @@ function mapSnapshot(row: SnapshotRow): JobPostingSnapshot {
     ...((row.sections ?? {}) as Partial<JobPostingBodySections>),
   };
   return {
+    warnings:
+      (row.structured_facts as { warnings?: unknown } | null)
+        ?.warnings instanceof Array
+        ? (row.structured_facts as { warnings: unknown[] }).warnings
+            .filter(
+              (warning): warning is string =>
+                typeof warning === "string" &&
+                warning.length > 0 &&
+                warning.length <= 1_000,
+            )
+            .slice(0, 20)
+        : [],
     contentHash: row.content_hash,
     createdAt: row.created_at,
     fetchedAt: row.fetched_at,

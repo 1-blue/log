@@ -1,10 +1,6 @@
 import type { FormEvent } from "react";
 
-import type {
-  ApplicationDetail,
-  ApplicationStatus,
-  DocumentVersion,
-} from "@workspace/contracts";
+import type { ApplicationDetail, DocumentVersion } from "@workspace/contracts";
 import { detectJobPlatform, jobPlatformLabel } from "@workspace/contracts";
 import { Button } from "@workspace/ui/components/Button";
 import { Input } from "@workspace/ui/components/Input";
@@ -21,7 +17,6 @@ import { Textarea } from "@workspace/ui/components/Textarea";
 import { LoaderCircleIcon } from "lucide-react";
 
 import {
-  APPLICATION_STATUS_OPTIONS,
   formatApplicationDate,
   getApplicationStatusLabel,
   toLocalDateTimeInput,
@@ -37,8 +32,6 @@ export function ApplicationInfoTab({
   portfolios,
   resumes,
   save,
-  setStatus,
-  status,
 }: Readonly<{
   application: ApplicationDetail;
   archived: boolean;
@@ -49,14 +42,19 @@ export function ApplicationInfoTab({
   portfolios: DocumentVersion[];
   resumes: DocumentVersion[];
   save: (event: FormEvent<HTMLFormElement>) => Promise<void>;
-  setStatus: (status: ApplicationStatus) => void;
-  status: ApplicationStatus;
 }>) {
   return (
     <>
       <form
         className="border-border bg-card grid gap-5 rounded-lg border p-5 sm:grid-cols-2"
-        key={application.updatedAt}
+        key={JSON.stringify([
+          application.id,
+          application.jobPosting,
+          application.appliedOn,
+          application.interviewAt,
+          application.note,
+          application.documents,
+        ])}
         onSubmit={(event) => void save(event)}
       >
         <div className="grid gap-2 text-sm font-medium">
@@ -80,26 +78,6 @@ export function ApplicationInfoTab({
             name="title"
             required
           />
-        </div>
-        <div className="grid gap-2 text-sm font-medium">
-          <Label htmlFor="detail-status">지원 상태</Label>
-          <Select
-            disabled={archived}
-            name="status"
-            onValueChange={(value) => setStatus(value as ApplicationStatus)}
-            value={status}
-          >
-            <SelectTrigger id="detail-status">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {APPLICATION_STATUS_OPTIONS.map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
         <div className="grid gap-2 text-sm font-medium">
           <Label htmlFor="detail-platform">채용 플랫폼</Label>

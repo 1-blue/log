@@ -2845,7 +2845,18 @@ export type Database = {
         | "UPSTREAM_ERROR"
         | "DISPATCH_FAILED"
         | "AUTOMATIC_COLLECTION_UNSUPPORTED"
-        | "AI_STRUCTURING_FAILED";
+        | "AI_STRUCTURING_FAILED"
+        | "SOURCE_TEXT_EMPTY"
+        | "SOURCE_NOT_JOB_POSTING"
+        | "AI_RESPONSE_INVALID"
+        | "AI_EVIDENCE_MISMATCH"
+        | "AI_SOURCE_MISMATCH"
+        | "AI_METADATA_MISMATCH"
+        | "AI_TIMEOUT"
+        | "AI_RATE_LIMITED"
+        | "AI_AUTHENTICATION_FAILED"
+        | "AI_BILLING_LIMIT"
+        | "AI_SERVICE_UNAVAILABLE";
       job_posting_collection_mode: "automatic" | "manual";
       job_posting_collection_status:
         | "queued"
@@ -3072,6 +3083,17 @@ export const Constants = {
         "DISPATCH_FAILED",
         "AUTOMATIC_COLLECTION_UNSUPPORTED",
         "AI_STRUCTURING_FAILED",
+        "SOURCE_TEXT_EMPTY",
+        "SOURCE_NOT_JOB_POSTING",
+        "AI_RESPONSE_INVALID",
+        "AI_EVIDENCE_MISMATCH",
+        "AI_SOURCE_MISMATCH",
+        "AI_METADATA_MISMATCH",
+        "AI_TIMEOUT",
+        "AI_RATE_LIMITED",
+        "AI_AUTHENTICATION_FAILED",
+        "AI_BILLING_LIMIT",
+        "AI_SERVICE_UNAVAILABLE",
       ],
       job_posting_collection_mode: ["automatic", "manual"],
       job_posting_collection_status: [

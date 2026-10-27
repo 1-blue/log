@@ -157,7 +157,7 @@ describe("job posting collection API", () => {
     );
   });
 
-  it("rejects short manual content before dispatch", async () => {
+  it("accepts short manual content without requiring particular job sections", async () => {
     const { app, service } = testApp();
     const response = await app.request(
       `http://localhost:8787/v1/job-postings/${POSTING_ID}/collections`,
@@ -172,7 +172,39 @@ describe("job posting collection API", () => {
       },
       env,
     );
+    expect(response.status).toBe(202);
+    expect(service.create).toHaveBeenCalledWith(
+      ADMIN_USER_ID,
+      POSTING_ID,
+      expect.any(String),
+      { manualContent: "짧은 원문" },
+    );
+  });
+
+  it("rejects empty source with an actionable, safe message before dispatch", async () => {
+    const { app, service } = testApp();
+    const response = await app.request(
+      `http://localhost:8787/v1/job-postings/${POSTING_ID}/collections`,
+      {
+        body: JSON.stringify({ manualContent: " \n " }),
+        headers: {
+          Authorization: `Bearer ${await token()}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": EVENT_ID,
+        },
+        method: "POST",
+      },
+      env,
+    );
     expect(response.status).toBe(400);
+    const result = (await response.json()) as {
+      error: { message: string; details: unknown };
+    };
+    expect(result.error.message).toContain("공백이 아닌 텍스트");
+    expect(result.error.details).toEqual({
+      reason: "invalid_fields",
+      fields: "manualContent",
+    });
     expect(service.create).not.toHaveBeenCalled();
   });
 

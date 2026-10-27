@@ -21,8 +21,6 @@ import {
   RotateCcwIcon,
 } from "lucide-react";
 
-import { getApplicationStatusLabel } from "#/libs/application-ui";
-
 import { DeleteResourceDialog } from "../../../../_components/DeleteResourceDialog";
 
 export function ApplicationDetailHeader({
@@ -75,9 +73,6 @@ export function ApplicationDetailHeader({
           </a>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs">
-            {getApplicationStatusLabel(application.status)}
-          </span>
           {archived ? (
             <span className="bg-muted rounded-full px-3 py-1 text-xs">
               보관됨

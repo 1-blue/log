@@ -11,7 +11,7 @@ import { Button } from "@workspace/ui/components/Button";
 
 import { LoaderCircleIcon } from "lucide-react";
 
-import { formatApplicationDate } from "#/libs/application-ui";
+import { formatApplicationDate, formatFitScore } from "#/libs/application-ui";
 
 import { ApplicationAnalysisStatus } from "./ApplicationAnalysisStatus";
 import { ANALYSIS_STATUS_LABELS } from "./ApplicationDetailLabels";
@@ -180,7 +180,7 @@ function AnalysisHistory({
               href={`/admin/applications/${applicationId}/analyses/${item.id}`}
             >
               {ANALYSIS_STATUS_LABELS[item.status]}
-              {item.result ? ` · ${item.result.fitScore}점` : ""}
+              {item.result ? ` · ${formatFitScore(item.result.fitScore)}` : ""}
             </Link>
             <time className="text-muted-foreground">
               {formatApplicationDate(item.createdAt)}

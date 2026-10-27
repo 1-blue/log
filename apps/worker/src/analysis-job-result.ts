@@ -188,9 +188,17 @@ export function sanitizeAnalysisResult(
       : result.comparison.warnings;
   const comparison = {
     ...result.comparison,
-    gaps,
-    interviewQuestions,
-    matches,
+    // Missing posting requirements cannot establish missing applicant skills.
+    // Keep useful personal questions, but never attach invented requirement IDs.
+    gaps: jobFacts.requirements.length === 0 ? [] : gaps,
+    interviewQuestions:
+      jobFacts.requirements.length === 0
+        ? interviewQuestions.map((question) => ({
+            ...question,
+            requirementIds: [],
+          }))
+        : interviewQuestions,
+    matches: jobFacts.requirements.length === 0 ? [] : matches,
     warnings,
   };
 

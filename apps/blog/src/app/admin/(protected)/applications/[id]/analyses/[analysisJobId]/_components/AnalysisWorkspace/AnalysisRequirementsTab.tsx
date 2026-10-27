@@ -52,6 +52,16 @@ export function AnalysisRequirementsTab({
           AI 원본 판단은 바꾸지 않고 내 판정과 메모를 별도로 저장합니다.
         </p>
       </div>
+      {result.job.requirements.length === 0 ? (
+        <p
+          className="text-muted-foreground rounded-md border p-4 text-sm leading-6"
+          role="status"
+        >
+          공고 원문에서 비교할 필수·우대 요구사항을 확인하지 못했습니다. 미기재
+          또는 복사 누락 여부를 확인해 주세요. 지원자의 역량이 부족하다는 뜻은
+          아닙니다.
+        </p>
+      ) : null}
       <label className="grid gap-1 text-sm font-medium">
         전체 메모
         <Textarea
@@ -84,7 +94,7 @@ export function AnalysisRequirementsTab({
                   AI {MATCH_LABELS[match?.status ?? "unknown"]}
                 </span>
               </div>
-              <p className="text-muted-foreground text-sm leading-7 whitespace-pre-wrap">
+              <p className="text-muted-foreground whitespace-pre-wrap text-sm leading-7">
                 <span className="text-foreground mb-1 block font-medium">
                   판단 이유
                 </span>
@@ -104,7 +114,7 @@ export function AnalysisRequirementsTab({
                 </div>
               ) : null}
               <div className="@container">
-                <div className="grid gap-4 @min-[1000px]:grid-cols-2">
+                <div className="@min-[1000px]:grid-cols-2 grid gap-4">
                   <div>
                     <p className="mb-2 text-xs font-medium">
                       공고에서 요구한 내용
