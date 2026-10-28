@@ -15,14 +15,12 @@ import {
   type JobPostingFacts,
   JobPostingFactsSchema,
   type JobPostingSourceMetadata,
-  JobPostingStructuredExtractionSchema,
   type N8nJobPostingCollectionDispatchPayload,
   type N8nJobPostingExtractionDispatchPayload,
 } from "@workspace/contracts";
 import type { Database, Json } from "@workspace/contracts/database";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import * as z from "zod";
 
 import { sha256Hex } from "./idempotency.js";
 import {
@@ -34,11 +32,11 @@ import { jobSourceText } from "./job-source-text.js";
 import {
   bindJobFactsToSnapshot,
   JobStructureError,
+  jobStructureOutputSchema,
   validateJobStructure,
 } from "./job-structure.js";
 import { logInfo } from "./logger.js";
 import { dispatchToN8n, N8nDispatchError } from "./n8n.js";
-import { toOpenAiStructuredOutputSchema } from "./openai-schema.js";
 
 type PostingRow = Database["public"]["Tables"]["job_postings"]["Row"];
 
@@ -463,11 +461,7 @@ export class SupabaseJobPostingCollectionService
             url: posting.canonical_url,
           },
           kind: "job_posting_extraction",
-          outputSchema: toOpenAiStructuredOutputSchema(
-            z.toJSONSchema(JobPostingStructuredExtractionSchema, {
-              target: "draft-07",
-            }),
-          ),
+          outputSchema: jobStructureOutputSchema(),
           requestId: run.request_id,
           schemaVersion: CONTRACT_VERSION,
         };
@@ -587,6 +581,7 @@ export class SupabaseJobPostingCollectionService
         event: "job_posting_collection_parse_failed",
         httpStatus: response.status,
         requestId: input.requestId,
+        schemaIssue: parseError.schemaIssue,
         stage: "parse",
       });
 

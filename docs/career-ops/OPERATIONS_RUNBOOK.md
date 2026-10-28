@@ -98,6 +98,8 @@ PDF도 페이지 전체를 읽도록 하며, PDF 안의 삽화만 추출해 OCR�
 - `AI_RESPONSE_INVALID`, `AI_EVIDENCE_MISMATCH`, `AI_SOURCE_MISMATCH`, `AI_METADATA_MISMATCH`는 원문 필수 항목 부족이 아닌 AI 결과 오류다. 잘못된 결과는 저장하지 않으며 같은 원문으로 새 요청을 만들 수 있다. 이때 지원자에게 없는 역량을 임의로 만들지 않는다.
 - `AI_TIMEOUT`, `AI_RATE_LIMITED`, `AI_SERVICE_UNAVAILABLE`만 일시적 AI 오류로 분류한다. `AI_AUTHENTICATION_FAILED`는 Credential·권한, `AI_BILLING_LIMIT`는 잔액·프로젝트 한도를 확인한다. 이 실패들은 `failed`로 저장해 Slack에 원문 입력 필요로 잘못 알리지 않는다. 이전 callback의 `AI_STRUCTURING_FAILED`도 계속 지원한다.
 - 화면과 Slack의 오류 설명은 `JOB_POSTING_COLLECTION_ERROR_MESSAGES`를 공유하며 원문·API Key·provider 원본 오류를 포함하지 않는다. Request ID로 같은 실행을 추적한다.
+- `AI_RESPONSE_INVALID`에서 Worker의 `job_posting_collection_parse_failed.schemaIssue`를 확인한다. 최대 10개의 필드 경로와 검증 코드만 기록하며 입력값·미지정 필드명·Zod 원본 메시지는 기록하지 않는다. n8n의 `job_structure_response_invalid.reason`은 토큰 한도·미완료·refusal·JSON/출력 형태 실패를 구분한다. AI 호출의 `succeeded`와 후속 구조 검증의 성공은 다르다.
+- 공고 구조화 요청에는 서버와 같은 길이·배열 개수·UUID 제약을 전달한다. OCR·개인 자료 비교 요청의 기존 스키마 변환은 변경하지 않는다. 초기 구조화 단계에서 중복된 요구사항 ID는 서버가 충돌 없는 로컬 ID로 재부여하며 내용은 삭제하지 않는다. 서로 떨어진 원문 줄을 합친 인용은 모든 줄이 실제 원문에 있을 때에만 독립된 인용으로 분리한다. 인용 개수 제한·출처·원문 일치 검증은 계속 적용한다.
 - `job_structure_required`는 새 버전의 공고 사실이 없는 기존 스냅샷이다. 재수집하거나 원문을 수동 입력한 뒤 분석한다.
 - timeout·429·5xx는 제한된 재시도 후 원문과 플랫폼 상태를 확인하고 새 수집 실행을 만든다.
 - CAPTCHA 우회, 비공개 API 사용과 redirect 허용은 복구 수단으로 사용하지 않는다.
@@ -107,7 +109,24 @@ PDF도 페이지 전체를 읽도록 하며, PDF 안의 삽화만 추출해 OCR�
 - 지원 상태는 상세 공통 상단과 분석 작업 화면에서 변경한다. 정보 폼은 상태를 전송하지 않으며 문서 선택·제출 후 잠금·보관 정책은 그대로 적용한다.
 - 배포 전 `pnpm --filter @workspace/contracts check-schemas`와 `pnpm verify:offline`을 실행한다. 후자는 운영 연결 없이 임시 DB에서 migration·pgTAP·DB 생성 타입을 검증한다.
 - nullable 점수와 snapshot warnings를 읽는 Blog를 먼저 배포하고, 새 enum migration `20261027010000_add_job_collection_diagnostics.sql` → Worker → n8n 순서로 반영한다. n8n의 새 오류 코드를 DB/Worker보다 먼저 배포하지 않는다.
-- 구조화 prompt는 `job-structure-v2-optional-fields-v1`, 비교 prompt는 `profile-match-v2-readability-sparse-v1`이다. 기존 기록을 삭제하거나 자동 재분석하지 않으며 새 요청에서 갱신된 prompt의 캐시를 사용한다.
+- 구조화 생성/검증 버전은 `job-structure-v2-validated-output-v2`, 비교 prompt는 `profile-match-v2-readability-sparse-v1`이다. 기존 기록을 삭제하거나 자동 재분석하지 않으며 새 요청에서 갱신된 버전의 캐시를 사용한다. 이번 검증 보완은 별도 DB migration 없이 Worker → n8n 순서로 배포할 수 있다.
+
+### 배포 전 실제 AI 구조화 검증
+
+`pnpm test:career-ai:live`는 기본적으로 호출 계획만 출력한다. 일반 공고·사람인형 짧은 공고·제목/회사명 누락·여러 직무·긴 문단·통계/광고 혼합·입력 내 명령·접근 차단 안내의 합성 입력 8종을 사용한다. `pnpm test`와 `verify:offline`에는 유료 호출을 포함하지 않는다.
+
+```bash
+pnpm test:career-ai:live
+pnpm test:career-ai:live --execute --repeat 2
+```
+
+실제 호출은 명시적인 `--execute`와 테스트 프로세스의 `OPENAI_API_KEY`가 필요하다. 이는 **테스트 전용**이며 Worker의 운영 환경 변수에 키를 추가하는 작업이 아니다. 선택적으로 `OPENAI_BASE_URL`을 지정할 수 있다. 키를 터미널 명령 인수·출력·Workflow JSON에 넣지 않는다.
+
+키를 직접 전달하지 않으려면 `--transport <로컬 어댑터.mjs>`로 n8n의 기존 Credential 참조를 사용하는 미게시 임시 Workflow에서 동일한 OpenAI 노드를 실행한다. 어댑터는 stdin의 `{parameters,cases}`를 받아 stdout에 `[{id,response}]`만 반환해야 한다. 운영 Workflow·지원·문서 데이터는 변경하지 않고 테스트 Workflow와 실행 기록을 정리한다. Credential을 export하거나 복호화하지 않는다.
+
+`--cases standard,saramin-sparse`로 입력을 선택하고 `--repeat 1..3`으로 반복한다. 한 실행은 최대 24회로 제한한다. `--source-file <파일>`은 별도로 승인받은 공고 원문만 `incident-regression` 입력으로 추가하며 이력서·포트폴리오는 사용하지 않는다. `--compare-schema`는 기존/수정 요청 스키마를 비교하되 양쪽 모두 **현재** 서버 검증 코드로 검사한다. 과거 응답 자체를 재현한다는 의미는 아니다.
+
+실제 AI 응답에 체크인된 n8n 결과 구성 코드와 Worker 검증을 순서대로 적용한다. 결과·토큰·저장된 단가 기준 추정 비용은 Git에서 제외된 `.local/job-structure-live-*.json`에 제한 권한으로 생성한다. 비용 정보가 없으면 0달러가 아닌 미산정으로 기록한다. 실패 응답은 같은 디렉터리의 `*-responses.json`에만 보관하므로 외부 공유 전에 개인정보를 검토한다. 이 경로는 운영 사용량 원장·지원/문서·Slack에 쓰지 않으며, 실제 운영 DB 저장과 화면 동작은 자동 회귀 검사 및 배포 후 smoke test와 구분한다.
 
 ### n8n 중단 또는 dispatch 실패
 

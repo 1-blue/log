@@ -71,4 +71,32 @@ describe("OpenAI Structured Outputs schema adapter", () => {
       additionalProperties: false,
     });
   });
+
+  it("keeps base-model constraints when explicitly requested for job structuring", () => {
+    const source = z.toJSONSchema(
+      z.strictObject({
+        id: z.uuid(),
+        evidence: z.array(z.string().min(1).max(500)).min(1).max(30),
+      }),
+      { target: "draft-07" },
+    );
+    const adapted = toOpenAiStructuredOutputSchema(source, {
+      preserveValidationConstraints: true,
+    });
+    expect(adapted).toMatchObject({
+      properties: {
+        id: { format: "uuid", pattern: expect.any(String) },
+        evidence: {
+          minItems: 1,
+          maxItems: 30,
+          items: { minLength: 1, maxLength: 500 },
+        },
+      },
+    });
+    expect(adapted).not.toHaveProperty("$schema");
+    expect(source).toHaveProperty("$schema");
+    expect(toOpenAiStructuredOutputSchema(source)).not.toHaveProperty(
+      "properties.evidence.maxItems",
+    );
+  });
 });

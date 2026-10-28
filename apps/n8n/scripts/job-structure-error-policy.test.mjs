@@ -1,7 +1,88 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { classifyJobStructuringError } from "./job-structure-error-policy.mjs";
+import {
+  classifyJobStructuringError,
+  parseJobStructureResponse,
+} from "./job-structure-error-policy.mjs";
+
+test("parses completed Responses output after reasoning and across text chunks", () => {
+  const object = {
+    sourceComplete: true,
+    metadata: {},
+    facts: {},
+    evidence: [],
+  };
+  const text = JSON.stringify(object);
+  for (const values of [
+    [text],
+    [text.slice(0, 18), text.slice(18)],
+    [object],
+  ]) {
+    assert.deepEqual(
+      parseJobStructureResponse({
+        status: "completed",
+        output: [
+          { type: "reasoning" },
+          {
+            type: "message",
+            content: values.map((value) => ({
+              type: "output_text",
+              text: value,
+            })),
+          },
+        ],
+      }),
+      object,
+    );
+  }
+});
+
+test("incomplete, refused, absent, malformed and non-object output have safe reasons", () => {
+  const message = (text) => ({
+    status: "completed",
+    output: [{ content: [{ type: "output_text", text }] }],
+  });
+  for (const [response, reason] of [
+    [
+      {
+        status: "incomplete",
+        incomplete_details: { reason: "max_output_tokens" },
+      },
+      "AI_STRUCTURE_TOKEN_LIMIT",
+    ],
+    [{ status: "incomplete" }, "AI_STRUCTURE_INCOMPLETE"],
+    [
+      {
+        status: "completed",
+        output: [{ content: [{ type: "refusal", refusal: "private-data" }] }],
+      },
+      "AI_STRUCTURE_REFUSAL",
+    ],
+    [{ status: "completed", output: [] }, "AI_STRUCTURE_OUTPUT_MISSING"],
+    [{ status: "completed", output: {} }, "AI_STRUCTURE_OUTPUT_MISSING"],
+    [
+      { status: "completed", output: [null, { content: [null] }] },
+      "AI_STRUCTURE_OUTPUT_MISSING",
+    ],
+    [message("private-data is not JSON"), "AI_STRUCTURE_JSON_INVALID"],
+    [message("[]"), "AI_STRUCTURE_SHAPE_INVALID"],
+    [message("null"), "AI_STRUCTURE_SHAPE_INVALID"],
+  ]) {
+    assert.throws(
+      () => parseJobStructureResponse(response),
+      (error) => {
+        assert.equal(error.message, reason);
+        assert.ok(!error.message.includes("private-data"));
+        assert.equal(
+          classifyJobStructuringError({ error }).code,
+          "AI_RESPONSE_INVALID",
+        );
+        return true;
+      },
+    );
+  }
+});
 
 test("structuring failures have safe causes and only transient failures can retry", () => {
   for (const [error, code, retryable] of [

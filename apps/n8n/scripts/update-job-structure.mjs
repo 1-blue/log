@@ -1,7 +1,10 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { instrumentAiCalls } from "./ai-usage-policy.mjs";
-import { classifyJobStructuringError } from "./job-structure-error-policy.mjs";
+import {
+  classifyJobStructuringError,
+  parseJobStructureResponse,
+} from "./job-structure-error-policy.mjs";
 import { layoutWorkflow } from "./layout-workflow.mjs";
 
 export function updateJobStructure(workflow) {
@@ -98,11 +101,15 @@ return [{json:{startedAt:Date.now(),sourceText}}];`,
     "={{ 'collectionRunId: ' + $('HMAC 요청 검증').first().json.payload.collectionRunId + '\\n공고 URL: ' + $('HMAC 요청 검증').first().json.payload.jobPosting.url + '\\n<job_posting_text>\\n' + $json.sourceText + '\\n</job_posting_text>' }}";
   code(
     "AI 원문 보완 결과 구성",
-    `const response=$input.first().json;
+    `${parseJobStructureResponse.toString()}
+const response=$input.first().json;
 const payload=$('HMAC 요청 검증').first().json.payload;
-const output=(response.output??[]).flatMap(item=>item.content??[]).find(item=>item.type==='output_text')?.text;
-const extraction=typeof output==='string'?JSON.parse(output):output;
-if(response.status!=='completed'||!extraction||typeof extraction!=='object') throw new Error('AI_STRUCTURE_INCOMPLETE');
+let extraction;
+try { extraction=parseJobStructureResponse(response); }
+catch(error) {
+  console.warn(JSON.stringify({event:'job_structure_response_invalid',requestId:payload.requestId,stage:'response',reason:error.message}));
+  throw error;
+}
 const body=payload.jobPosting.sourceText;
 return [{json:{callback:{schemaVersion:'1.0.0',eventId:payload.eventId,requestId:payload.requestId,collectionRunId:payload.collectionRunId,outcome:'ai_extraction',occurredAt:new Date().toISOString(),extraction,response:{status:200,contentType:'text/plain; charset=utf-8',contentLength:Buffer.byteLength(body,'utf8'),body}},callbackPath:payload.callbackPath}}];`,
   );

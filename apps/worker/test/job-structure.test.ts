@@ -22,6 +22,7 @@ import { jobSourceText } from "../src/job-source-text.js";
 import {
   bindJobFactsToSnapshot,
   JobStructureError,
+  jobStructureOutputSchema,
   validateJobStructure,
 } from "../src/job-structure.js";
 
@@ -537,8 +538,6 @@ describe("one AI job structure", () => {
     sourceMismatch.facts.requirements[0]!.evidence[0]!.sourceVersionId = owner;
     const metadataMismatch = structuredClone(extraction);
     metadataMismatch.metadata.companyName = "불일치";
-    const duplicate = structuredClone(extraction);
-    duplicate.facts.requirements.push(duplicate.facts.requirements[0]!);
     for (const [value, text, code] of [
       [extraction, " \n ", "SOURCE_TEXT_EMPTY"],
       [
@@ -557,7 +556,6 @@ describe("one AI job structure", () => {
       ],
       [sourceMismatch, source, "AI_SOURCE_MISMATCH"],
       [metadataMismatch, source, "AI_METADATA_MISMATCH"],
-      [duplicate, source, "AI_RESPONSE_INVALID"],
     ] as const) {
       try {
         validateJobStructure({
@@ -571,6 +569,209 @@ describe("one AI job structure", () => {
         expect((error as JobStructureError).code).toBe(code);
         expect((error as Error).message).not.toContain("private-data");
       }
+    }
+  });
+  it("preserves constraints in the schema actually sent to the AI", async () => {
+    const fixture = collectionFixture();
+    await fixture.service.complete(fixture.callback);
+    expect(fixture.dispatch.mock.calls[0]?.[0]).toMatchObject({
+      outputSchema: jobStructureOutputSchema(),
+    });
+    expect(jobStructureOutputSchema()).toMatchObject({
+      properties: {
+        evidence: {
+          minItems: 1,
+          maxItems: 30,
+          items: { properties: { excerpt: { minLength: 1, maxLength: 500 } } },
+        },
+      },
+    });
+  });
+  it("canonicalizes duplicate local IDs before references exist, retaining every requirement", () => {
+    const duplicate = structuredClone(extraction);
+    duplicate.facts.requirements.push({
+      ...duplicate.facts.requirements[0]!,
+      text: "다른 조건",
+      kind: "preferred",
+    });
+    const before = structuredClone(duplicate);
+    const parsed = validateJobStructure({
+      extraction: duplicate,
+      sourceText: source,
+      collectionRunId: run,
+    });
+    expect(parsed.facts.requirements.map((r) => r.id)).toEqual([
+      "required-1",
+      "preferred-2",
+    ]);
+    expect(parsed.facts.requirements.map((r) => r.text)).toEqual(
+      before.facts.requirements.map((r) => r.text),
+    );
+    expect(duplicate).toEqual(before);
+  });
+  it("separates non-adjacent verbatim lines instead of presenting them as one continuous quotation", () => {
+    const partial = structuredClone(extraction);
+    const text =
+      "프론트엔드 필수: TypeScript 사용 경험\n별도의 중간 문장\n백엔드 필수: Spring 사용 경험";
+    partial.evidence = [
+      {
+        section: "자격요건",
+        excerpt:
+          "프론트엔드 필수: TypeScript 사용 경험\n백엔드 필수: Spring 사용 경험",
+      },
+    ];
+    partial.facts.requirements[0]!.evidence = [
+      {
+        source: "job_posting",
+        sourceVersionId: run,
+        section: "자격요건",
+        excerpt: partial.evidence[0]!.excerpt,
+        context: null,
+      },
+    ];
+    const before = structuredClone(partial);
+    const parsed = validateJobStructure({
+      extraction: partial,
+      sourceText: text,
+      collectionRunId: run,
+    });
+    expect(
+      parsed.facts.requirements[0]!.evidence.map((e) => e.excerpt),
+    ).toEqual([
+      "프론트엔드 필수: TypeScript 사용 경험",
+      "백엔드 필수: Spring 사용 경험",
+    ]);
+    expect(
+      parsed.facts.requirements[0]!.evidence.every((e) =>
+        text.includes(e.excerpt),
+      ),
+    ).toBe(true);
+    expect(partial).toEqual(before);
+    partial.evidence[0]!.excerpt += "\n원문에 없는 조건";
+    expect(() =>
+      validateJobStructure({
+        extraction: partial,
+        sourceText: text,
+        collectionRunId: run,
+      }),
+    ).toThrow("AI_EVIDENCE_MISMATCH");
+  });
+  it("never silently discards evidence to fit the maximum citation count", () => {
+    const partial = structuredClone(extraction);
+    const lines = Array.from({ length: 11 }, (_, i) => `${i + 1}번 조건`);
+    const text = lines.join("\n중간 문장\n");
+    partial.evidence = [{ section: "자격요건", excerpt: lines.join("\n") }];
+    partial.facts.requirements[0]!.evidence[0]!.excerpt = lines.join("\n");
+    expect(() =>
+      validateJobStructure({
+        extraction: partial,
+        sourceText: text,
+        collectionRunId: run,
+      }),
+    ).toThrow("AI_EVIDENCE_MISMATCH");
+  });
+  it("rejects whitespace-only citations instead of matching an empty substring", () => {
+    const partial = structuredClone(extraction);
+    partial.evidence[0]!.excerpt = " \n ";
+    expect(() =>
+      validateJobStructure({
+        extraction: partial,
+        sourceText: source,
+        collectionRunId: run,
+      }),
+    ).toThrow("AI_EVIDENCE_MISMATCH");
+    partial.evidence = structuredClone(extraction.evidence);
+    partial.facts.requirements[0]!.evidence[0]!.excerpt = " ";
+    expect(() =>
+      validateJobStructure({
+        extraction: partial,
+        sourceText: source,
+        collectionRunId: run,
+      }),
+    ).toThrow("AI_EVIDENCE_MISMATCH");
+  });
+  it("diagnoses invalid lengths, arrays, UUIDs and types without logging source values or unknown keys", () => {
+    const variants = [
+      {
+        value: {
+          ...extraction,
+          evidence: [{ section: "공고", excerpt: "private-value".repeat(50) }],
+        },
+        path: ["evidence", 0, "excerpt"],
+        code: "too_big",
+      },
+      {
+        value: { ...extraction, evidence: [] },
+        path: ["evidence"],
+        code: "too_small",
+      },
+      {
+        value: { ...extraction, sourceComplete: "private-value" },
+        path: ["sourceComplete"],
+        code: "invalid_type",
+      },
+      {
+        value: { ...extraction, ["private-field"]: "private-value" },
+        path: [],
+        code: "unrecognized_keys",
+      },
+    ];
+    for (const variant of variants) {
+      try {
+        validateJobStructure({
+          extraction: variant.value,
+          sourceText: source,
+          collectionRunId: run,
+        });
+        throw Error("Expected failure");
+      } catch (error) {
+        expect(error).toBeInstanceOf(JobStructureError);
+        const e = error as JobStructureError;
+        expect(e.code).toBe("AI_RESPONSE_INVALID");
+        expect(JSON.parse(e.schemaIssue!)).toContainEqual({
+          code: variant.code,
+          path: variant.path,
+        });
+        expect(JSON.stringify(e)).not.toContain("private-");
+      }
+    }
+    const malformed = structuredClone(extraction);
+    malformed.facts.requirements[0]!.evidence[0]!.sourceVersionId =
+      "private-value";
+    expect(() =>
+      validateJobStructure({
+        extraction: malformed,
+        sourceText: source,
+        collectionRunId: run,
+      }),
+    ).toThrow(JobStructureError);
+  });
+  it("logs the safe validation path while settling the failed callback", async () => {
+    const logs = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const fixture = collectionFixture();
+      await fixture.service.complete(fixture.callback);
+      await fixture.service.complete({
+        ...fixture.callback,
+        outcome: "ai_extraction",
+        eventId: fixture.state.row.structure_event_id!,
+        extraction: { ...extraction, evidence: [] },
+      });
+      const parsed = logs.mock.calls
+        .map(([line]) => JSON.parse(String(line)))
+        .find((item) => item.event === "job_posting_collection_parse_failed");
+      expect(JSON.parse(parsed.schemaIssue)).toEqual([
+        { code: "too_small", path: ["evidence"] },
+      ]);
+      expect(fixture.rpc).toHaveBeenLastCalledWith(
+        "complete_job_posting_collection_v3",
+        expect.objectContaining({
+          p_error_code: "AI_RESPONSE_INVALID",
+          p_status: "failed",
+        }),
+      );
+    } finally {
+      logs.mockRestore();
     }
   });
   it("accepts complete sources with absent optional fields and retains raw source", () => {

@@ -1,5 +1,44 @@
 // This function is also embedded into n8n Code nodes. Keep it self-contained,
 // deterministic and free of raw provider messages in the returned diagnostics.
+export function parseJobStructureResponse(response) {
+  if (response?.status !== "completed") {
+    const reason = response?.incomplete_details?.reason;
+    throw new Error(
+      reason === "max_output_tokens"
+        ? "AI_STRUCTURE_TOKEN_LIMIT"
+        : "AI_STRUCTURE_INCOMPLETE",
+    );
+  }
+  if (!Array.isArray(response.output))
+    throw new Error("AI_STRUCTURE_OUTPUT_MISSING");
+  const content = response.output.flatMap((item) =>
+    Array.isArray(item?.content) ? item.content : [],
+  );
+  if (content.some((item) => item?.type === "refusal"))
+    throw new Error("AI_STRUCTURE_REFUSAL");
+  const texts = content
+    .filter((item) => item?.type === "output_text")
+    .map((item) => item.text);
+  if (!texts.length) throw new Error("AI_STRUCTURE_OUTPUT_MISSING");
+  let extraction;
+  try {
+    extraction =
+      texts.length === 1 && typeof texts[0] === "object"
+        ? texts[0]
+        : JSON.parse(texts.join(""));
+  } catch {
+    // JSON.parse messages can include the original source text.
+    throw new Error("AI_STRUCTURE_JSON_INVALID");
+  }
+  if (
+    !extraction ||
+    typeof extraction !== "object" ||
+    Array.isArray(extraction)
+  )
+    throw new Error("AI_STRUCTURE_SHAPE_INVALID");
+  return extraction;
+}
+
 export function classifyJobStructuringError(input) {
   const error = input?.error ?? input ?? {};
   const status = Number(

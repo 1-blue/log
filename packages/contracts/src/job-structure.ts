@@ -9,7 +9,7 @@ import {
 export const JOB_STRUCTURE_VERSION = "job-structure-v2" as const;
 export const JOB_STRUCTURE_MODEL = "gpt-5.6-luna" as const;
 export const JOB_STRUCTURE_PROMPT_VERSION =
-  "job-structure-v2-optional-fields-v1" as const;
+  "job-structure-v2-validated-output-v2" as const;
 
 // One response serves both the posting screen and later suitability analysis.
 // Incomplete source content is distinct from legitimately unmentioned fields.

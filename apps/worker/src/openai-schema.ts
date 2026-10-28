@@ -19,14 +19,34 @@ const OPENAI_UNSUPPORTED_SCHEMA_KEYS = new Set([
   "then",
 ]);
 
-function sanitize(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sanitize);
+// Base models support these constraints. Keep the legacy conversion for other
+// callers until their own live compatibility tests have been run.
+const OPENAI_VALIDATION_KEYS = new Set([
+  "format",
+  "pattern",
+  "minLength",
+  "maxLength",
+  "minItems",
+  "maxItems",
+  "minimum",
+  "maximum",
+  "multipleOf",
+]);
+type SchemaOptions = { preserveValidationConstraints?: boolean };
+
+function sanitize(value: unknown, options: SchemaOptions): unknown {
+  if (Array.isArray(value)) return value.map((item) => sanitize(item, options));
   if (value === null || typeof value !== "object") return value;
 
   const sanitized = Object.fromEntries(
     Object.entries(value)
-      .filter(([key]) => !OPENAI_UNSUPPORTED_SCHEMA_KEYS.has(key))
-      .map(([key, nested]) => [key, sanitize(nested)]),
+      .filter(
+        ([key]) =>
+          !OPENAI_UNSUPPORTED_SCHEMA_KEYS.has(key) ||
+          (options.preserveValidationConstraints &&
+            OPENAI_VALIDATION_KEYS.has(key)),
+      )
+      .map(([key, nested]) => [key, sanitize(nested, options)]),
   );
 
   // Structured Outputs requires every object property to be required and
@@ -52,8 +72,9 @@ function sanitize(value: unknown): unknown {
  */
 export function toOpenAiStructuredOutputSchema(
   schema: unknown,
+  options: SchemaOptions = {},
 ): Record<string, unknown> {
-  const sanitized = sanitize(schema);
+  const sanitized = sanitize(schema, options);
   if (
     sanitized === null ||
     typeof sanitized !== "object" ||
